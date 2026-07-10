@@ -78,7 +78,7 @@ a restart of the backend.
 Common preparation:
 
 ```bash
-git clone <THIS-REPO> ansimate
+git clone https://github.com/ansimate/ansimate-ce ansimate
 cd ansimate
 
 # Derive .env from the template and set the required values (see Configuration)
