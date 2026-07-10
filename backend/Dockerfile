@@ -88,8 +88,11 @@ RUN pip install -e . --no-deps
 # editions/ (cloud) ist ueber den Arbeitsordner importierbar.
 ENV PYTHONPATH=/app
 
-# : statisches GDPdU-DTD-Asset fuer den GoBD-Steuerexport einbacken.
-COPY backend/gdpdu/ ./gdpdu/
+#: der frueher hier eingebackene Ordner backend/gdpdu/ ist entfernt (lokale GDPdU-Test-
+# Exporte, die nie ins Repo gehoerten). Die GoBD/GDPdU-Logik liest ihr DTD ausschliesslich aus
+# backend/editions/billing/gdpdu/ (cloud-only) und degradiert grazioes, wenn es fehlt
+# (dtd_content bleibt leer -> DTD wird der Export-ZIP einfach nicht beigelegt). Der frueher nach
+# /app/gdpdu/ kopierte Ordner wurde von keinem Code-Pfad gelesen -> ersatzlos entfernt.
 
 # Edition zur Build-Zeit einbacken. Default "cloud"; per
 # `docker build --build-arg EDITION=onpremise|community` ueberschreibbar.

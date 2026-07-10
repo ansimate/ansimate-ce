@@ -450,12 +450,16 @@ def startup_event():
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT FALSE NOT NULL"))
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS associated_user_id VARCHAR(255) NULL"))
             # Abo-/Trial-Kennzahlen (active_paid/active_trial) existierten vor der Trial-/Fingerprint-
-            # Bereinigung in ALLEN Editionen. In der Community sind sie entfernt (Trial ist cloud-only) ->
-            # die NOT-NULL-Alt-Spalten abraeumen, sonst scheitern Snapshot-Inserts ohne sie
-            # (NotNullViolation) auf bestehenden Installationen. Idempotent (IF EXISTS); laeuft nur in
-            # der Community, cloud/onprem behalten die Spalten samt Werten. KEIN Marker: der Block MUSS
-            # in der Community ausgefuehrt werden (Marker wuerden ihn gerade dort strippen).
-            if EDITION == "community":
+            # Bereinigung in ALLEN Editionen. Im gestrippten Community-Mirror kennt das StatsSnapshot-
+            # Modell diese Spalten NICHT mehr -> die NOT-NULL-Alt-Spalten abraeumen, sonst scheitern
+            # Snapshot-Inserts (die sie weglassen) an einer bestehenden NOT-NULL-Spalte (NotNullViolation).
+            #: NUR droppen, wenn das aktive Modell die Spalten wirklich nicht (mehr) kennt. Wird die
+            # Community-Edition aus dem UNGESTRIPPTEN Monorepo gebaut (lokaler CE-Test), deklariert das
+            # Modell sie weiterhin (Column-Default 0) -> ein Insert enthaelt sie dann, und ein Drop wuerde
+            # zu 'column active_paid does not exist' fuehren. Idempotent (IF EXISTS); cloud/onprem behalten
+            # die Spalten ohnehin. KEIN Marker: der Block MUSS in der Community laufen (Marker wuerden ihn
+            # gerade dort strippen).
+            if EDITION == "community" and not hasattr(StatsSnapshot, "active_paid"):
                 db.execute(text("ALTER TABLE stats_snapshots DROP COLUMN IF EXISTS active_paid"))
                 db.execute(text("ALTER TABLE stats_snapshots DROP COLUMN IF EXISTS active_trial"))
             # : Webhook-URL fuer Playbook-Status-Benachrichtigungen.
@@ -577,6 +581,10 @@ def startup_event():
             try:
                 capture_stats_snapshot(db)
             except Exception as _snap_err:
+                #: die abgebrochene Transaktion aufraeumen, sonst schlaegt jedes weitere
+                # Statement fehl ("current transaction is aborted") -> ensure_system_admin() koennte
+                # keinen Admin anlegen und der Login der Community-Edition wuerde scheitern.
+                db.rollback()
                 print(f"Initialer Stats-Snapshot fehlgeschlagen: {_snap_err}")
 
             #: System-Admin (ADMIN_USERNAME/ADMIN_PASSWORD) editions-uebergreifend EINMAL
@@ -3405,12 +3413,13 @@ def capture_stats_snapshot(db: DBSession):
     """: aktuellen Statistik-Stand als Snapshot persistieren (fuer Verlaufsgraphen)."""
     total, paid, trial, inactive = _account_counts(db)
     ip_total, ip_auto, ip_manual = _ip_block_counts(db)
-    db.add(StatsSnapshot(
+    snap_kwargs = dict(
         total_users=total,
         inactive=inactive,
         ip_blocks_total=ip_total, ip_blocks_auto=ip_auto, ip_blocks_manual=ip_manual,
         playbook_storage_bytes=_playbook_storage_bytes(),
-    ))
+    )
+    db.add(StatsSnapshot(**snap_kwargs))
     db.commit()
 
 

@@ -18,10 +18,12 @@ automatic Let's Encrypt TLS.
 - [Feature Highlights](#feature-highlights)
 - [System Requirements](#system-requirements)
 - [Quick Start](#quick-start)
+- [Advanced: deployment with TLS / a reverse proxy](#advanced-deployment-with-tls--a-reverse-proxy)
 - [Configuration](#configuration)
 - [Available Playbooks](#available-playbooks)
 - [Security](#security)
 - [Documentation](#documentation)
+- [Agent Skill](#agent-skill)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -51,9 +53,9 @@ a restart of the backend.
 - **Standard playbook catalog** (free tier, baked into the image) plus **presets** and
   **scenarios** for one-click deployments. (Uploading your own custom playbooks is part of the
   Cloud/On-Premise editions, not the Community Edition.)
-- **Hardened architecture:** only Traefik exposes ports to the outside; the Docker daemon is
-  accessed exclusively through a **docker-socket-proxy** (no direct
-  host `docker.sock` mount) – see [SECURITY.md](../SECURITY.md).
+- **Hardened architecture:** the Docker daemon is accessed exclusively through a
+  **docker-socket-proxy** (no direct host `docker.sock` mount) in every variant; in the
+  reverse-proxy variants only the proxy is exposed to the outside – see [SECURITY.md](../SECURITY.md).
 - **Device management** with **AES-256-GCM-encrypted** SSH credentials (password or
   key) in PostgreSQL.
 - **My Vault:** create, edit and delete scenarios and devices (one-click deployments).
@@ -75,23 +77,51 @@ a restart of the backend.
 
 ## Quick Start
 
-Common preparation:
+The fastest way in needs **no repository clone, no build, no domain and no TLS**: pull the
+prebuilt public images and expose the app directly on a host port. Ideal for a home network/LAN.
+
+1. Grab the ready-made compose file and an `.env` template (or copy their contents into two files
+   `docker-compose.no-traefik.yml` and `.env` next to each other):
+
+   ```bash
+   curl -O https://raw.githubusercontent.com/ansimate/ansimate-ce/main/docker-compose.no-traefik.yml
+   curl -o .env https://raw.githubusercontent.com/ansimate/ansimate-ce/main/.env.example
+   ```
+
+2. Edit `.env` and set at least: `POSTGRES_PASSWORD`, `ENCRYPTION_KEY`
+   (`openssl rand -base64 32`) and `ADMIN_PASSWORD`. For this variant keep `COOKIE_SECURE=false`
+   (no TLS) and, if you like, change `FRONTEND_PORT` (default `8080`).
+
+3. Start it – the images are pulled from
+   [Docker Hub](https://hub.docker.com/u/ansimate), nothing is built locally:
+
+   ```bash
+   docker compose -f docker-compose.no-traefik.yml up -d
+   # Update:  docker compose -f docker-compose.no-traefik.yml pull && docker compose -f docker-compose.no-traefik.yml up -d
+   ```
+
+4. Open **http://localhost:8080** (or `http://<host>:<FRONTEND_PORT>`) and log in with
+   `ADMIN_USERNAME`/`ADMIN_PASSWORD`; this account has unrestricted access.
+
+> No TLS is terminated here – use this on a trusted LAN only. For access from the outside, put a
+> TLS-terminating reverse proxy in front (see the *Homelab* variant below) or use the *Full*
+> variant with its own Traefik + Let's Encrypt.
+
+## Advanced: deployment with TLS / a reverse proxy
+
+Both advanced variants are configured through the same `.env` and start from a repository clone:
 
 ```bash
 git clone https://github.com/ansimate/ansimate-ce ansimate
 cd ansimate
-
-# Derive .env from the template and set the required values (see Configuration)
-cp .env.example .env
+cp .env.example .env      # then set the required values (see Configuration)
 # Generate ENCRYPTION_KEY:  openssl rand -base64 32
 ```
 
-There are two deployment variants – pick one:
+### "Full" variant (standalone, builds from source) — `docker-compose.yml`
 
-### "Full" variant (standalone) — `docker-compose.yml`
-
-Brings **everything with it** (including its own Traefik reverse proxy + Let's Encrypt) and **builds the images
-from source**. Ideal if the host does not yet have a reverse proxy or you want to customize things.
+Brings **everything with it** (including its own Traefik reverse proxy + Let's Encrypt) and
+**builds the images from source**. Set `APP_DOMAIN` and `ACME_EMAIL` in `.env`.
 
 ```bash
 docker compose up -d --build
@@ -99,10 +129,9 @@ docker compose up -d --build
 
 ### "Homelab" variant (existing reverse proxy) — `docker-compose.homelab.yml`
 
-Uses **prebuilt public images** ([`ansimate/ce-*` on Docker Hub](https://hub.docker.com/u/ansimate),
-no build) and hooks into an **already existing** reverse proxy (e.g. your Traefik) on an external
-Docker network – without its own Traefik/ACME. db/backend run on an internal network that is not
-reachable from the outside.
+Uses **prebuilt public images** (no build) and hooks into an **already existing** reverse proxy
+(e.g. your Traefik) on an external Docker network – without its own Traefik/ACME. db/backend run
+on an internal network that is not reachable from the outside.
 
 ```bash
 # Additionally set in .env: PROXY_NETWORK (name of your existing proxy network),
@@ -111,12 +140,9 @@ docker compose -f docker-compose.homelab.yml up -d
 # Update:  docker compose -f docker-compose.homelab.yml pull && docker compose -f docker-compose.homelab.yml up -d
 ```
 
-> TLS is terminated here by your upstream proxy. The standard free-tier playbooks are baked into the
-> image; a `./playbooks` mount (as included in the variant) is only needed for running/your own
-> playbooks.
-
-After startup, the interface is reachable via the hostname configured in the `.env`.
-Log in with `ADMIN_USERNAME`/`ADMIN_PASSWORD`; this account has unrestricted access.
+> TLS is terminated by your upstream proxy. The standard free-tier playbooks are baked into the
+> image; a `./playbooks` mount is only needed for running your own playbooks. After startup the
+> interface is reachable via the hostname configured in the `.env`.
 
 ## Configuration
 
@@ -152,6 +178,22 @@ security-relevant findings according to the guidance given there.
 - [docs/PLAYBOOKS_VARIABLES.md](PLAYBOOKS_VARIABLES.md) – Variables for (custom) playbooks
 - [docs/ACCESSIBILITY.md](ACCESSIBILITY.md) – Accessibility
 - [SECURITY.md](../SECURITY.md) – Security model
+
+## Agent Skill
+
+Ansimate ships a **vendor-neutral agent skill** under [`skills/ansimate/`](../skills/ansimate)
+that lets any tool-using AI agent (Claude, Gemini, …) operate an Ansimate instance over its REST
+API – manage devices, list/run scenarios, trigger playbook runs and read or cancel jobs – through
+a **zero-dependency Python CLI** (standard library only), with a plain `curl` fallback.
+
+- [`SKILL.md`](../skills/ansimate/SKILL.md) – agent-facing operating instructions (setup, the
+  scope model, command reference).
+- [`scripts/ansimate_cli.py`](../skills/ansimate/scripts/ansimate_cli.py) – the CLI (no `pip install`).
+- [`README.md`](../skills/ansimate/README.md) – integrator documentation.
+
+It authenticates with a **scope-gated API token** (`ANSIMATE_API_TOKEN`, format `asm_tok_…`)
+against `ANSIMATE_URL`; out-of-scope calls return `403`. Create a token in the web UI under your
+profile. See the skill's `README.md` for how to wire it into a specific agent runtime.
 
 ## Contributing
 

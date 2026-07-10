@@ -1,0 +1,159 @@
+# ============================================================================================
+# Ansimate – "No-Traefik"-Deployment-Variante (einfachster Einstieg)
+# ============================================================================================
+# Fuer den schnellsten Start OHNE Reverse-Proxy, ohne Domain und ohne TLS – ideal im Heimnetz/
+# LAN. Im Gegensatz zur "Full"-Variante (docker-compose.yml):
+#   - nutzt FERTIGE Public-Images (ansimate/ce-*) – baut NICHTS aus Source (kein Repo-Klon noetig)
+#   - bringt KEINEN Traefik / kein ACME / keine Zertifikate mit
+#   - veroeffentlicht das Frontend DIREKT auf einem Host-Port (FRONTEND_PORT, Default 8080)
+#   - db / backend / docker-proxy haengen in einem INTERNEN Netz (kein veroeffentlichter Port)
+#
+# Start:   docker compose -f docker-compose.no-traefik.yml up -d
+# Aufruf:  http://<host>:${FRONTEND_PORT:-8080}
+# Update:  docker compose -f docker-compose.no-traefik.yml pull && docker compose -f docker-compose.no-traefik.yml up -d
+#
+# .env (aus .env.example abgeleitet) – hier relevant:
+#   FRONTEND_PORT   Host-Port, unter dem das Frontend erreichbar ist (Default 8080).
+#   COOKIE_SECURE   MUSS "false" sein (kein TLS -> der Browser sendet den Secure-Cookie sonst
+#                   nicht, das Login schlaegt fehl). In .env.example fuer diese Variante so notiert.
+#   ANSIMATE_TAG    Image-Tag (Default "latest"; fuer Reproduzierbarkeit z. B. auf v0.1.0 pinnen).
+#   ADMIN_USERNAME / ADMIN_PASSWORD   Initiales Admin-Konto (Pflicht: ADMIN_PASSWORD).
+#   POSTGRES_PASSWORD / ENCRYPTION_KEY   Pflichtwerte (siehe .env.example).
+#
+# Playbooks: Die Standard-Free-Tier-Playbooks sind ins Image gebacken und auch OHNE Mount im
+# Katalog sichtbar. Der ./playbooks-Mount + HOST_PLAYBOOKS_DIR sind daher AUSKOMMENTIERT -> nur
+# einkommentieren, wenn du eigene Playbooks ablegen oder Playbooks ausfuehren willst.
+#
+# ACHTUNG: Diese Variante terminiert KEIN TLS. Fuer den Zugriff von aussen (nicht nur LAN) einen
+# vorgelagerten TLS-Proxy verwenden (docker-compose.homelab.yml) oder die "Full"-Variante mit
+# eigenem Traefik + Let's Encrypt (docker-compose.yml).
+# ============================================================================================
+
+networks:
+  # Internes Stack-Netz fuer db/backend/docker-proxy (kein veroeffentlichter Port -> von aussen
+  # nicht erreichbar). KEIN `internal: true`: das Backend/die Sandbox brauchen Egress zu den
+  # Ziel-Systemen (SSH) und fuer SMTP.
+  backend:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ansimate_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ansimate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+      POSTGRES_DB: ${POSTGRES_DB:-ansimate}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ansimate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # : Docker-Socket-Proxy fuer den Sandbox-Start des Backends. Gibt nur Containers
+  # (create/start/wait/remove/kill) + Images (inspect) frei; alles andere -> 403. Host-Socket
+  # ist read-only gemountet, kein Port-Mapping zum Host (nur intern erreichbar).
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.1.1
+    container_name: ansimate_docker_proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - POST=1
+      - VERSION=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+
+  backend:
+    image: ansimate/ce-backend:${ANSIMATE_TAG:-latest}
+    container_name: ansimate_backend
+    restart: unless-stopped
+    volumes:
+      # OPTIONAL: Die Free-Tier-Playbooks sind bereits ins Image gebacken und erscheinen auch
+      # OHNE diesen Mount im Katalog. Nur wenn du EIGENE Playbooks ablegen oder Playbooks
+      # AUSFUEHREN willst (gehaertete Sandbox), den Mount + HOST_PLAYBOOKS_DIR (unten) aktivieren
+      # und ein beschreibbares Host-Verzeichnis bereitstellen:
+      # - ./playbooks:/playbooks
+      - ./logs:/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      docker-proxy:
+        condition: service_started
+    environment:
+      #: Host-Key-Pruefung aktiv (TOFU); ANSIBLE_HOST_KEY_CHECKING=True verhindert, dass
+      # ansible StrictHostKeyChecking=no injiziert.
+      - ANSIBLE_HOST_KEY_CHECKING=True
+      - LOG_HISTORY=true
+      - TZ=${TZ:-Europe/Berlin}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ansimate}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ansimate}
+      # B7: fail-closed ohne Key – Verschluesselung der gespeicherten Geraete-Credentials.
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY muss in .env gesetzt sein}
+      - SECRET_KEY=${SECRET_KEY:-}
+      # B2: ABSOLUTER Host-Pfad des ./playbooks-Ordners – NUR noetig, wenn der ./playbooks-Mount
+      # oben aktiviert ist (Playbooks ausfuehren via gehaerteter Sandbox). Dann einkommentieren
+      # UND HOST_PLAYBOOKS_DIR in der .env setzen.
+      # - HOST_PLAYBOOKS_DIR=${HOST_PLAYBOOKS_DIR:?HOST_PLAYBOOKS_DIR (absoluter Host-Pfad zu ./playbooks) muss in .env gesetzt sein}
+      # Basis-URL fuer Links in E-Mails (Passwort-Reset o. Ae.). Bei abweichendem FRONTEND_PORT/Host
+      # in der .env anpassen (Default passt zu FRONTEND_PORT=8080 auf demselben Host).
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost:8080}
+      # SMTP optional – im internen Netz nur nutzbar, wenn ein Relay erreichbar ist.
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER=${SMTP_SENDER:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      - IP_BLACKLIST=${IP_BLACKLIST:-}
+      - IP_BAN_DURATION=${IP_BAN_DURATION:-86400}
+      - RATE_LIMIT_GLOBAL_IP=${RATE_LIMIT_GLOBAL_IP:-60}
+      - RATE_LIMIT_USER_IP=${RATE_LIMIT_USER_IP:-120}
+      - RATE_LIMIT_WHITELIST=${RATE_LIMIT_WHITELIST:-127.0.0.1,::1}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD muss in .env gesetzt sein}
+      # Ohne TLS MUSS COOKIE_SECURE=false sein, sonst sendet der Browser den Session-Cookie nicht.
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - ENABLE_API_DOCS=${ENABLE_API_DOCS:-true}
+      - ALLOW_ANONYMOUS_RUN=${ALLOW_ANONYMOUS_RUN:-true}
+      - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-2}
+      # : Sandbox spricht den Docker-Daemon ausschliesslich ueber den Socket-Proxy an.
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    healthcheck:
+      # CVE-Reduktion: Healthcheck ueber Python (curl ist nicht im Image, Python schon).
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/timezone', timeout=5)\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  frontend:
+    image: ansimate/ce-frontend:${ANSIMATE_TAG:-latest}
+    container_name: ansimate_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    #: das Frontend-nginx (Port 80 im Container) DIREKT auf den Host veroeffentlichen –
+    # kein Reverse-Proxy dazwischen. Standard 8080; ueber FRONTEND_PORT in der .env aenderbar.
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    healthcheck:
+      # 127.0.0.1 statt localhost (localhost -> ::1; nginx hoert nur auf IPv4:80).
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+volumes:
+  pgdata:

@@ -9,9 +9,7 @@ This document describes the protective measures implemented in Ansimate, the del
 - [Two-Factor Authentication (2FA)](#two-factor-authentication-2fa)
 - [API Tokens](#api-tokens)
 - [Sandboxing of Playbook Execution](#sandboxing-of-playbook-execution)
-- [Abuse Protection](#abuse-protection)
 - [Transport & HTTP Hardening](#transport--http-hardening)
-- [GDPR & Data Protection](#gdpr--data-protection)
 - [Audit Log](#audit-log)
 - [Deliberate Trade-offs](#deliberate-trade-offs)
 - [Reporting Vulnerabilities (Vulnerability Disclosure)](#reporting-vulnerabilities-vulnerability-disclosure)
@@ -101,40 +99,6 @@ effectively be equivalent to host root). Instead:
   playbook tree aborts the run. *(The socket proxy filters API endpoints,
   not mount contents — the guard closes that gap.)*
 
-### Threat Model & Phased Plan for Strong Isolation (Cloud, Future Milestone)
-
-**Residual risk:** In a multi-tenant cloud, the platform potentially runs untrusted third-party
-code (custom playbooks). The socket proxy reduces the Docker API attack surface but does
-**not** eliminate any kernel/container escape (shared host kernel). The current sandbox is
-appropriate for single-tenant/on-premise; untrusted multi-tenant deployments require stronger
-layers. Recommended phased plan:
-
-1. **Rootless Docker / Sysbox** — sandbox containers run without real host root privileges;
-   an escape lands in an unprivileged user namespace.
-2. **Short-lived strong-isolation runtimes** — a **gVisor** (`runsc`) or **Kata** sandbox per
-   job (its own kernel/micro-VM) instead of the shared host kernel.
-3. **seccomp/AppArmor profiles** per sandbox + **no** host bind mounts (playbooks/inventory
-   via short-lived volumes or a copy-in mechanism instead of host paths).
-4. **Network egress policy** — restrict the sandbox's outbound traffic to the target hosts.
-
-> These items should be tracked as a **future "Strong Isolation (gVisor/Kata) for Cloud"
-> milestone** (follow-up work).
-
-## Abuse Protection
-
-- **Math captcha** (simple addition, 10-minute validity), optional via `CAPTCHA_REQUIRED`,
-  on registration and password reset.
-- **Rate limiting** (in-memory, per process): global default 60 req/min, 120 req/min per
-  authenticated user; configurable via the settings `rate_limit_global_ip` /
-  `rate_limit_user_ip`.
-- **Dynamic IP bans:** after 5 violations within 10 minutes the IP is banned
-  (default 24 h, `ip_ban_duration`); only valid IPs are persisted. Manual blacklist
-  via `IP_BLACKLIST`, whitelist via `RATE_LIMIT_WHITELIST`.
-- **Login lockout:** 5 failed attempts → 15-minute lockout (per email; generic
-  error messages prevent user enumeration).
-- **Token-based auth artifacts** (reset/verify tokens) are single-use and expire;
-  expired captchas/OTPs/sessions are cleaned up by the cron worker.
-
 ## Transport & HTTP Hardening
 
 - **TLS** is terminated at the Traefik edge (Let's Encrypt, ACME); **HSTS** is set there.
@@ -150,17 +114,6 @@ layers. Recommended phased plan:
   `Referrer-Policy: no-referrer-when-downgrade`.
 - Only **Traefik** exposes ports (80/443); the database, backend, and frontend are not directly
   reachable from outside.
-
-## GDPR & Data Protection
-
-- **Self-hosted fonts** — no requests to Google Fonts (no IP transmission to third parties).
-- **Data export** (`GET /api/profile/export`) provides all personal data.
-- **Right to erasure:** a deletion request marks the account with a 24-hour grace period; a
-  background worker then **completely** removes sessions, devices, API tokens,
-  device groups, jobs, job log files, the custom playbook directory, and associated
-  guest accounts (`_purge_user_data`).
-- Legal pages (legal notice/terms/privacy policy) and a data processing agreement (DPA)
-  download (PDF) are integrated.
 
 ## Audit Log
 
@@ -190,8 +143,7 @@ These points are known and accepted as a compromise:
 
 Please report security vulnerabilities **confidentially** and **not** via public issues:
 
-1. Contact: the security/contact address listed in the legal notice/by the operator
-   (e.g. `security@<your-domain>`).
+1. Contact: `info@ansimate.eu`.
 2. Report contents: affected component/version, reproduction steps, potential
    impact, and — if available — a PoC.
 3. Please grant us a reasonable period to remediate before details are published
@@ -200,5 +152,3 @@ Please report security vulnerabilities **confidentially** and **not** via public
 We will confirm receipt, assess the finding, keep you informed of progress, and credit you
 in the release notes if you wish.
 
-> Note: This is the *template* for the disclosure policy. Before production use, enter
-> a real, monitored contact address.

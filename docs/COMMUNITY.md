@@ -4,24 +4,18 @@ The **Community Edition** is the open-source (AGPL-3.0) single-user variant of A
 private use (e.g. on a home network) – no paywall, minimal onboarding, and published as a
 hardened public mirror with ready-made container images.
 
-> **Status:** ✅ **implemented** (`v0.1.0`). The edition is baked in at build time via the
-> build argument `EDITION=community`; the public mirror is already preset to it. Billing/Stripe,
-> customer-specific branding, and internal documents are removed from the build.
-
 ## Table of Contents
 
 - [Vision](#vision)
 - [Sign-in & Users](#sign-in--users)
-- [What's Included / Removed](#whats-included--removed)
+- [What's Included](#whats-included)
 - [My Vault in the Community Edition](#my-vault-in-the-community-edition)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Planned](#planned)
 
 ## Vision
 
 - One person runs Ansimate locally for their own devices.
-- No Stripe, no mandatory email, as little friction as possible.
 - Open source (AGPL-3.0), self-hostable, transparent.
 
 ## Sign-in & Users
@@ -34,15 +28,11 @@ without this value the edition deliberately does not boot.
 - **No teams/guest accounts** – the Community Edition is intentionally single-admin.
 - Login is required; anonymous playbook execution can be enabled via `ALLOW_ANONYMOUS_RUN`.
 
-## What's Included / Removed
+## What's Included
 
 **Included:** standard playbook catalog (free tier, baked into the image), device management with
 encrypted SSH credentials, job queue with live logs/history (including job cancellation), scenarios
 for 1-click deployments, admin panel (dashboard, IP bans, logs, settings), API tokens, optional 2FA.
-
-**Removed (from the build, not just disabled):** Stripe/billing package and UI, pricing page,
-team/guest features, self-registration, premium playbooks, and customer-specific legal
-texts/branding. Unavailable areas are automatically filtered out of the OpenAPI schema.
 
 ## My Vault in the Community Edition
 
@@ -51,8 +41,6 @@ single-admin edition:
 
 - **Scenarios** and **devices** can be created, edited, and deleted.
 - The **"Share" button is omitted** – with no other users/teams there is nothing to share.
-- The **Playbooks** tab (custom upload, disabled in the Community Edition) and the **Presets** tab
-  are hidden; scenarios are created entirely through the wizard (device optional).
 
 ## Installation
 
@@ -84,11 +72,5 @@ ADMIN_PASSWORD=...            # required – without this value the Community Ed
 > When run without TLS on a home network, `COOKIE_SECURE=false` must be set, otherwise the browser
 > will not send the session cookie (login not possible). For external access, TLS is still strongly
 > recommended.
-
-## Planned
-
-- **Loginless/single-user mode:** a switch that bypasses login and assigns all requests to a fixed
-  local user.
-- **`llm.txt`:** machine-readable agent onboarding.
 
 See also: [README.md](../README.md)

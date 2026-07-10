@@ -26,9 +26,9 @@ graphify-out/
 graphify-out.bak/
 
 # GoBD/GDPdU: in backend/gdpdu/ werden zur Laufzeit Steuerexport-Testdaten erzeugt.
-# Diese duerfen NICHT versioniert werden; einzig das statische DTD-Asset bleibt getrackt.
-backend/gdpdu/*
-!backend/gdpdu/gdpdu-01-08-2002.dtd
+# Der gesamte Ordner darf NICHT versioniert werden (auch nicht das DTD-Asset; die Billing-/GoBD-
+# Logik liest ihr DTD ohnehin aus backend/editions/billing/gdpdu/ und degradiert grazioes ohne).
+backend/gdpdu/
 
 # Community-Export-/Build-Artefakte (generiert via scripts/community-export.sh) - NICHT committen.
 /build/
