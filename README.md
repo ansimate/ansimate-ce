@@ -99,9 +99,10 @@ docker compose up -d --build
 
 ### "Homelab" variant (existing reverse proxy) — `docker-compose.homelab.yml`
 
-Uses **prebuilt public images** (`ansimate/ce-*`, no build) and hooks into an **already
-existing** reverse proxy (e.g. your Traefik) on an external Docker network – without its own
-Traefik/ACME. db/backend run on an internal network that is not reachable from the outside.
+Uses **prebuilt public images** ([`ansimate/ce-*` on Docker Hub](https://hub.docker.com/u/ansimate),
+no build) and hooks into an **already existing** reverse proxy (e.g. your Traefik) on an external
+Docker network – without its own Traefik/ACME. db/backend run on an internal network that is not
+reachable from the outside.
 
 ```bash
 # Additionally set in .env: PROXY_NETWORK (name of your existing proxy network),
