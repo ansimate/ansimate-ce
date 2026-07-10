@@ -10,7 +10,7 @@
     <base href="/">
     
     <link rel="stylesheet" href="assets/fonts/fonts.css?v=1.1">
-    <link rel="stylesheet" href="style.css?v=2.14">
+    <link rel="stylesheet" href="style.css?v=2.15">
     
     <link rel="api" type="application/json" href="/openapi.json">
     <link rel="service-desc" type="application/json" href="/openapi.json">
@@ -35,11 +35,11 @@
     
     
     <header class="app-bar">
-        <div class="logo-area" id="logo-home" role="link" tabindex="0" title="Zur Startseite" style="cursor: pointer;">
+        <div class="logo-area" id="logo-home" role="link" tabindex="0" title="Zur Startseite" data-i18n-title="logo.homeTitle" style="cursor: pointer;">
             <img src="images/logo.png" class="logo-icon-img" alt="Ansimate Logo">
             <div class="logo-text-container">
                 <h1>Ansimate</h1>
-                <span class="logo-subtext">Remote App Installer for any Linux Host</span>
+                <span class="logo-subtext" data-i18n="logo.subtext">Remote App Installer for any Linux Host</span>
             </div>
         </div>
         
@@ -48,20 +48,20 @@
             
             <button type="button" class="nav-btn" id="nav-btn-configure">
                 <span class="material-symbols-outlined">terminal</span>
-                Playbooks
+                <span data-i18n="nav.playbooks">Playbooks</span>
             </button>
             
             <button type="button" class="nav-btn hidden" id="nav-btn-vault">
                 <span class="material-symbols-outlined">inventory_2</span>
-                My Vault
+                <span data-i18n="nav.vault">My Vault</span>
             </button>
             <button type="button" class="nav-btn" id="nav-btn-history" disabled>
                 <span class="material-symbols-outlined">history</span>
-                Logs
+                <span data-i18n="nav.logs">Logs</span>
             </button>
             <button type="button" class="nav-btn hidden" id="nav-btn-admin">
                 <span class="material-symbols-outlined">admin_panel_settings</span>
-                Admin
+                <span data-i18n="nav.admin">Admin</span>
             </button>
         </nav>
         
@@ -70,7 +70,7 @@
             
             <div id="logged-out-view" class="auth-group">
                 <button type="button" class="btn btn-secondary nav-action-btn" id="login-btn">
-                    <span class="material-symbols-outlined">login</span> Anmelden
+                    <span class="material-symbols-outlined">login</span> <span data-i18n="auth.login">Anmelden</span>
                 </button>
             </div>
             
@@ -79,12 +79,25 @@
                     <span class="material-symbols-outlined">account_circle</span> <span id="user-display-name">Username</span>
                 </button>
                 <button type="button" class="btn btn-secondary nav-action-btn" id="logout-btn">
-                    <span class="material-symbols-outlined">logout</span> Abmelden
+                    <span class="material-symbols-outlined">logout</span> <span data-i18n="auth.logout">Abmelden</span>
                 </button>
             </div>
         </div>
         
-        <button type="button" class="burger-btn" id="burger-btn" aria-label="Menü öffnen" aria-expanded="false" aria-controls="mobile-drawer">
+        <div class="lang-switch-wrap">
+            <button type="button" class="btn btn-icon nav-action-btn" id="lang-switch-btn"
+                    aria-haspopup="true" aria-expanded="false" aria-controls="lang-switch-menu"
+                    aria-label="Sprache wechseln" title="Sprache wechseln" data-i18n-aria-label="lang.switch" data-i18n-title="lang.switch">
+                <span class="material-symbols-outlined">language</span>
+                <span class="lang-switch-badge">DE</span>
+            </button>
+            <div class="lang-switch-menu hidden" id="lang-switch-menu" role="menu" aria-label="Sprache auswählen" data-i18n-aria-label="lang.menuLabel">
+                <button type="button" class="lang-switch-item" role="menuitemradio" data-lang="de" aria-checked="false">Deutsch</button>
+                <button type="button" class="lang-switch-item" role="menuitemradio" data-lang="en" aria-checked="false">English</button>
+            </div>
+        </div>
+        
+        <button type="button" class="burger-btn" id="burger-btn" aria-label="Menü öffnen" aria-expanded="false" aria-controls="mobile-drawer" data-i18n-aria-label="burger.open">
             <span class="material-symbols-outlined">menu</span>
         </button>
     </header>
@@ -94,8 +107,8 @@
         <div class="mobile-drawer-backdrop" id="mobile-drawer-backdrop"></div>
         <nav class="mobile-drawer-panel" aria-label="Mobile Navigation">
             <div class="mobile-drawer-header">
-                <span class="mobile-drawer-title">Menü</span>
-                <button type="button" class="burger-btn" id="mobile-drawer-close" aria-label="Menü schließen">
+                <span class="mobile-drawer-title" data-i18n="drawer.menu">Menü</span>
+                <button type="button" class="burger-btn" id="mobile-drawer-close" aria-label="Menü schließen" data-i18n-aria-label="drawer.close">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
@@ -114,13 +127,13 @@
             <div class="card-header selection-header" style="margin-bottom: 20px; gap: 12px;">
                 <div class="text-field" style="flex: 1; max-width: 520px; margin: 0;">
                     <input type="text" id="playbook-search" placeholder=" " autocomplete="off" style="width: 100%;">
-                    <label for="playbook-search">Durchsuchen ...</label>
+                    <label for="playbook-search" data-i18n="landing.searchPlaceholder">Durchsuchen ...</label>
                 </div>
                 <div class="view-toggle-buttons">
-                    <button type="button" id="view-grid-btn" class="btn btn-icon active" title="Kachelansicht">
+                    <button type="button" id="view-grid-btn" class="btn btn-icon active" title="Kachelansicht" data-i18n-title="ws.viewGrid">
                         <span class="material-symbols-outlined">grid_view</span>
                     </button>
-                    <button type="button" id="view-list-btn" class="btn btn-icon" title="Listenansicht">
+                    <button type="button" id="view-list-btn" class="btn btn-icon" title="Listenansicht" data-i18n-title="ws.viewList">
                         <span class="material-symbols-outlined">view_list</span>
                     </button>
                 </div>
@@ -132,14 +145,14 @@
                 
                 <div class="loading-placeholder">
                     <span class="spinner"></span>
-                    Lade Playbooks...
+                    <span data-i18n="landing.loading">Lade Playbooks...</span>
                 </div>
             </div>
 
             
             <button type="submit" id="run-button" class="btn btn-primary">
                 <span class="material-symbols-outlined">play_arrow</span>
-                Ausführen
+                <span data-i18n="landing.run">Ausführen</span>
             </button>
 
         </form>
@@ -150,11 +163,11 @@
             <div class="tabs-bar" style="display: flex; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; flex-wrap: wrap;">
                 
 
-                <button type="button" class="tab-btn active" id="vault-tab-scenarios-btn" style="background: transparent; border: none; color: var(--md-sys-color-primary); cursor: pointer; padding: 5px 10px; font-weight: bold; border-bottom: 2px solid var(--md-sys-color-primary);">Szenarios</button>
-                <button type="button" class="tab-btn" id="vault-tab-playbooks-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Playbooks</button>
+                <button type="button" class="tab-btn active" id="vault-tab-scenarios-btn" data-i18n="ws.tabScenarios" style="background: transparent; border: none; color: var(--md-sys-color-primary); cursor: pointer; padding: 5px 10px; font-weight: bold; border-bottom: 2px solid var(--md-sys-color-primary);">Szenarios</button>
+                <button type="button" class="tab-btn" id="vault-tab-playbooks-btn" data-i18n="nav.playbooks" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Playbooks</button>
                 
-                <button type="button" class="tab-btn" id="vault-tab-presets-btn" style="display: none; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Presets</button>
-                <button type="button" class="tab-btn" id="vault-tab-devices-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Geräte</button>
+                <button type="button" class="tab-btn" id="vault-tab-presets-btn" data-i18n="ws.tabPresets" style="display: none; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Presets</button>
+                <button type="button" class="tab-btn" id="vault-tab-devices-btn" data-i18n="ws.tabDevices" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Geräte</button>
             </div>
 
             
@@ -162,7 +175,7 @@
             <div class="card-header selection-header" style="margin-bottom: 20px;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">cloud_upload</span>
-                    <h2>Eigene Playbooks</h2>
+                    <h2 data-i18n="ws.ownPlaybooks">Eigene Playbooks</h2>
                 </div>
             </div>
             
@@ -171,16 +184,16 @@
             <div class="dialog-body" style="padding: 0 0 4px 0;">
                 
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4;">
-                    Eigene Ansible-Playbooks (YAML) hochladen. Voraussetzungen: <code>hosts: all</code> auf oberster Ebene, sensible Werte mit <code>no_log: true</code>. Die Ausführung erfolgt in einer isolierten Docker-Sandbox.
+                    <span data-i18n="ws.customPlaybooksInfo1">Eigene Ansible-Playbooks (YAML) hochladen. Voraussetzungen: </span><code>hosts: all</code><span data-i18n="ws.customPlaybooksInfo2"> auf oberster Ebene, sensible Werte mit </span><code>no_log: true</code><span data-i18n="ws.customPlaybooksInfo3">. Die Ausführung erfolgt in einer isolierten Docker-Sandbox.</span>
                 </p>
                 
                 <div id="custom-playbooks-list" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="color: var(--text-muted); font-size: 13px;">Keine eigenen Playbooks hochgeladen.</p>
+                    <p style="color: var(--text-muted); font-size: 13px;" data-i18n="ws.noCustomPlaybooks">Keine eigenen Playbooks hochgeladen.</p>
                 </div>
 
                 
                 <button type="button" id="download-example-playbook-btn" class="btn btn-secondary" style="margin-top: 15px; display: inline-flex; align-items: center; gap: 6px;">
-                    <span class="material-symbols-outlined" style="font-size: 18px;">download</span>Beispiel-Playbook herunterladen
+                    <span class="material-symbols-outlined" style="font-size: 18px;">download</span><span data-i18n="ws.downloadExamplePlaybook">Beispiel-Playbook herunterladen</span>
                 </button>
             </div>
             </div>
@@ -191,15 +204,15 @@
                 <div class="card-header selection-header" style="margin-bottom: 12px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">devices</span>
-                        <h2>Geräte</h2>
+                        <h2 data-i18n="ws.devices">Geräte</h2>
                     </div>
                 </div>
-                <p id="vault-devices-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;">
+                <p id="vault-devices-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;" data-i18n="ws.devicesDesc">
                     Verwalten Sie Ihre Geräte: hinterlegen Sie Verbindungsdaten und Standardwerte und geben Sie einzelne Geräte für Ihre Teammitglieder frei.
                 </p>
                 
                 <div id="managed-devices-list" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="color: var(--text-muted); font-size: 13px;">Keine Geräte angelegt.</p>
+                    <p style="color: var(--text-muted); font-size: 13px;" data-i18n="ws.noDevices">Keine Geräte angelegt.</p>
                 </div>
             </div>
             
@@ -209,15 +222,15 @@
                 <div class="card-header selection-header" style="margin-bottom: 12px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">tune</span>
-                        <h2>Eigene Presets</h2>
+                        <h2 data-i18n="ws.ownPresets">Eigene Presets</h2>
                     </div>
                 </div>
                 <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.4; max-width: 760px;">
-                    Wiederverwendbare Deployment-Szenarien aus festen Playbooks, Standard-Variablen und einer optionalen Geräte-Gruppe. Teilbar mit Team-Mitgliedern – pro Mitglied <strong>strikt</strong> (nur ausführen) oder <strong>flexibel</strong> (Werte anpassbar). Das Ausführen erfordert eine aktive Premium-Laufzeit.
+                    <span data-i18n="ws.presetsDesc1">Wiederverwendbare Deployment-Szenarien aus festen Playbooks, Standard-Variablen und einer optionalen Geräte-Gruppe. Teilbar mit Team-Mitgliedern – pro Mitglied </span><strong data-i18n="ws.presetsStrict">strikt</strong><span data-i18n="ws.presetsDesc2"> (nur ausführen) oder </span><strong data-i18n="ws.presetsFlexible">flexibel</strong><span data-i18n="ws.presetsDesc3"> (Werte anpassbar). Das Ausführen erfordert eine aktive Premium-Laufzeit.</span>
                 </p>
                 
                 <div id="presets-list" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="color: var(--text-muted); font-size: 13px;">Keine Presets angelegt.</p>
+                    <p style="color: var(--text-muted); font-size: 13px;" data-i18n="ws.noPresets">Keine Presets angelegt.</p>
                 </div>
             </div>
 
@@ -226,18 +239,18 @@
                 <div class="card-header selection-header" style="margin-bottom: 12px;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         <span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">rocket_launch</span>
-                        <h2>Szenarios</h2>
+                        <h2 data-i18n="ws.scenarios">Szenarios</h2>
                     </div>
                 </div>
-                <p id="vault-scenarios-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;">
+                <p id="vault-scenarios-desc" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;" data-i18n="ws.scenariosDesc">
                     Ein Szenario verknüpft ein Preset (Playbooks + Einstellungen) fest mit einem Zielgerät und lässt sich – wie Presets – mit Team-Mitgliedern teilen. Ausführen per Klick im Startseiten-Abschnitt „Szenarios".
                 </p>
                 <div id="scenario-empty-hint" class="hidden" style="background: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent); border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent); border-radius: 4px; padding: 10px 14px; margin-bottom: 12px; font-size: 12px; line-height: 1.5; color: var(--text-primary);">
-                    Für Szenarien benötigst du mindestens ein <strong>Preset</strong> und ein <strong>Gerät</strong>. Lege diese zuerst in den Tabs „Presets" und „Geräte" an.
+                    <span data-i18n="ws.scenarioEmptyHint1">Für Szenarien benötigst du mindestens ein </span><strong data-i18n="ws.scenarioEmptyPreset">Preset</strong><span data-i18n="ws.scenarioEmptyHint2"> und ein </span><strong data-i18n="ws.scenarioEmptyDevice">Gerät</strong><span data-i18n="ws.scenarioEmptyHint3">. Lege diese zuerst in den Tabs „Presets" und „Geräte" an.</span>
                 </div>
                 
                 <div id="scenarios-list" style="display: flex; flex-direction: column; gap: 8px;">
-                    <p style="color: var(--text-muted); font-size: 13px;">Keine Szenarien angelegt.</p>
+                    <p style="color: var(--text-muted); font-size: 13px;" data-i18n="ws.noScenarios">Keine Szenarien angelegt.</p>
                 </div>
             </div>
         </div>
@@ -245,12 +258,12 @@
 
         
         <button type="button" id="vault-fab" class="btn btn-primary" style="position: fixed; bottom: 24px; right: 24px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 100px;">
-            <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 4px;">add</span><span id="vault-fab-label">Hinzufügen</span>
+            <span class="material-symbols-outlined" style="vertical-align: middle; margin-right: 4px;">add</span><span id="vault-fab-label" data-i18n="ws.fabAdd">Hinzufügen</span>
         </button>
 
         
         <button type="button" id="admin-fab" class="btn btn-primary fab-off" style="position: fixed; bottom: 24px; right: 24px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 100px;">
-            <span class="material-symbols-outlined" id="admin-fab-icon" style="vertical-align: middle; margin-right: 4px;">add</span><span id="admin-fab-label">Erstellen</span>
+            <span class="material-symbols-outlined" id="admin-fab-icon" style="vertical-align: middle; margin-right: 4px;">add</span><span id="admin-fab-label" data-i18n="ws.fabCreate">Erstellen</span>
         </button>
 
 
@@ -258,11 +271,11 @@
             
             <div class="tabs-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
                 
-                <button type="button" class="tab-btn active" id="admin-tab-dashboard-btn" style="background: transparent; border: none; color: var(--md-sys-color-primary); cursor: pointer; padding: 5px 10px; font-weight: bold; border-bottom: 2px solid var(--md-sys-color-primary);">Startseite</button>
-                <button type="button" class="tab-btn" id="admin-tab-ip-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">IP-Sperren</button>
+                <button type="button" class="tab-btn active" id="admin-tab-dashboard-btn" style="background: transparent; border: none; color: var(--md-sys-color-primary); cursor: pointer; padding: 5px 10px; font-weight: bold; border-bottom: 2px solid var(--md-sys-color-primary);" data-i18n="adm.tabDashboard">Startseite</button>
+                <button type="button" class="tab-btn" id="admin-tab-ip-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;" data-i18n="adm.ipBans">IP-Sperren</button>
                 
-                <button type="button" class="tab-btn" id="admin-tab-security-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Protokolle</button>
-                <button type="button" class="tab-btn" id="admin-tab-config-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;">Einstellungen</button>
+                <button type="button" class="tab-btn" id="admin-tab-security-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;" data-i18n="adm.tabSecurity">Protokolle</button>
+                <button type="button" class="tab-btn" id="admin-tab-config-btn" style="background: transparent; border: none; color: var(--text-secondary); cursor: pointer; padding: 5px 10px;" data-i18n="adm.settings">Einstellungen</button>
             </div>
 
             
@@ -270,17 +283,17 @@
                 
                 <div id="admin-tab-dashboard" class="admin-tab-content">
                     <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;">
-                        <h4 style="color: var(--md-sys-color-primary); margin: 0;">Übersicht</h4>
+                        <h4 style="color: var(--md-sys-color-primary); margin: 0;" data-i18n="adm.overview">Übersicht</h4>
                         <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
                             
                             <div id="admin-chart-range" style="display: inline-flex; gap: 6px;">
-                                <button type="button" class="btn btn-secondary btn-small admin-range-btn" data-range="24h">24h</button>
-                                <button type="button" class="btn btn-secondary btn-small admin-range-btn active" data-range="7d">7 Tage</button>
-                                <button type="button" class="btn btn-secondary btn-small admin-range-btn" data-range="30d">30 Tage</button>
+                                <button type="button" class="btn btn-secondary btn-small admin-range-btn" data-range="24h" data-i18n="adm.range24h">24h</button>
+                                <button type="button" class="btn btn-secondary btn-small admin-range-btn active" data-range="7d" data-i18n="adm.range7d">7 Tage</button>
+                                <button type="button" class="btn btn-secondary btn-small admin-range-btn" data-range="30d" data-i18n="adm.range30d">30 Tage</button>
                             </div>
                             
-                            <button type="button" class="btn btn-secondary btn-small" id="admin-chart-refresh-btn" title="Diagramme neu laden" style="display:inline-flex; align-items:center; gap:4px;">
-                                <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Aktualisieren
+                            <button type="button" class="btn btn-secondary btn-small" id="admin-chart-refresh-btn" title="Diagramme neu laden" data-i18n-title="adm.chartRefreshTitle" style="display:inline-flex; align-items:center; gap:4px;">
+                                <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> <span data-i18n="adm.refresh">Aktualisieren</span>
                             </button>
                         </div>
                     </div>
@@ -288,21 +301,21 @@
                     <div id="admin-dashboard-charts" style="display: grid; gap: 16px; margin-bottom: 25px;">
                         
                         <div class="admin-chart-card">
-                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">IP-Sperren</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;" data-i18n="adm.ipBans">IP-Sperren</div>
                             <div style="position:relative; height:200px;"><canvas id="chart-ip-pie"></canvas></div>
                         </div>
                         <div class="admin-chart-card">
-                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">IP-Sperren – Verlauf</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;" data-i18n="adm.ipBansHistory">IP-Sperren – Verlauf</div>
                             <div style="position:relative; height:200px;"><canvas id="chart-ip-line"></canvas></div>
                         </div>
                         <div class="admin-chart-card" style="grid-column: 1 / -1;">
-                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">Playbook-Speicher – Verlauf</div>
+                            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;" data-i18n="adm.storageHistory">Playbook-Speicher – Verlauf</div>
                             <div style="position:relative; height:200px;"><canvas id="chart-storage-line"></canvas></div>
                         </div>
                     </div>
-                    <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;">Konfigurationszustand</h4>
+                    <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;" data-i18n="adm.configState">Konfigurationszustand</h4>
                     <div id="admin-config-status" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">
-                        <p style="color: var(--text-muted);">Lade...</p>
+                        <p style="color: var(--text-muted);" data-i18n="adm.loading">Lade...</p>
                     </div>
                 </div>
 
@@ -311,100 +324,100 @@
                 
                 <div id="admin-tab-config" class="admin-tab-content hidden">
                     
-                    <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;">Einstellungen</h4>
+                    <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;" data-i18n="adm.settings">Einstellungen</h4>
                     
                     <form id="admin-config-form">
                         
-                        <h5 class="admin-config-category" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">Benutzer</h5>
+                        <h5 class="admin-config-category" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;" data-i18n="adm.catUser">Benutzer</h5>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: start;">
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-max-guests" required placeholder=" ">
-                                <label for="admin-cfg-max-guests">Max. Teammitglieder</label>
+                                <label for="admin-cfg-max-guests" data-i18n="adm.maxTeamMembers">Max. Teammitglieder</label>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-max-tokens" required placeholder=" ">
-                                <label for="admin-cfg-max-tokens">Max. API Tokens</label>
+                                <label for="admin-cfg-max-tokens" data-i18n="adm.maxApiTokens">Max. API Tokens</label>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-job-timeout" required placeholder=" ">
-                                <label for="admin-cfg-job-timeout">Timeout für Ausführungen (Sek.)</label>
-                                <span class="helper-text">Maximale Laufzeit eines Playbooks, danach wird die Ausführung abgebrochen.</span>
+                                <label for="admin-cfg-job-timeout" data-i18n="adm.jobTimeout">Timeout für Ausführungen (Sek.)</label>
+                                <span class="helper-text" data-i18n="adm.jobTimeoutHelp">Maximale Laufzeit eines Playbooks, danach wird die Ausführung abgebrochen.</span>
                             </div>
                             
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-connection-timeout" min="1" placeholder=" ">
-                                <label for="admin-cfg-connection-timeout">Verbindungs-Timeout (Sek.)</label>
-                                <span class="helper-text">Wartezeit auf Verbindung und Sudo-Passwort-Abfrage. Erhöhen, wenn Ziele mit langsamem Sudo „Timeout … waiting for privilege escalation prompt" melden (Standard 30).</span>
+                                <label for="admin-cfg-connection-timeout" data-i18n="adm.connectionTimeout">Verbindungs-Timeout (Sek.)</label>
+                                <span class="helper-text" data-i18n="adm.connectionTimeoutHelp">Wartezeit auf Verbindung und Sudo-Passwort-Abfrage. Erhöhen, wenn Ziele mit langsamem Sudo „Timeout … waiting for privilege escalation prompt" melden (Standard 30).</span>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-max-history" required placeholder=" ">
-                                <label for="admin-cfg-max-history">Max. Job-Historie Einträge</label>
+                                <label for="admin-cfg-max-history" data-i18n="adm.maxHistory">Max. Job-Historie Einträge</label>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-max-history-age" required placeholder=" ">
-                                <label for="admin-cfg-max-history-age">Max. Job-Historie Alter (Tage)</label>
+                                <label for="admin-cfg-max-history-age" data-i18n="adm.maxHistoryAge">Max. Job-Historie Alter (Tage)</label>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-storage-quota" required placeholder=" ">
-                                <label for="admin-cfg-storage-quota">Speicher-Quota Standard (MB)</label>
+                                <label for="admin-cfg-storage-quota" data-i18n="adm.storageQuota">Speicher-Quota Standard (MB)</label>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-max-playbooks" required placeholder=" ">
-                                <label for="admin-cfg-max-playbooks">Max. Custom-Playbooks (Standard)</label>
+                                <label for="admin-cfg-max-playbooks" data-i18n="adm.maxPlaybooks">Max. Custom-Playbooks (Standard)</label>
                             </div>
                         </div>
 
                         
-                        <h5 class="admin-config-category" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">Security</h5>
+                        <h5 class="admin-config-category" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;" data-i18n="adm.catSecurity">Security</h5>
                         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: start;">
                             
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-global-limit" required placeholder=" ">
-                                <label for="admin-cfg-global-limit">Global Rate Limit (IP/Min)</label>
-                                <span class="helper-text">Begrenzt die Anfragen an das gesamte System pro Minute.</span>
+                                <label for="admin-cfg-global-limit" data-i18n="adm.globalLimit">Global Rate Limit (IP/Min)</label>
+                                <span class="helper-text" data-i18n="adm.globalLimitHelp">Begrenzt die Anfragen an das gesamte System pro Minute.</span>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-user-limit" required placeholder=" ">
-                                <label for="admin-cfg-user-limit">User Rate Limit (User/Min)</label>
-                                <span class="helper-text">Begrenzt die Anfragen eines einzelnen Benutzers pro Minute.</span>
+                                <label for="admin-cfg-user-limit" data-i18n="adm.userLimit">User Rate Limit (User/Min)</label>
+                                <span class="helper-text" data-i18n="adm.userLimitHelp">Begrenzt die Anfragen eines einzelnen Benutzers pro Minute.</span>
                             </div>
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-ban-duration" required placeholder=" ">
-                                <label for="admin-cfg-ban-duration">IP-Sperre Dauer (Sekunden)</label>
+                                <label for="admin-cfg-ban-duration" data-i18n="adm.banDuration">IP-Sperre Dauer (Sekunden)</label>
                             </div>
                             
                             <div class="text-field">
                                 <input type="number" id="admin-cfg-pw-min-length" required min="1" placeholder=" ">
-                                <label for="admin-cfg-pw-min-length">Passwort-Mindestlänge</label>
+                                <label for="admin-cfg-pw-min-length" data-i18n="adm.pwMinLength">Passwort-Mindestlänge</label>
                             </div>
                         </div>
                         
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 12px 0 6px 0;">Passwort-Anforderungen</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 12px 0 6px 0;" data-i18n="adm.pwRequirements">Passwort-Anforderungen</p>
                         <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 4px;">
                             <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
-                                <input type="checkbox" id="admin-cfg-pw-special" class="styled-checkbox"> Sonderzeichen erforderlich
+                                <input type="checkbox" id="admin-cfg-pw-special" class="styled-checkbox"> <span data-i18n="adm.pwSpecial">Sonderzeichen erforderlich</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
-                                <input type="checkbox" id="admin-cfg-pw-case" class="styled-checkbox"> Groß- und Kleinbuchstaben erforderlich
+                                <input type="checkbox" id="admin-cfg-pw-case" class="styled-checkbox"> <span data-i18n="adm.pwCase">Groß- und Kleinbuchstaben erforderlich</span>
                             </label>
                             <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
-                                <input type="checkbox" id="admin-cfg-pw-digit" class="styled-checkbox"> Mindestens eine Ziffer erforderlich
+                                <input type="checkbox" id="admin-cfg-pw-digit" class="styled-checkbox"> <span data-i18n="adm.pwDigit">Mindestens eine Ziffer erforderlich</span>
                             </label>
                         </div>
 
                         
-                        <h5 class="admin-config-category community-hide" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;">System</h5>
+                        <h5 class="admin-config-category community-hide" style="color: var(--text-secondary); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin: 24px 0 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 6px;" data-i18n="adm.catSystem">System</h5>
                         
                         
 
                         
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 14px 0 6px 0;">SMTP-Test</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 14px 0 6px 0;" data-i18n="adm.smtpTest">SMTP-Test</p>
                         <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;">
                             <div class="text-field" style="margin: 0; flex: 1; min-width: 200px;">
                                 <input type="email" id="admin-test-email-addr" placeholder=" ">
-                                <label for="admin-test-email-addr">Empfänger-E-Mail</label>
+                                <label for="admin-test-email-addr" data-i18n="adm.recipientEmail">Empfänger-E-Mail</label>
                             </div>
-                            <button type="button" class="btn btn-secondary btn-small" id="admin-test-email-btn" style="flex: 0 0 auto; white-space: nowrap;">Test-E-Mail senden</button>
+                            <button type="button" class="btn btn-secondary btn-small" id="admin-test-email-btn" style="flex: 0 0 auto; white-space: nowrap;" data-i18n="adm.sendTestEmail">Test-E-Mail senden</button>
                         </div>
 
                         
@@ -420,20 +433,20 @@
 
                         
                         <div style="flex: 1.5; min-width: 300px;">
-                            <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;">Aktive IP-Sperren</h4>
+                            <h4 style="color: var(--md-sys-color-primary); margin-bottom: 15px;" data-i18n="adm.activeIpBans">Aktive IP-Sperren</h4>
                             <div style="max-height: 180px; overflow-y: auto; margin-bottom: 20px;">
                                 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
                                     <thead>
                                         <tr style="border-bottom: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary); text-align: left;">
                                             <th style="padding: 5px;">IP</th>
-                                            <th style="padding: 5px;">Grund</th>
-                                            <th style="padding: 5px;">Ablauf</th>
-                                            <th style="padding: 5px; text-align: right;">Aktion</th>
+                                            <th style="padding: 5px;" data-i18n="adm.colReason">Grund</th>
+                                            <th style="padding: 5px;" data-i18n="adm.colExpiry">Ablauf</th>
+                                            <th style="padding: 5px; text-align: right;" data-i18n="adm.colAction">Aktion</th>
                                         </tr>
                                     </thead>
                                     <tbody id="admin-active-bans-tbody">
                                         <tr>
-                                            <td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Keine aktiven Sperren.</td>
+                                            <td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);" data-i18n="adm.noActiveBans">Keine aktiven Sperren.</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -450,40 +463,40 @@
                     
 
                     
-                    <h4 style="color: var(--md-sys-color-primary); margin: 28px 0 4px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">Audit-Log (letzte 200 Einträge)</h4>
+                    <h4 style="color: var(--md-sys-color-primary); margin: 28px 0 4px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;" data-i18n="adm.auditLog">Audit-Log (letzte 200 Einträge)</h4>
                     <div style="overflow-x: auto; margin-top: 12px;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
                             <thead>
                                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary);">
-                                    <th style="padding: 8px;">Zeit</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colTime">Zeit</th>
                                     
-                                    <th style="padding: 8px;">Benutzer</th>
-                                    <th style="padding: 8px;">Aktion</th>
-                                    <th style="padding: 8px;">Ziel</th>
-                                    <th style="padding: 8px;">Detail</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colUser">Benutzer</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colAction">Aktion</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colTarget">Ziel</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colDetail">Detail</th>
                                     <th style="padding: 8px;">IP</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-audit-tbody">
-                                <tr><td colspan="6" style="text-align: center; padding: 15px; color: var(--text-muted);">Lade...</td></tr>
+                                <tr><td colspan="6" style="text-align: center; padding: 15px; color: var(--text-muted);" data-i18n="adm.loading">Lade...</td></tr>
                             </tbody>
                         </table>
                     </div>
 
                     
-                    <h4 style="color: var(--md-sys-color-primary); margin: 28px 0 12px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;">IP-Sperren Verlauf</h4>
+                    <h4 style="color: var(--md-sys-color-primary); margin: 28px 0 12px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;" data-i18n="adm.ipBansHistoryHeading">IP-Sperren Verlauf</h4>
                     <div style="overflow-x: auto;">
                         <table style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
                             <thead>
                                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.2); color: var(--text-secondary);">
                                     <th style="padding: 8px;">IP</th>
-                                    <th style="padding: 8px;">Grund</th>
-                                    <th style="padding: 8px;">Freigegeben am</th>
-                                    <th style="padding: 8px;">Methode</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colReason">Grund</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colReleasedAt">Freigegeben am</th>
+                                    <th style="padding: 8px;" data-i18n="adm.colMethod">Methode</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-history-bans-tbody">
-                                <tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-muted);">Keine Historie vorhanden.</td></tr>
+                                <tr><td colspan="4" style="text-align: center; padding: 15px; color: var(--text-muted);" data-i18n="adm.noHistory">Keine Historie vorhanden.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -499,26 +512,26 @@
             <div class="dialog-card auth-modal" style="max-width: 440px; width: 95%;">
                 <div class="dialog-header">
                     <span class="material-symbols-outlined">gpp_bad</span>
-                    <h3>Neue IP-Adresse sperren</h3>
+                    <h3 data-i18n="dlgpay.ipDialogTitle">Neue IP-Adresse sperren</h3>
                 </div>
                 <div class="dialog-body">
                     <form id="admin-ip-ban-form">
                         <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                             <input type="text" id="admin-ban-ip" required placeholder=" ">
-                            <label for="admin-ban-ip">IP-Adresse (z.B. 192.168.1.1)</label>
+                            <label for="admin-ban-ip" data-i18n="dlgpay.ipAddress">IP-Adresse (z.B. 192.168.1.1)</label>
                         </div>
                         <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                             <input type="text" id="admin-ban-reason" required placeholder=" ">
-                            <label for="admin-ban-reason">Grund der Sperrung</label>
+                            <label for="admin-ban-reason" data-i18n="dlgpay.ipReason">Grund der Sperrung</label>
                         </div>
                         <div class="text-field" style="margin-bottom: 15px; width: 100%;">
                             <input type="number" id="admin-ban-duration" placeholder=" ">
-                            <label for="admin-ban-duration">Dauer in Sek. (optional, leer = permanent)</label>
+                            <label for="admin-ban-duration" data-i18n="dlgpay.ipDuration">Dauer in Sek. (optional, leer = permanent)</label>
                         </div>
                         <div style="display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-text" id="admin-ip-cancel" style="flex: 1;">Abbrechen</button>
+                            <button type="button" class="btn btn-text" id="admin-ip-cancel" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
                             
-                            <button type="submit" class="btn btn-primary" style="flex: 2;">Speichern</button>
+                            <button type="submit" class="btn btn-primary" style="flex: 2;" data-i18n="common.save">Speichern</button>
                         </div>
                     </form>
                 </div>
@@ -543,54 +556,54 @@
                 <div class="dialog-header">
                     
                     <span class="material-symbols-outlined" id="managed-device-form-icon">devices</span>
-                    <h3 id="managed-device-form-title">Neues Gerät</h3>
+                    <h3 id="managed-device-form-title" data-i18n="dlgpay.deviceFormTitle">Neues Gerät</h3>
                 </div>
                 <div class="dialog-body">
                     <input type="hidden" id="managed-device-id">
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="managed-device-name" placeholder=" " maxlength="50" style="width: 100%;">
-                        <label for="managed-device-name">Name</label>
+                        <label for="managed-device-name" data-i18n="dlgpay.name">Name</label>
                     </div>
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="managed-device-host" placeholder=" " maxlength="253" style="width: 100%;">
-                        <label for="managed-device-host">Host / IP</label>
+                        <label for="managed-device-host" data-i18n="dlgpay.hostIp">Host / IP</label>
                     </div>
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="managed-device-user" placeholder=" " maxlength="32" autocomplete="off" style="width: 100%;">
-                        <label for="managed-device-user">SSH-Benutzer (optional)</label>
+                        <label for="managed-device-user" data-i18n="dlgpay.sshUserOptional">SSH-Benutzer (optional)</label>
                     </div>
                     
                     <div class="text-field" style="margin-bottom: 4px; width: 100%;">
                         <input type="password" id="managed-device-credential" placeholder=" " autocomplete="new-password" style="width: 100%;">
-                        <label for="managed-device-credential">Passwort</label>
-                        <small id="managed-device-cred-hint" style="display:none; font-size:11px; color:var(--text-muted);">Hinterlegtes Passwort – zum Ändern überschreiben, zum Löschen das Feld leeren.</small>
+                        <label for="managed-device-credential" data-i18n="dlgpay.password">Passwort</label>
+                        <small id="managed-device-cred-hint" style="display:none; font-size:11px; color:var(--text-muted);" data-i18n="dlgpay.credHint">Hinterlegtes Passwort – zum Ändern überschreiben, zum Löschen das Feld leeren.</small>
                     </div>
-                    <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 6px 0;">oder SSH-Key hochladen:</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 6px 0;" data-i18n="dlgpay.orUploadSshKey">oder SSH-Key hochladen:</p>
                     <div id="managed-device-key-dropzone" style="border: 2px dashed rgba(255,255,255,0.1); border-radius: 6px; padding: 10px; text-align: center; cursor: pointer; margin-bottom: 8px; background: rgba(0,0,0,0.2);">
                         <span class="material-symbols-outlined" style="font-size: 26px; color: var(--text-muted);">key</span>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 0 0;">SSH-Private-Key auswählen</p>
-                        <span id="managed-device-key-filename-lbl" style="display: block; margin-top: 6px; font-weight: bold; color: var(--md-sys-color-primary); font-size: 12px;">Keine Datei ausgewählt</span>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 0 0;" data-i18n="dlgpay.chooseSshKey">SSH-Private-Key auswählen</p>
+                        <span id="managed-device-key-filename-lbl" style="display: block; margin-top: 6px; font-weight: bold; color: var(--md-sys-color-primary); font-size: 12px;" data-i18n="dlgpay.noFileSelected">Keine Datei ausgewählt</span>
                         <input type="file" id="managed-device-key-file" style="display: none;">
                     </div>
                     
                     <div class="text-field" style="margin-bottom: 2px; width: 100%;">
                         <input type="password" id="managed-device-become" placeholder=" " autocomplete="new-password" style="width: 100%;">
-                        <label for="managed-device-become">Sudo-Passwort (optional)</label>
-                        <small id="managed-device-become-hint" style="display:none; font-size:11px; color:var(--text-muted);">Hinterlegtes Sudo-Passwort – zum Ändern überschreiben, zum Löschen das Feld leeren.</small>
+                        <label for="managed-device-become" data-i18n="dlgpay.sudoPasswordOptional">Sudo-Passwort (optional)</label>
+                        <small id="managed-device-become-hint" style="display:none; font-size:11px; color:var(--text-muted);" data-i18n="dlgpay.becomeHint">Hinterlegtes Sudo-Passwort – zum Ändern überschreiben, zum Löschen das Feld leeren.</small>
                     </div>
-                    <small style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:10px;">Nur nötig, wenn <code>sudo</code> ein anderes Passwort verlangt als der SSH-Login (z. B. bei SSH-Key-Anmeldung). Leer lassen: das SSH-Passwort wird auch als Sudo-Passwort verwendet.</small>
+                    <small style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:10px;"><span data-i18n="dlgpay.becomeNote1">Nur nötig, wenn</span> <code>sudo</code> <span data-i18n="dlgpay.becomeNote2">ein anderes Passwort verlangt als der SSH-Login (z. B. bei SSH-Key-Anmeldung). Leer lassen: das SSH-Passwort wird auch als Sudo-Passwort verwendet.</span></small>
                     <div class="text-field" style="margin-bottom: 2px; width: 100%;">
-                        <input type="text" id="managed-device-basedir" placeholder=" " maxlength="255" title="Dieser Pfad dient als Stammverzeichnis für /compose und /docker, wenn z. B. Docker-Container aufgesetzt werden." style="width: 100%;">
-                        <label for="managed-device-basedir">Standard-Basisverzeichnis</label>
+                        <input type="text" id="managed-device-basedir" placeholder=" " maxlength="255" title="Dieser Pfad dient als Stammverzeichnis für /compose und /docker, wenn z. B. Docker-Container aufgesetzt werden." data-i18n-title="dlgpay.basedirTitle" style="width: 100%;">
+                        <label for="managed-device-basedir" data-i18n="dlgpay.defaultBasedir">Standard-Basisverzeichnis</label>
                     </div>
-                    <small style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:10px;">Stammverzeichnis für <code>/compose</code> und <code>/docker</code> (z. B. beim Aufsetzen von Docker-Containern).</small>
+                    <small style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:10px;"><span data-i18n="dlgpay.basedirNote1">Stammverzeichnis für</span> <code>/compose</code> <span data-i18n="dlgpay.basedirNote2">und</span> <code>/docker</code> <span data-i18n="dlgpay.basedirNote3">(z. B. beim Aufsetzen von Docker-Containern).</span></small>
                     <div class="text-field" style="margin-bottom: 12px; width: 100%;">
                         <input type="text" id="managed-device-tz" placeholder=" " maxlength="64" style="width: 100%;">
-                        <label for="managed-device-tz">Standard-Zeitzone</label>
+                        <label for="managed-device-tz" data-i18n="dlgpay.defaultTimezone">Standard-Zeitzone</label>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <button type="button" class="btn btn-text" id="managed-device-cancel-btn" style="flex: 1;">Abbrechen</button>
-                        <button type="button" class="btn btn-primary" id="managed-device-save-btn" style="flex: 2;">Speichern</button>
+                        <button type="button" class="btn btn-text" id="managed-device-cancel-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" id="managed-device-save-btn" style="flex: 2;" data-i18n="common.save">Speichern</button>
                     </div>
                 </div>
             </div>
@@ -601,20 +614,20 @@
             <div class="dialog-card auth-modal" style="max-width: 480px; width: 95%;">
                 <div class="dialog-header">
                     <span class="material-symbols-outlined">rocket_launch</span>
-                    <h3 id="scenario-form-title">Neues Szenario</h3>
+                    <h3 id="scenario-form-title" data-i18n="dlgpay.scenarioFormTitle">Neues Szenario</h3>
                 </div>
                 <div class="dialog-body">
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="scenario-name" placeholder=" " maxlength="80" style="width: 100%;">
-                        <label for="scenario-name">Name</label>
+                        <label for="scenario-name" data-i18n="dlgpay.name">Name</label>
                     </div>
-                    <label style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Preset</label>
+                    <label style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;" data-i18n="dlgpay.preset">Preset</label>
                     <select id="scenario-preset-select" class="select-field" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; margin-bottom: 10px;"></select>
-                    <label style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Zielgerät</label>
+                    <label style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;" data-i18n="dlgpay.targetDevice">Zielgerät</label>
                     <select id="scenario-device-select" class="select-field" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; margin-bottom: 12px;"></select>
                     <div style="display:flex; gap:10px;">
-                        <button type="button" id="scenario-cancel-btn" class="btn btn-text" style="flex:1;">Abbrechen</button>
-                        <button type="button" id="scenario-save-btn" class="btn btn-primary" style="flex:2;">Speichern</button>
+                        <button type="button" id="scenario-cancel-btn" class="btn btn-text" style="flex:1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="button" id="scenario-save-btn" class="btn btn-primary" style="flex:2;" data-i18n="common.save">Speichern</button>
                     </div>
                 </div>
             </div>
@@ -627,34 +640,34 @@
             <div class="dialog-card auth-modal" style="max-width: 640px; width: 95%; max-height: 90vh; overflow-y: auto;">
                 <div class="dialog-header">
                     <span class="material-symbols-outlined">tune</span>
-                    <h3 id="preset-wizard-title">Neues Preset – Playbooks</h3>
+                    <h3 id="preset-wizard-title" data-i18n="dlgpay.presetWizardTitle">Neues Preset – Playbooks</h3>
                 </div>
                 <div class="dialog-body">
                     
                     <div id="preset-wizard-step-1" class="preset-wizard-step">
                         <div class="text-field" style="margin-bottom: 12px; width: 100%;">
                             <input type="text" id="preset-wizard-name" placeholder=" " maxlength="80" style="width: 100%;">
-                            <label for="preset-wizard-name">Preset-Name</label>
+                            <label for="preset-wizard-name" data-i18n="dlgpay.presetName">Preset-Name</label>
                         </div>
-                        <input type="text" id="preset-wizard-pb-filter" placeholder="Playbooks filtern…" maxlength="60" style="width: 100%; margin-bottom: 8px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
+                        <input type="text" id="preset-wizard-pb-filter" placeholder="Playbooks filtern…" data-i18n-placeholder="dlgpay.filterPlaybooks" maxlength="60" style="width: 100%; margin-bottom: 8px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
                         <div id="preset-wizard-playbooks" style="max-height: 360px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
                     </div>
                     
                     <div id="preset-wizard-step-2" class="preset-wizard-step hidden">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">Standardwerte für die gewählten Playbooks (optional – leer = Standard).</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;" data-i18n="dlgpay.presetDefaults">Standardwerte für die gewählten Playbooks (optional – leer = Standard).</p>
                         <div id="preset-wizard-config"></div>
                     </div>
                     
                     <div id="preset-wizard-step-3" class="preset-wizard-step hidden">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">Optional: direkt nach dem Erstellen mit Teammitgliedern teilen (oder überspringen).</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;" data-i18n="dlgpay.shareAfterCreate">Optional: direkt nach dem Erstellen mit Teammitgliedern teilen (oder überspringen).</p>
                         <div id="preset-wizard-shares" style="max-height: 300px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 10px;"></div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; align-items: center;">
-                        <button type="button" class="btn btn-text" id="preset-wizard-cancel">Abbrechen</button>
+                        <button type="button" class="btn btn-text" id="preset-wizard-cancel" data-i18n="common.cancel">Abbrechen</button>
                         <div style="display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" id="preset-wizard-back" style="display: none;">Zurück</button>
-                            <button type="button" class="btn btn-primary" id="preset-wizard-next">Weiter</button>
-                            <button type="button" class="btn btn-primary" id="preset-wizard-finish" style="display: none;">Preset erstellen</button>
+                            <button type="button" class="btn btn-secondary" id="preset-wizard-back" style="display: none;" data-i18n="dlgpay.back">Zurück</button>
+                            <button type="button" class="btn btn-primary" id="preset-wizard-next" data-i18n="dlgpay.next">Weiter</button>
+                            <button type="button" class="btn btn-primary" id="preset-wizard-finish" style="display: none;" data-i18n="dlgpay.createPreset">Preset erstellen</button>
                         </div>
                     </div>
                 </div>
@@ -668,43 +681,43 @@
                 <div class="dialog-header">
                     
                     <span class="material-symbols-outlined" id="scenario-wizard-icon">rocket_launch</span>
-                    <h3 id="scenario-wizard-title">Neues Szenario – Playbooks</h3>
+                    <h3 id="scenario-wizard-title" data-i18n="dlgpay.scenarioWizardTitle">Neues Szenario – Playbooks</h3>
                 </div>
                 <div class="dialog-body" style="flex: 1; min-height: 0; overflow-y: auto;">
                     
                     <div id="scenario-wizard-step-1" class="scenario-wizard-step">
                         <div class="text-field" style="margin-bottom: 12px; width: 100%;">
                             <input type="text" id="scenario-wizard-name" placeholder=" " maxlength="80" style="width: 100%;">
-                            <label for="scenario-wizard-name">Szenario-Name</label>
+                            <label for="scenario-wizard-name" data-i18n="dlgpay.scenarioName">Szenario-Name</label>
                         </div>
-                        <input type="text" id="scenario-wizard-pb-filter" placeholder="Playbooks filtern…" maxlength="60" style="width: 100%; margin-bottom: 8px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
+                        <input type="text" id="scenario-wizard-pb-filter" placeholder="Playbooks filtern…" data-i18n-placeholder="dlgpay.filterPlaybooks" maxlength="60" style="width: 100%; margin-bottom: 8px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
                         
                         <div id="scenario-wizard-playbooks" style="flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;"></div>
                     </div>
                     
                     <div id="scenario-wizard-step-2" class="scenario-wizard-step hidden">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">Standardwerte für die gewählten Playbooks (optional – leer = Standard).</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;" data-i18n="dlgpay.presetDefaults">Standardwerte für die gewählten Playbooks (optional – leer = Standard).</p>
                         
                         <div id="scenario-wizard-config" style="flex: 1; min-height: 0; overflow-y: auto;"></div>
                     </div>
                     
                     <div id="scenario-wizard-step-3" class="scenario-wizard-step hidden">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">Festes Zielgerät wählen – oder „Kein festes Gerät", dann wird es beim Ausführen einmalig eingegeben.</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;" data-i18n="dlgpay.scenarioWizardDeviceHint">Festes Zielgerät wählen – oder „Kein festes Gerät", dann wird es beim Ausführen einmalig eingegeben.</p>
                         
                         <div id="scenario-wizard-devices" style="flex: 1; min-height: 0; overflow-y: auto;"></div>
                     </div>
                     
                     <div id="scenario-wizard-step-4" class="scenario-wizard-step hidden">
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;">Optional: direkt nach dem Erstellen mit Teammitgliedern teilen (oder überspringen).</p>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 10px 0;" data-i18n="dlgpay.shareAfterCreate">Optional: direkt nach dem Erstellen mit Teammitgliedern teilen (oder überspringen).</p>
                         
                         <div id="scenario-wizard-shares" style="flex: 1; min-height: 0; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 10px;"></div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 18px; justify-content: space-between; align-items: center;">
-                        <button type="button" class="btn btn-text" id="scenario-wizard-cancel">Abbrechen</button>
+                        <button type="button" class="btn btn-text" id="scenario-wizard-cancel" data-i18n="common.cancel">Abbrechen</button>
                         <div style="display: flex; gap: 10px;">
-                            <button type="button" class="btn btn-secondary" id="scenario-wizard-back" style="display: none;">Zurück</button>
-                            <button type="button" class="btn btn-primary" id="scenario-wizard-next">Weiter</button>
-                            <button type="button" class="btn btn-primary" id="scenario-wizard-finish" style="display: none;">Szenario erstellen</button>
+                            <button type="button" class="btn btn-secondary" id="scenario-wizard-back" style="display: none;" data-i18n="dlgpay.back">Zurück</button>
+                            <button type="button" class="btn btn-primary" id="scenario-wizard-next" data-i18n="dlgpay.next">Weiter</button>
+                            <button type="button" class="btn btn-primary" id="scenario-wizard-finish" style="display: none;" data-i18n="dlgpay.createScenario">Szenario erstellen</button>
                         </div>
                     </div>
                 </div>
@@ -717,45 +730,45 @@
                 <div class="dialog-header">
                     <span class="material-symbols-outlined">dns</span>
                     <div style="min-width: 0;">
-                        <h3 id="scenario-run-device-title" style="margin: 0;">Szenario ausführen</h3>
-                        <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;">Zielgerät einmalig eingeben (nicht gespeichert)</p>
+                        <h3 id="scenario-run-device-title" style="margin: 0;" data-i18n="dlgpay.scenarioRunTitle">Szenario ausführen</h3>
+                        <p style="font-size: 12px; color: var(--text-muted); margin: 2px 0 0 0;" data-i18n="dlgpay.scenarioRunSubtitle">Zielgerät einmalig eingeben (nicht gespeichert)</p>
                     </div>
                 </div>
                 <div class="dialog-body">
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="scenario-run-host" placeholder=" " style="width: 100%;">
-                        <label for="scenario-run-host">Host / IP-Adresse</label>
+                        <label for="scenario-run-host" data-i18n="dlgpay.hostIpAddress">Host / IP-Adresse</label>
                     </div>
                     <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                         <input type="text" id="scenario-run-user" placeholder=" " style="width: 100%;">
-                        <label for="scenario-run-user">SSH-Benutzer</label>
+                        <label for="scenario-run-user" data-i18n="dlgpay.sshUser">SSH-Benutzer</label>
                     </div>
                     <div class="text-field" style="margin-bottom: 6px; width: 100%;">
                         <input type="password" id="scenario-run-password" placeholder=" " style="width: 100%;">
-                        <label for="scenario-run-password">Passwort</label>
+                        <label for="scenario-run-password" data-i18n="dlgpay.password">Passwort</label>
                     </div>
                     
                     <div class="text-field" style="margin-bottom: 6px; width: 100%;">
                         <input type="password" id="scenario-run-become" placeholder=" " autocomplete="off" style="width: 100%;">
-                        <label for="scenario-run-become">Sudo-Passwort (optional)</label>
+                        <label for="scenario-run-become" data-i18n="dlgpay.sudoPasswordOptional">Sudo-Passwort (optional)</label>
                     </div>
                     
-                    <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 6px 0;">oder SSH-Key hochladen:</p>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 6px 0;" data-i18n="dlgpay.orUploadSshKey">oder SSH-Key hochladen:</p>
                     <div id="scenario-run-key-dropzone" style="border: 2px dashed rgba(255,255,255,0.1); border-radius: 6px; padding: 10px; text-align: center; cursor: pointer; margin-bottom: 12px; background: rgba(0,0,0,0.2);">
                         <span class="material-symbols-outlined" style="font-size: 26px; color: var(--text-muted);">key</span>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 0 0;">SSH-Private-Key auswählen</p>
-                        <span id="scenario-run-key-filename-lbl" style="display: block; margin-top: 6px; font-weight: bold; color: var(--md-sys-color-primary); font-size: 12px;">Keine Datei ausgewählt</span>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin: 6px 0 0 0;" data-i18n="dlgpay.chooseSshKey">SSH-Private-Key auswählen</p>
+                        <span id="scenario-run-key-filename-lbl" style="display: block; margin-top: 6px; font-weight: bold; color: var(--md-sys-color-primary); font-size: 12px;" data-i18n="dlgpay.noFileSelected">Keine Datei ausgewählt</span>
                         <input type="file" id="scenario-run-key-file" style="display: none;">
-                        <button type="button" id="scenario-run-key-reset" class="hidden" style="margin-top:6px; background:none; border:none; color:var(--text-muted); font-size:11px; text-decoration:underline; cursor:pointer;">Key entfernen</button>
+                        <button type="button" id="scenario-run-key-reset" class="hidden" style="margin-top:6px; background:none; border:none; color:var(--text-muted); font-size:11px; text-decoration:underline; cursor:pointer;" data-i18n="dlgpay.removeKey">Key entfernen</button>
                     </div>
                     
                     <div class="text-field" style="margin-bottom: 12px; width: 100%;">
                         <input type="text" id="scenario-run-basedir" placeholder=" " style="width: 100%;">
-                        <label for="scenario-run-basedir">Basisverzeichnis (optional)</label>
+                        <label for="scenario-run-basedir" data-i18n="dlgpay.basedirOptional">Basisverzeichnis (optional)</label>
                     </div>
                     <div style="display:flex; gap:10px;">
-                        <button type="button" id="scenario-run-device-cancel" class="btn btn-text" style="flex:1;">Abbrechen</button>
-                        <button type="button" id="scenario-run-device-go" class="btn btn-primary" style="flex:2;">Ausführen</button>
+                        <button type="button" id="scenario-run-device-cancel" class="btn btn-text" style="flex:1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="button" id="scenario-run-device-go" class="btn btn-primary" style="flex:2;" data-i18n="landing.run">Ausführen</button>
                     </div>
                 </div>
             </div>
@@ -766,38 +779,38 @@
             <div class="dialog-card auth-modal" style="max-width: 600px; width: 95%; max-height: 90vh; overflow-y: auto;">
                 <div class="dialog-header">
                     <span class="material-symbols-outlined">tune</span>
-                    <h3 id="preset-form-title">Neues Preset</h3>
+                    <h3 id="preset-form-title" data-i18n="dlgpay.presetFormTitle">Neues Preset</h3>
                 </div>
                 <div class="dialog-body" style="display: flex; flex-direction: column; gap: 10px;">
                     <input type="hidden" id="preset-id">
                     <div class="text-field" style="margin-bottom: 0;">
                         <input type="text" id="preset-name" placeholder=" " maxlength="80" style="width: 100%;">
-                        <label for="preset-name">Preset-Name</label>
+                        <label for="preset-name" data-i18n="dlgpay.presetName">Preset-Name</label>
                     </div>
                     <div>
-                        <h5 style="color: var(--md-sys-color-primary); margin: 0 0 8px 0; font-size: 13px;">Playbooks</h5>
-                        <input type="text" id="preset-playbook-filter" placeholder="Playbooks filtern…" maxlength="60" style="width: 100%; margin-bottom: 6px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
+                        <h5 style="color: var(--md-sys-color-primary); margin: 0 0 8px 0; font-size: 13px;" data-i18n="nav.playbooks">Playbooks</h5>
+                        <input type="text" id="preset-playbook-filter" placeholder="Playbooks filtern…" data-i18n-placeholder="dlgpay.filterPlaybooks" maxlength="60" style="width: 100%; margin-bottom: 6px; padding: 6px 8px; font-size: 12px; background: rgba(0,0,0,0.2); color: #fff; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;">
                         <div id="preset-playbooks" style="max-height: 160px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px; font-size: 13px;">
-                            <p style="color: var(--text-muted); margin: 0;">Keine Playbooks verfügbar.</p>
+                            <p style="color: var(--text-muted); margin: 0;" data-i18n="dlgpay.noPlaybooks">Keine Playbooks verfügbar.</p>
                         </div>
                     </div>
                     <div>
-                        <label style="display:block; font-size:12px; color:var(--text-secondary); font-weight:bold; margin-bottom:6px;">Zielgeräte (optional, Mehrfachauswahl)</label>
+                        <label style="display:block; font-size:12px; color:var(--text-secondary); font-weight:bold; margin-bottom:6px;" data-i18n="dlgpay.targetDevicesMulti">Zielgeräte (optional, Mehrfachauswahl)</label>
                         <div id="preset-devices" style="max-height: 160px; overflow-y: auto; padding: 8px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px;"></div>
                     </div>
                     <div>
-                        <label for="preset-variables" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;">Standard-Variablen – eine pro Zeile als <code>name=wert</code></label>
+                        <label for="preset-variables" style="display:block; font-size:12px; color:var(--text-secondary); margin-bottom:4px;"><span data-i18n="dlgpay.presetVarsLabel">Standard-Variablen – eine pro Zeile als</span> <code>name=wert</code></label>
                         <textarea id="preset-variables" rows="3" placeholder="gitea_domain=git.local&#10;use_traefik=true" style="width: 100%; resize: vertical; background-color: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border: 1px solid var(--md-sys-color-outline); border-radius: 8px; padding: 8px 10px; font-family: inherit; font-size: 13px;"></textarea>
                     </div>
                     <div>
-                        <h5 style="color: var(--md-sys-color-primary); margin: 0 0 8px 0; font-size: 13px;">Mit Teammitgliedern teilen</h5>
+                        <h5 style="color: var(--md-sys-color-primary); margin: 0 0 8px 0; font-size: 13px;" data-i18n="dlgpay.shareWithTeamMembers">Mit Teammitgliedern teilen</h5>
                         <div id="preset-shares" style="max-height: 140px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px; font-size: 13px;">
-                            <p style="color: var(--text-muted); margin: 0;">Keine Teammitglieder vorhanden.</p>
+                            <p style="color: var(--text-muted); margin: 0;" data-i18n="dlgpay.noTeamMembers">Keine Teammitglieder vorhanden.</p>
                         </div>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 18px;">
-                        <button type="button" class="btn btn-text" id="preset-cancel-btn" style="flex: 1;">Abbrechen</button>
-                        <button type="button" class="btn btn-primary" id="preset-save-btn" style="flex: 2;">Speichern</button>
+                        <button type="button" class="btn btn-text" id="preset-cancel-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" id="preset-save-btn" style="flex: 2;" data-i18n="common.save">Speichern</button>
                     </div>
                 </div>
             </div>
@@ -899,10 +912,10 @@
             <span class="footer-brand">made with love and expertise by [Anbietername] &mdash; 2026</span>
             
             <span class="footer-sep">|</span>
-            <a href="/docs" target="_blank" id="footer-link-docs" class="footer-link">API Dokumentation</a>
+            <a href="/docs" target="_blank" id="footer-link-docs" class="footer-link" data-i18n="site.footerDocs">API Dokumentation</a>
             <span class="footer-sep">|</span>
             
-            <a href="/llm" id="footer-link-llm" class="footer-link">Agent Instructions</a>
+            <a href="/llm" id="footer-link-llm" class="footer-link" data-i18n="site.footerLlm">Agent Instructions</a>
             
         </footer>
 
@@ -914,15 +927,15 @@
         <div class="dialog-card auth-modal" style="max-width: 420px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">warning</span>
-                <h3>Dialog schließen?</h3>
+                <h3 data-i18n="dlgcore.discardTitle">Dialog schließen?</h3>
             </div>
             <div class="dialog-body">
-                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;">
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;" data-i18n="dlgcore.discardMsg">
                     Ungespeicherte Eingaben gehen verloren. Möchten Sie den Ausführen-Dialog wirklich schließen?
                 </p>
                 <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-text" id="discard-confirm-cancel" style="flex: 1;">Weiter bearbeiten</button>
-                    <button type="button" class="btn btn-primary" id="discard-confirm-ok" style="flex: 1;">Verwerfen &amp; schließen</button>
+                    <button type="button" class="btn btn-text" id="discard-confirm-cancel" style="flex: 1;" data-i18n="dlgcore.keepEditing">Weiter bearbeiten</button>
+                    <button type="button" class="btn btn-primary" id="discard-confirm-ok" style="flex: 1;" data-i18n="dlgcore.discardClose">Verwerfen &amp; schließen</button>
                 </div>
             </div>
         </div>
@@ -972,13 +985,13 @@
         <div class="dialog-card auth-modal" style="max-width: 420px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">warning</span>
-                <h3 id="app-confirm-title">Bestätigen</h3>
+                <h3 id="app-confirm-title" data-i18n="common.confirm">Bestätigen</h3>
             </div>
             <div class="dialog-body">
                 <p id="app-confirm-message" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;"></p>
                 <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-text" id="app-confirm-cancel" style="flex: 1;">Abbrechen</button>
-                    <button type="button" class="btn btn-primary" id="app-confirm-ok" style="flex: 1;">Bestätigen</button>
+                    <button type="button" class="btn btn-text" id="app-confirm-cancel" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="app-confirm-ok" style="flex: 1;" data-i18n="common.confirm">Bestätigen</button>
                 </div>
             </div>
         </div>
@@ -989,19 +1002,19 @@
         <div class="dialog-card">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">security</span>
-                <h3>Verbindung & Authentifizierung</h3>
+                <h3 data-i18n="dlgcore.credTitle">Verbindung & Authentifizierung</h3>
             </div>
             <div class="dialog-body params-grid">
                 
                 <div class="dialog-column dialog-left-column">
-                    <p class="dialog-description">Gib das Zielgerät sowie die SSH-Zugangsdaten an:</p>
+                    <p class="dialog-description" data-i18n="dlgcore.credDesc">Gib das Zielgerät sowie die SSH-Zugangsdaten an:</p>
                     
                     
                     <div id="modal-device-select-container" class="text-field hidden" style="margin-bottom: 15px; position: relative;">
                         <select id="modal-device-select" class="select-field" style="width: 100%; padding: 10px 40px 10px 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; color: #fff; appearance: none;">
-                            <option value="">-- Manuelle Eingabe --</option>
+                            <option value="" data-i18n="dlgcore.manualEntry">-- Manuelle Eingabe --</option>
                         </select>
-                        <button type="button" id="manage-devices-shortcut" title="Geräte verwalten" style="position: absolute; right: 10px; top: 8px; background: none; border: none; color: var(--md-sys-color-primary); cursor: pointer;">
+                        <button type="button" id="manage-devices-shortcut" title="Geräte verwalten" data-i18n-title="dlgcore.manageDevices" style="position: absolute; right: 10px; top: 8px; background: none; border: none; color: var(--md-sys-color-primary); cursor: pointer;">
                             <span class="material-symbols-outlined" style="font-size: 20px;">dns</span>
                         </button>
                     </div>
@@ -1010,39 +1023,39 @@
 
                     <div class="text-field">
                         <input type="text" id="modal-target-host" required placeholder=" ">
-                        <label for="modal-target-host">Zielgerät (IP oder Hostname)</label>
-                        <span class="helper-text">z. B. 192.168.1.50 oder webserver.local</span>
+                        <label for="modal-target-host" data-i18n="dlgcore.targetHost">Zielgerät (IP oder Hostname)</label>
+                        <span class="helper-text" data-i18n="dlgcore.targetHostHelp">z. B. 192.168.1.50 oder webserver.local</span>
                     </div>
 
                     
                     <div class="text-field">
                         <input type="text" id="modal-ssh-username" required placeholder=" ">
-                        <label for="modal-ssh-username">SSH-Benutzername</label>
+                        <label for="modal-ssh-username" data-i18n="dlgcore.sshUsername">SSH-Benutzername</label>
                     </div>
 
                     
                     <div class="text-field">
                         <input type="password" id="modal-ssh-password" required placeholder=" ">
-                        <label for="modal-ssh-password">SSH-Passwort</label>
+                        <label for="modal-ssh-password" data-i18n="dlgcore.sshPassword">SSH-Passwort</label>
                     </div>
 
                     
                     <div class="text-field">
                         <input type="password" id="modal-become-password" placeholder=" " autocomplete="off">
-                        <label for="modal-become-password">Sudo-Passwort (optional)</label>
+                        <label for="modal-become-password" data-i18n="dlgcore.sudoPasswordOptional">Sudo-Passwort (optional)</label>
                     </div>
 
                     
                     <div class="text-field">
                         <input type="text" id="modal-base-dir" placeholder=" ">
-                        <label for="modal-base-dir">Basisverzeichnis (Standard: /home/&lt;user&gt;, /root für root)</label>
+                        <label for="modal-base-dir" data-i18n="dlgcore.baseDir">Basisverzeichnis (Standard: /home/&lt;user&gt;, /root für root)</label>
                     </div>
 
                     
                     <div class="text-field">
                         <input type="text" id="modal-timezone" required placeholder=" ">
-                        <label for="modal-timezone">Zeitzone (timezone)</label>
-                        <span class="helper-text">z. B. Europe/Berlin</span>
+                        <label for="modal-timezone" data-i18n="dlgcore.timezone">Zeitzone (timezone)</label>
+                        <span class="helper-text" data-i18n="dlgcore.timezoneHelp">z. B. Europe/Berlin</span>
                     </div>
                 </div>
 
@@ -1066,9 +1079,9 @@
                         
                         <div class="dialog-checkbox-container hidden" id="modal-traefik-container">
                             <input type="checkbox" id="modal-use-traefik">
-                            <label for="modal-use-traefik">Dienste über Traefik (Reverse Proxy) erreichbar machen</label>
+                            <label for="modal-use-traefik" data-i18n="dlgcore.useTraefik">Dienste über Traefik (Reverse Proxy) erreichbar machen</label>
                         </div>
-                        <p class="section-subtitle">Einstellungen für aktivierte Dienste:</p>
+                        <p class="section-subtitle" data-i18n="dlgcore.settingsForServices">Einstellungen für aktivierte Dienste:</p>
                         <div id="modal-domains-inputs" style="display: flex; flex-direction: column; gap: 16px;">
                             
                         </div>
@@ -1079,19 +1092,19 @@
             <div id="modal-save-preset-row" style="display: none; margin: 4px 0 10px 0;">
                 <div class="text-field" id="modal-preset-name-field" style="margin-top:0; width:100%;">
                     <input type="text" id="modal-preset-name" placeholder=" " maxlength="80" style="width:100%;">
-                    <label for="modal-preset-name">Preset-Name</label>
+                    <label for="modal-preset-name" data-i18n="dlgcore.presetName">Preset-Name</label>
                 </div>
                 <label style="display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer; margin-top:8px;">
                     <input type="checkbox" id="modal-save-preset-cb" class="styled-checkbox">
-                    <span>Beim „Ausführen starten" zusätzlich als Preset speichern</span>
+                    <span data-i18n="dlgcore.savePresetOnRun">Beim „Ausführen starten" zusätzlich als Preset speichern</span>
                 </label>
             </div>
             
             <p id="modal-error" class="modal-error hidden" role="alert"></p>
             <div class="dialog-actions">
-                <button type="button" id="modal-cancel-btn" class="btn btn-text">Abbrechen</button>
-                <button type="button" id="modal-save-preset-btn" class="btn btn-secondary" style="display: none;">Nur als Preset speichern</button>
-                <button type="button" id="modal-submit-btn" class="btn btn-primary">Ausführen starten</button>
+                <button type="button" id="modal-cancel-btn" class="btn btn-text" data-i18n="common.cancel">Abbrechen</button>
+                <button type="button" id="modal-save-preset-btn" class="btn btn-secondary" style="display: none;" data-i18n="dlgcore.saveAsPresetOnly">Nur als Preset speichern</button>
+                <button type="button" id="modal-submit-btn" class="btn btn-primary" data-i18n="dlgcore.runStart">Ausführen starten</button>
             </div>
         </div>
     </div>
@@ -1104,15 +1117,15 @@
         <div class="dialog-card auth-modal" style="max-width: 480px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined" style="color: var(--md-sys-color-primary);">info</span>
-                <h3 id="playbook-vendor-title">Hersteller-Informationen</h3>
+                <h3 id="playbook-vendor-title" data-i18n="dlgcore.vendorTitle">Hersteller-Informationen</h3>
             </div>
             <div class="dialog-body">
-                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px;">
+                <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px;" data-i18n="dlgcore.vendorDesc">
                     Dieses Playbook installiert Software von Drittanbietern. Die offiziellen Hersteller-/Projektseiten:
                 </p>
                 <div id="playbook-vendor-list" class="playbook-vendor-list"></div>
                 <div style="display: flex; gap: 10px; margin-top: 22px;">
-                    <button type="button" class="btn btn-primary" id="playbook-vendor-close-btn" style="flex: 1;">Schließen</button>
+                    <button type="button" class="btn btn-primary" id="playbook-vendor-close-btn" style="flex: 1;" data-i18n="common.close">Schließen</button>
                 </div>
             </div>
         </div>
@@ -1123,25 +1136,25 @@
         <div class="dialog-card auth-modal" style="max-width: 420px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">lock</span>
-                <h3>Anmelden</h3>
+                <h3 data-i18n="auth.login">Anmelden</h3>
             </div>
             <div class="dialog-body">
                 <form id="login-form">
                     <div class="text-field" style="width: 100%;">
                         <input type="text" id="login-identifier" required placeholder=" " autocomplete="username" style="width: 100%;">
-                        <label for="login-identifier">Benutzername oder E-Mail</label>
+                        <label for="login-identifier" data-i18n="dlgcore.usernameOrEmail">Benutzername oder E-Mail</label>
                     </div>
                     <div class="text-field password-field" style="margin-top: 15px; width: 100%;">
                         <input type="password" id="login-password" required placeholder=" " autocomplete="current-password" style="width: 100%;">
-                        <label for="login-password">Passwort</label>
-                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                        <label for="login-password" data-i18n="dlgcore.password">Passwort</label>
+                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="dlgcore.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                     </div>
                     <div style="text-align: right; margin-top: 8px;">
-                        <a href="#" id="forgot-password-link" class="modal-link" style="font-size: 13px;">Passwort vergessen?</a>
+                        <a href="#" id="forgot-password-link" class="modal-link" style="font-size: 13px;" data-i18n="dlgcore.forgotPassword">Passwort vergessen?</a>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="button" class="btn btn-text" id="close-login-btn" style="flex: 1;">Abbrechen</button>
-                        <button type="submit" class="btn btn-primary" id="login-submit-btn" style="flex: 2;">Anmelden</button>
+                        <button type="button" class="btn btn-text" id="close-login-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary" id="login-submit-btn" style="flex: 2;" data-i18n="auth.login">Anmelden</button>
                     </div>
                 </form>
             </div>
@@ -1153,14 +1166,14 @@
         <div class="dialog-card auth-modal" style="max-width: 420px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">lock_reset</span>
-                <h3>Passwort zur&uuml;cksetzen</h3>
+                <h3 data-i18n="dlgcore.forgotTitle">Passwort zur&uuml;cksetzen</h3>
             </div>
             <div class="dialog-body">
-                <p class="dialog-description" style="margin-bottom: 15px;">Geben Sie Ihren Benutzernamen oder Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum Zur&uuml;cksetzen.</p>
+                <p class="dialog-description" style="margin-bottom: 15px;" data-i18n="dlgcore.forgotDesc">Geben Sie Ihren Benutzernamen oder Ihre E-Mail-Adresse ein. Wir senden Ihnen einen Link zum Zur&uuml;cksetzen.</p>
                 <form id="forgot-form">
                     <div class="text-field" style="width: 100%;">
                         <input type="text" id="forgot-identifier" required placeholder=" " autocomplete="username" style="width: 100%;">
-                        <label for="forgot-identifier">Benutzername oder E-Mail</label>
+                        <label for="forgot-identifier" data-i18n="dlgcore.usernameOrEmail">Benutzername oder E-Mail</label>
                     </div>
 
                     
@@ -1168,14 +1181,14 @@
                         <p id="forgot-captcha-question" style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--md-sys-color-primary);">Lade...</p>
                         <div class="text-field" style="width: 100%;">
                             <input type="text" id="forgot-captcha-answer" placeholder=" " inputmode="numeric" style="width: 100%;">
-                            <label for="forgot-captcha-answer">Antwort eingeben</label>
+                            <label for="forgot-captcha-answer" data-i18n="dlgcore.enterAnswer">Antwort eingeben</label>
                         </div>
                         <input type="hidden" id="forgot-captcha-id">
                     </div>
 
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="button" class="btn btn-text" id="close-forgot-btn" style="flex: 1;">Abbrechen</button>
-                        <button type="submit" class="btn btn-primary" id="forgot-submit-btn" style="flex: 2;">Link anfordern</button>
+                        <button type="button" class="btn btn-text" id="close-forgot-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary" id="forgot-submit-btn" style="flex: 2;" data-i18n="dlgcore.requestLink">Link anfordern</button>
                     </div>
                 </form>
             </div>
@@ -1187,14 +1200,14 @@
         <div class="dialog-card auth-modal" style="max-width: 440px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">password</span>
-                <h3>Neues Passwort festlegen</h3>
+                <h3 data-i18n="dlgcore.resetTitle">Neues Passwort festlegen</h3>
             </div>
             <div class="dialog-body">
                 <form id="reset-form">
                     <div class="text-field password-field" style="width: 100%;">
                         <input type="password" id="reset-password" required placeholder=" " minlength="8" maxlength="72" autocomplete="new-password" style="width: 100%;">
-                        <label for="reset-password">Neues Passwort</label>
-                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                        <label for="reset-password" data-i18n="dlgcore.newPassword">Neues Passwort</label>
+                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="dlgcore.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                     </div>
                     <ul class="password-requirements" id="reset-pw-requirements" style="margin: 6px 0 0 4px; padding: 0; list-style: none; font-size: 12px; color: var(--text-muted);">
                         <li id="reset-req-length">&#x2715; Mindestens 8 Zeichen</li>
@@ -1203,13 +1216,13 @@
                     </ul>
                     <div class="text-field password-field" style="margin-top: 12px; width: 100%;">
                         <input type="password" id="reset-password-confirm" required placeholder=" " autocomplete="new-password" style="width: 100%;">
-                        <label for="reset-password-confirm">Passwort best&auml;tigen</label>
-                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                        <label for="reset-password-confirm" data-i18n="dlgcore.confirmPassword">Passwort best&auml;tigen</label>
+                        <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="dlgcore.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                     </div>
-                    <p id="reset-pw-match-error" style="font-size: 12px; color: var(--md-sys-color-error); margin-top: 4px; display: none;">Passw&ouml;rter stimmen nicht &uuml;berein.</p>
+                    <p id="reset-pw-match-error" style="font-size: 12px; color: var(--md-sys-color-error); margin-top: 4px; display: none;" data-i18n="dlgcore.pwMismatch">Passw&ouml;rter stimmen nicht &uuml;berein.</p>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="button" class="btn btn-text" id="close-reset-btn" style="flex: 1;">Abbrechen</button>
-                        <button type="submit" class="btn btn-primary" id="reset-submit-btn" style="flex: 2;">Passwort speichern</button>
+                        <button type="button" class="btn btn-text" id="close-reset-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary" id="reset-submit-btn" style="flex: 2;" data-i18n="dlgcore.savePassword">Passwort speichern</button>
                     </div>
                 </form>
             </div>
@@ -1225,52 +1238,52 @@
         <div class="dialog-card large-modal" style="max-width: 960px; width: 92%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">account_circle</span>
-                <h3>Mein Profil & Einstellungen</h3>
+                <h3 data-i18n="site.profileTitle">Mein Profil & Einstellungen</h3>
             </div>
             <div class="dialog-body">
                 
                 <div class="profile-tabs" id="profile-tabs">
-                    <button type="button" class="profile-tab-btn active" data-ptab="startseite">Startseite</button>
-                    <button type="button" class="profile-tab-btn" data-ptab="sicherheit">Sicherheit</button>
+                    <button type="button" class="profile-tab-btn active" data-ptab="startseite" data-i18n="site.profileTabHome">Startseite</button>
+                    <button type="button" class="profile-tab-btn" data-ptab="sicherheit" data-i18n="site.profileTabSecurity">Sicherheit</button>
                     
-                    <button type="button" class="profile-tab-btn" data-ptab="api" id="ptab-api">API Zugriff</button>
-                    <button type="button" class="profile-tab-btn" data-ptab="dsgvo" id="ptab-dsgvo">DSGVO</button>
+                    <button type="button" class="profile-tab-btn" data-ptab="api" id="ptab-api" data-i18n="site.profileTabApi">API Zugriff</button>
+                    <button type="button" class="profile-tab-btn" data-ptab="dsgvo" id="ptab-dsgvo" data-i18n="site.profileTabGdpr">DSGVO</button>
                 </div>
 
                 
                 <div class="profile-tab-panel active" data-ppanel="startseite">
-                    <h4 class="profile-h4">Kontoinformationen</h4>
-                    <p style="margin-bottom: 8px;"><strong>Benutzername:</strong> <span id="profile-username-val"></span></p>
-                    <p style="margin-bottom: 8px;"><strong>E-Mail:</strong> <span id="profile-email-val"></span></p>
-                    <p id="profile-tier-row" style="margin-bottom: 8px;"><strong>Abo-Tier:</strong> <span id="profile-tier-val" class="badge" style="background: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent); border: 1px solid var(--md-sys-color-primary); padding: 2px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase;">Free</span></p>
-                    <p id="profile-guest-status-row" style="margin-bottom: 8px; display: none;"><strong>Status:</strong> <span id="profile-guest-status-val" class="badge" style="padding: 2px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase;">-</span></p>
-                    <p id="profile-date-row" style="margin-bottom: 8px;"><strong>Registriert am:</strong> <span id="profile-date-val"></span></p>
+                    <h4 class="profile-h4" data-i18n="site.accountInfo">Kontoinformationen</h4>
+                    <p style="margin-bottom: 8px;"><strong data-i18n="site.usernameLabel">Benutzername:</strong> <span id="profile-username-val"></span></p>
+                    <p style="margin-bottom: 8px;"><strong data-i18n="site.emailLabel">E-Mail:</strong> <span id="profile-email-val"></span></p>
+                    <p id="profile-tier-row" style="margin-bottom: 8px;"><strong data-i18n="site.tierLabel">Abo-Tier:</strong> <span id="profile-tier-val" class="badge" style="background: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent); border: 1px solid var(--md-sys-color-primary); padding: 2px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase;">Free</span></p>
+                    <p id="profile-guest-status-row" style="margin-bottom: 8px; display: none;"><strong data-i18n="site.statusLabel">Status:</strong> <span id="profile-guest-status-val" class="badge" style="padding: 2px 8px; border-radius: 12px; font-size: 12px; text-transform: uppercase;">-</span></p>
+                    <p id="profile-date-row" style="margin-bottom: 8px;"><strong data-i18n="site.registeredLabel">Registriert am:</strong> <span id="profile-date-val"></span></p>
 
                     <div id="profile-identity-section" style="max-width: 420px;">
-                        <h4 class="profile-h4" style="margin-top: 22px;">Profil aktualisieren</h4>
+                        <h4 class="profile-h4" style="margin-top: 22px;" data-i18n="site.updateProfile">Profil aktualisieren</h4>
                         <form id="profile-update-form">
                             <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                                 <input type="text" id="profile-update-username" required placeholder=" " style="width: 100%;">
-                                <label for="profile-update-username">Neuer Benutzername</label>
+                                <label for="profile-update-username" data-i18n="site.newUsername">Neuer Benutzername</label>
                             </div>
                             <div class="text-field" style="margin-bottom: 10px; width: 100%;">
                                 <input type="email" id="profile-update-email" required placeholder=" " style="width: 100%;">
-                                <label for="profile-update-email">Neue E-Mail</label>
+                                <label for="profile-update-email" data-i18n="site.newEmail">Neue E-Mail</label>
                             </div>
-                            <button type="submit" class="btn btn-secondary btn-small" style="margin-top: 4px;">Speichern</button>
+                            <button type="submit" class="btn btn-secondary btn-small" style="margin-top: 4px;" data-i18n="common.save">Speichern</button>
                         </form>
                     </div>
 
-                    <h4 class="profile-h4" style="margin-top: 22px;">Benachrichtigungen</h4>
+                    <h4 class="profile-h4" style="margin-top: 22px;" data-i18n="site.notifications">Benachrichtigungen</h4>
                     <div class="checkbox-container" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
                         <input type="checkbox" id="profile-email-notif" class="styled-checkbox">
-                        <label for="profile-email-notif" class="checkbox-label" style="font-size: 14px;">E-Mail bei Ausführungen erhalten</label>
+                        <label for="profile-email-notif" class="checkbox-label" style="font-size: 14px;" data-i18n="site.emailOnRuns">E-Mail bei Ausführungen erhalten</label>
                     </div>
                     
                     
 
                     
-                    <h4 class="profile-h4" style="margin-top: 22px;">Darstellung</h4>
+                    <h4 class="profile-h4" style="margin-top: 22px;" data-i18n="profile.appearance">Darstellung</h4>
                     <div class="text-field" style="max-width: 320px; margin-bottom: 22px;">
                         <select id="profile-theme-select" aria-label="Farbschema (Theme)" style="width: 100%;">
                             <option value="system">Wie System (Standard)</option>
@@ -1278,22 +1291,31 @@
                             <option value="dark">Dunkel</option>
                         </select>
                     </div>
+                    
+                    <label for="profile-language-select" class="profile-field-caption" data-i18n="profile.language.label" style="display:block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.9rem;">Sprache</label>
+                    <div class="text-field" style="max-width: 320px; margin-bottom: 22px;">
+                        <select id="profile-language-select" aria-label="Sprache" data-i18n-aria-label="profile.language.label" style="width: 100%;">
+                            <option value="" data-i18n="profile.language.auto">Automatisch (Browser)</option>
+                            <option value="de">Deutsch</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
                 </div>
 
                 
                 <div class="profile-tab-panel" data-ppanel="sicherheit">
                     <div style="max-width: 420px;">
-                        <h4 class="profile-h4">Passwort ändern</h4>
+                        <h4 class="profile-h4" data-i18n="site.changePassword">Passwort ändern</h4>
                         <form id="profile-password-form">
                             <div class="text-field password-field" style="margin-bottom: 10px; width: 100%;">
                                 <input type="password" id="pw-change-current" required placeholder=" " autocomplete="current-password" style="width: 100%;">
-                                <label for="pw-change-current">Aktuelles Passwort</label>
-                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                                <label for="pw-change-current" data-i18n="site.currentPassword">Aktuelles Passwort</label>
+                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="site.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                             </div>
                             <div class="text-field password-field" style="margin-bottom: 6px; width: 100%;">
                                 <input type="password" id="pw-change-new" required placeholder=" " minlength="8" maxlength="72" autocomplete="new-password" style="width: 100%;">
-                                <label for="pw-change-new">Neues Passwort</label>
-                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                                <label for="pw-change-new" data-i18n="site.newPassword">Neues Passwort</label>
+                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="site.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                             </div>
                             <ul class="password-requirements" id="pw-change-requirements" style="margin: 0 0 8px 4px; padding: 0; list-style: none; font-size: 12px; color: var(--text-muted);">
                                 <li id="pwc-req-length">&#x2715; Mindestens 8 Zeichen</li>
@@ -1302,23 +1324,23 @@
                             </ul>
                             <div class="text-field password-field" style="margin-bottom: 4px; width: 100%;">
                                 <input type="password" id="pw-change-confirm" required placeholder=" " autocomplete="new-password" style="width: 100%;">
-                                <label for="pw-change-confirm">Neues Passwort bestätigen</label>
-                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen"><span class="material-symbols-outlined">visibility</span></button>
+                                <label for="pw-change-confirm" data-i18n="site.confirmNewPassword">Neues Passwort bestätigen</label>
+                                <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="site.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                             </div>
-                            <p id="pw-change-match-error" style="font-size: 12px; color: var(--md-sys-color-error); margin-top: 4px; display: none;">Passwörter stimmen nicht überein.</p>
-                            <button type="submit" class="btn btn-secondary btn-small" id="pw-change-submit" style="margin-top: 10px;">Passwort ändern</button>
+                            <p id="pw-change-match-error" style="font-size: 12px; color: var(--md-sys-color-error); margin-top: 4px; display: none;" data-i18n="site.pwMismatch">Passwörter stimmen nicht überein.</p>
+                            <button type="submit" class="btn btn-secondary btn-small" id="pw-change-submit" style="margin-top: 10px;" data-i18n="site.changePassword">Passwort ändern</button>
                         </form>
                     </div>
 
                     
 
-                    <h4 class="profile-h4" style="margin-top: 24px;">Aktive Sitzungen</h4>
+                    <h4 class="profile-h4" style="margin-top: 24px;" data-i18n="site.activeSessions">Aktive Sitzungen</h4>
                     <div id="sessions-list-container" style="margin-bottom: 12px;">
                         <p style="color: var(--text-muted); font-size: 13px;">Lade Sitzungen...</p>
                     </div>
                     <div class="action-buttons-stack" style="display: flex; flex-direction: column; gap: 10px; max-width: 420px; margin-bottom: 20px;">
                         <button type="button" class="btn btn-danger" id="logout-all-btn" style="text-align: left; display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined">devices</span> Von allen Geräten abmelden
+                            <span class="material-symbols-outlined">devices</span> <span data-i18n="site.logoutAllDevices">Von allen Geräten abmelden</span>
                         </button>
                     </div>
 
@@ -1333,20 +1355,18 @@
 
                 
                 <div class="profile-tab-panel" data-ppanel="api">
-                    <h4 class="profile-h4">Automatisierungs-Token (API)</h4>
+                    <h4 class="profile-h4" data-i18n="site.apiTokensTitle">Automatisierungs-Token (API)</h4>
                     <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;">
-                        Generieren Sie API-Tokens, um Playbooks über CI/CD-Pipelines oder externe Skripte auszuführen und Logs auszulesen.
-                        Die vollständige Schnittstellen-Dokumentation finden Sie in den
-                        <a href="/docs" target="_blank" rel="noopener" class="modal-link">API-Docs</a>.
+                        <span data-i18n="site.apiTokensDesc1">Generieren Sie API-Tokens, um Playbooks über CI/CD-Pipelines oder externe Skripte auszuführen und Logs auszulesen. Die vollständige Schnittstellen-Dokumentation finden Sie in den </span><a href="/docs" target="_blank" rel="noopener" class="modal-link" data-i18n="site.apiDocsLink">API-Docs</a>.
                     </p>
                     <div id="token-create-form" style="display: flex; flex-direction: column; gap: 12px; background: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent); padding: 15px; border-radius: 6px; border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent); margin-bottom: 15px; max-width: 460px;">
-                        <h5 style="margin: 0; color: var(--md-sys-color-primary);">Neuen API-Token generieren</h5>
+                        <h5 style="margin: 0; color: var(--md-sys-color-primary);" data-i18n="site.generateNewToken">Neuen API-Token generieren</h5>
                         <div class="text-field" style="margin-bottom: 0;">
                             <input type="text" id="token-name" required placeholder=" ">
-                            <label for="token-name">Token-Name (z.B. Gitlab CI)</label>
+                            <label for="token-name" data-i18n="site.tokenName">Token-Name (z.B. Gitlab CI)</label>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <label style="font-size: 13px; color: var(--text-strong); font-weight: bold;">Berechtigungs-Scopes:</label>
+                            <label style="font-size: 13px; color: var(--text-strong); font-weight: bold;" data-i18n="site.permissionScopes">Berechtigungs-Scopes:</label>
                             
                             <div style="display: flex; gap: 12px 15px; align-items: center; flex-wrap: wrap;">
                                 <div class="checkbox-container" style="display: flex; align-items: center; gap: 6px; margin: 0;">
@@ -1368,24 +1388,24 @@
                             </div>
                         </div>
                         <div style="display: flex; flex-direction: column; gap: 6px;">
-                            <label for="token-expiry" style="font-size: 13px; color: var(--text-strong); font-weight: bold;">Gültigkeitsdauer:</label>
+                            <label for="token-expiry" style="font-size: 13px; color: var(--text-strong); font-weight: bold;" data-i18n="site.validity">Gültigkeitsdauer:</label>
                             <select id="token-expiry" style="background: #222831; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 6px; border-radius: 4px; font-size: 13px;">
-                                <option value="30">30 Tage</option>
-                                <option value="90">90 Tage</option>
-                                <option value="365">365 Tage</option>
-                                <option value="never">Unbegrenzt</option>
+                                <option value="30" data-i18n="site.days30">30 Tage</option>
+                                <option value="90" data-i18n="site.days90">90 Tage</option>
+                                <option value="365" data-i18n="site.days365">365 Tage</option>
+                                <option value="never" data-i18n="site.unlimited">Unbegrenzt</option>
                             </select>
                         </div>
-                        <button type="button" class="btn btn-primary btn-small" id="token-submit-btn" style="align-self: flex-start; padding: 6px 12px; font-size: 13px;">Token generieren</button>
+                        <button type="button" class="btn btn-primary btn-small" id="token-submit-btn" style="align-self: flex-start; padding: 6px 12px; font-size: 13px;" data-i18n="site.generateToken">Token generieren</button>
                     </div>
                     <div class="tokens-list-container" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; padding: 10px; max-height: 220px; overflow-y: auto;">
                         <table class="table" style="width: 100%; font-size: 13px; border-collapse: collapse; text-align: left;">
                             <thead>
                                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.1); color: var(--text-secondary);">
-                                    <th style="padding: 5px;">Name</th>
-                                    <th style="padding: 5px;">Scopes</th>
-                                    <th style="padding: 5px;">Ablauf</th>
-                                    <th style="padding: 5px; text-align: right;">Aktion</th>
+                                    <th style="padding: 5px;" data-i18n="site.thName">Name</th>
+                                    <th style="padding: 5px;" data-i18n="site.thScopes">Scopes</th>
+                                    <th style="padding: 5px;" data-i18n="site.thExpiry">Ablauf</th>
+                                    <th style="padding: 5px; text-align: right;" data-i18n="site.thAction">Aktion</th>
                                 </tr>
                             </thead>
                             <tbody id="tokens-tbody">
@@ -1399,17 +1419,17 @@
 
                 
                 <div class="profile-tab-panel" data-ppanel="dsgvo">
-                    <h4 class="profile-h4">Datenexport</h4>
+                    <h4 class="profile-h4" data-i18n="site.dataExport">Datenexport</h4>
                     <div class="action-buttons-stack" style="display: flex; flex-direction: column; gap: 10px; max-width: 420px; margin-bottom: 10px;">
                         <button type="button" class="btn btn-secondary" id="profile-export-btn" style="text-align: left; display: flex; align-items: center; gap: 8px;">
-                            <span class="material-symbols-outlined">download</span> Daten exportieren (JSON)
+                            <span class="material-symbols-outlined">download</span> <span data-i18n="site.exportDataJson">Daten exportieren (JSON)</span>
                         </button>
                     </div>
 
                 </div>
             </div>
             <div class="dialog-actions">
-                <button type="button" class="btn btn-text" id="close-profile-btn">Schließen</button>
+                <button type="button" class="btn btn-text" id="close-profile-btn" data-i18n="common.close">Schließen</button>
             </div>
         </div>
     </div>
@@ -1419,21 +1439,21 @@
         <div class="dialog-card" style="max-width: 500px; width: 90%;">
             <div class="dialog-header" style="color: var(--md-sys-color-primary);">
                 <span class="material-symbols-outlined">key</span>
-                <h3>API-Token generiert</h3>
+                <h3 data-i18n="site.tokenGenerated">API-Token generiert</h3>
             </div>
             <div class="dialog-body">
                 <p style="font-size: 14px; line-height: 1.5; color: var(--text-strong); margin-bottom: 15px;">
-                    Hier ist Ihr neuer API-Token. Kopieren Sie ihn jetzt. Aus Sicherheitsgründen wird er <strong>nie wieder angezeigt</strong>.
+                    <span data-i18n="site.tokenDisplayInfo1">Hier ist Ihr neuer API-Token. Kopieren Sie ihn jetzt. Aus Sicherheitsgründen wird er </span><strong data-i18n="site.tokenDisplayNever">nie wieder angezeigt</strong>.
                 </p>
                 <div class="token-display-container" style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
                     <code id="generated-token-text" style="font-size: 14px; color: var(--md-sys-color-primary); word-break: break-all; select-all: true; user-select: all; font-family: monospace;">asm_tok_...</code>
                     <button type="button" class="btn btn-secondary btn-small" id="copy-token-btn" style="padding: 6px 10px; margin-left: 10px; display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 16px;">content_copy</span> Kopieren
+                        <span class="material-symbols-outlined" style="font-size: 16px;">content_copy</span> <span data-i18n="site.copy">Kopieren</span>
                     </button>
                 </div>
             </div>
             <div class="dialog-actions">
-                <button type="button" class="btn btn-primary" id="close-token-display-btn">Ich habe den Token kopiert</button>
+                <button type="button" class="btn btn-primary" id="close-token-display-btn" data-i18n="site.tokenCopiedDone">Ich habe den Token kopiert</button>
             </div>
         </div>
     </div>
@@ -1541,19 +1561,19 @@
     <div id="ip-block-overlay" class="ip-block-overlay hidden" role="alertdialog" aria-modal="true" aria-labelledby="ip-block-title" aria-describedby="ip-block-text">
         <div class="ip-block-card">
             <span class="material-symbols-outlined ip-block-icon" aria-hidden="true">gpp_bad</span>
-            <h1 id="ip-block-title">Zugriff vorübergehend gesperrt</h1>
-            <p id="ip-block-text">Ihre IP-Adresse wurde aus Sicherheitsgründen vorübergehend gesperrt (zu viele Anfragen in kurzer Zeit).</p>
+            <h1 id="ip-block-title" data-i18n="site.ipBlockTitle">Zugriff vorübergehend gesperrt</h1>
+            <p id="ip-block-text" data-i18n="site.ipBlockText">Ihre IP-Adresse wurde aus Sicherheitsgründen vorübergehend gesperrt (zu viele Anfragen in kurzer Zeit).</p>
             <p id="ip-block-reason" class="ip-block-reason hidden"></p>
             <div id="ip-block-countdown-wrap" class="ip-block-countdown-wrap hidden">
-                <span class="ip-block-countdown-label">Automatische Freigabe in</span>
+                <span class="ip-block-countdown-label" data-i18n="site.ipBlockCountdownLabel">Automatische Freigabe in</span>
                 <span id="ip-block-countdown" class="ip-block-countdown" aria-live="polite">–</span>
                 <span id="ip-block-until" class="ip-block-until"></span>
             </div>
-            <p id="ip-block-permanent" class="ip-block-permanent hidden">Die Sperre ist dauerhaft. Bitte wenden Sie sich an den Administrator.</p>
+            <p id="ip-block-permanent" class="ip-block-permanent hidden" data-i18n="site.ipBlockPermanent">Die Sperre ist dauerhaft. Bitte wenden Sie sich an den Administrator.</p>
             
         </div>
     </div>
 
-    <script src="app.js?v=4.5"></script>
+    <script src="app.js?v=4.7"></script>
 </body>
 </html>

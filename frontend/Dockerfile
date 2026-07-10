@@ -27,7 +27,7 @@ RUN if [ "$EDITION" = "community" ]; then node strip-cloud-only.cjs ./src; fi
 # die liefert Vite als Bundle. So enthaelt das community/onprem-dist KEINEN Billing-Quellcode
 #. Vite baut editionsabhaengig: nur cloud bezieht das Billing-Modul ins Bundle (sonst
 # Dead-Code-Elimination des dynamischen Imports).
-RUN mkdir -p dist && cp -a src/. dist/ && rm -f dist/*.js \
+RUN mkdir -p dist && cp -a src/. dist/ && rm -f dist/*.js && rm -rf dist/i18n \
     && VITE_EDITION="${EDITION}" npx vite build
 
 # ---- Stage 2: nginx ----

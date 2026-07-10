@@ -3400,3 +3400,56 @@ body.drawer-open { overflow: hidden; }
     vertical-align: top;
 }
 .llm-doc table.llm-table th { background: var(--md-sys-color-surface-container-high, rgba(128,128,128,0.14)); font-weight: 600; }
+
+/* : Sprach-Umschalter im Header (Popover-Menue). Nutzt die Material-Design-Tokens
+   -> automatisch hell/dunkel-tauglich (Theme-Klassen + prefers-color-scheme). */
+.lang-switch-wrap { position: relative; display: inline-flex; }
+#lang-switch-btn { display: inline-flex; align-items: center; gap: 4px; }
+.lang-switch-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: var(--text-secondary);
+}
+.lang-switch-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 1200;
+    min-width: 168px;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.lang-switch-menu.hidden { display: none; }
+.lang-switch-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    font: inherit;
+    font-size: 0.92rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+.lang-switch-item:hover { background-color: var(--md-sys-color-secondary-container); }
+.lang-switch-item.active { color: var(--md-sys-color-primary); font-weight: 600; }
+.lang-switch-item.active::after {
+    content: "check";
+    font-family: "Material Symbols Outlined";
+    font-size: 1.15rem;
+    line-height: 1;
+}

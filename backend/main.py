@@ -460,6 +460,10 @@ def startup_event():
                 db.execute(text("ALTER TABLE stats_snapshots DROP COLUMN IF EXISTS active_trial"))
             # : Webhook-URL fuer Playbook-Status-Benachrichtigungen.
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS webhook_url VARCHAR NULL"))
+            # : bevorzugte UI-Sprache je Nutzer (de|en|NULL=automatisch). Kernfunktion,
+            # community-sicher (KEIN Marker, laeuft vor dem optionalen tariffs-Block + commit unten,
+            # bricht die Startup-Tx/das Admin-Seeding nicht ab).
+            db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5) NULL"))
             #: optionales Sudo-/Become-Passwort je Geraet (Privilege Escalation).
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS encrypted_become_credential VARCHAR NULL"))
             # (Device-Flatten): Geraete-Freigabe + Run-Kontext (base_dir/timezone) direkt am
@@ -1875,6 +1879,14 @@ class ProfileUpdateSchema(BaseModel):
     # Optional: Identitaets-/2FA-Aenderung erfolgt session-authentifiziert; kein
     # separates 'Aktuelles Passwort'-Feld mehr im Profil noetig.
     current_password: Optional[str] = None
+    # : optionale UI-Sprache ("de"|"en"|""/None=automatisch). Konsistenz mit dem
+    # dedizierten Sprach-Setter, damit "Profil speichern" die Sprache mitfuehren kann.
+    language: Optional[str] = None
+
+# : dedizierter Body fuer den leichtgewichtigen Sprach-Setter (Header-Switcher/
+# Profil-Select), der NICHT das ganze Profil (username+email Pflicht) mitsenden soll.
+class ProfileLanguageSchema(BaseModel):
+    language: Optional[str] = None  # "de" | "en" | None/"" = automatisch (Browser-Erkennung)
 
 class ChangePasswordSchema(BaseModel):
     current_password: str
@@ -2451,6 +2463,8 @@ def get_profile(user: User = Depends(get_authenticated_user), db: DBSession = De
         "deletion_pending_at": user.deletion_pending_at.isoformat() if user.deletion_pending_at else None,
         "email_notifications_enabled": user.email_notifications_enabled,
         "webhook_url": user.webhook_url or "",
+        # : serverseitige Sprachpraeferenz (de|en|null=automatisch). Kernfeld, auch Community.
+        "language": user.language,
         "two_factor_enabled": user.two_factor_enabled,
         "associated_user_id": user.associated_user_id,
     }
@@ -2487,9 +2501,26 @@ def update_profile(data: ProfileUpdateSchema, user: User = Depends(get_authentic
 
     user.username = username
     user.email = email
+    # : Sprache optional mitfuehren (leer/None -> automatisch).
+    if data.language is not None:
+        lang = (data.language or "").strip().lower() or None
+        if lang not in (None, "de", "en"):
+            raise HTTPException(status_code=400, detail="Ungueltige Sprache (erlaubt: de, en oder leer/automatisch).")
+        user.language = lang
     db.commit()
 
     return {"message": "Profil erfolgreich aktualisiert."}
+
+@app.post("/api/profile/language")
+def update_profile_language(data: ProfileLanguageSchema, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
+    # : leichtgewichtiger, session-/token-faehiger Sprach-Setter fuer den Header-
+    # Switcher und das Profil-Select. Gast-Accounts duerfen die eigene Sprache setzen.
+    lang = (data.language or "").strip().lower() or None
+    if lang not in (None, "de", "en"):
+        raise HTTPException(status_code=400, detail="Ungueltige Sprache (erlaubt: de, en oder leer/automatisch).")
+    user.language = lang
+    db.commit()
+    return {"language": user.language}
 
 @app.post("/api/profile/change-password")
 def change_password(data: ChangePasswordSchema, request: Request, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):

@@ -1,6 +1,15 @@
 // : Chart.js für die Admin-Dashboard-Diagramme (Pie + Verlauf).
 import Chart from "chart.js/auto";
 
+// : i18n-Engine. Wird von Vite ins app.js-Bundle gezogen (Community inklusive) und
+// haelt ihren State als window-Singleton, damit auch der cloud-only Billing-Chunk dieselbe
+// Sprache/dasselbe Woerterbuch teilt. t()/setLanguage() stehen dem restlichen App-Code zur
+// Verfuegung; die Content-Issues (–) ersetzen hartkodierte Strings durch t(...).
+import {
+    t, setLanguage, getLanguage, getLocale, applyStaticTranslations,
+    initI18n, applyServerLanguage, setLoggedIn, setRenderHook,
+} from "./i18n/index.js";
+
 // : Billing-UI nur in der cloud-Edition laden. import.meta.env.VITE_EDITION ist eine
 // BUILD-ZEIT-Konstante; der dynamische, editionsabhaengige Import wird in community/onprem-
 // Builds per Dead-Code-Elimination komplett entfernt -> diese Bundles enthalten KEINEN
@@ -345,6 +354,16 @@ function initModalA11y() {
 
 async function init() {
     initTheme();   //: so frueh wie moeglich, um Theme-Flackern zu minimieren
+    // : i18n so frueh wie initTheme — Sprache aus Cache/Browser bestimmen, statische
+    // Texte + Header-Switcher/Profil-Select verdrahten. Nach dem Auth-Boot uebernimmt
+    // checkAuthStatus() ggf. die Serversprache (applyServerLanguage).
+    initI18n();
+    // Re-Render-Hook: statische Uebersetzungen erledigt setLanguage() bereits selbst; dynamische
+    // Views hoeren auf dieses Event und rendern sich neu (die Content-Issues verdrahten das je
+    // Bereich, ohne diesen Hook erneut anfassen zu muessen).
+    setRenderHook((lang) => {
+        document.dispatchEvent(new CustomEvent("i18n:languagechange", { detail: { lang } }));
+    });
     initModalA11y(); //: ARIA + Focus-Trap fuer alle Modals
     setupEventListeners();
     initTabNavigation();
@@ -523,9 +542,9 @@ function applyEditionRules() {
         if (pbTabBtn) pbTabBtn.style.display = "none";
         //: Tab-Beschreibungen ohne Team-/Freigabe-Bezug (in Community nicht zutreffend).
         const devDesc = document.getElementById("vault-devices-desc");
-        if (devDesc) devDesc.textContent = "Verwalten Sie Ihre Geräte: hinterlegen Sie Verbindungsdaten und Standardwerte für die Ausführung von Playbooks.";
+        if (devDesc) devDesc.textContent = t("core.vaultDevicesDescCommunity");
         const scnDesc = document.getElementById("vault-scenarios-desc");
-        if (scnDesc) scnDesc.textContent = "Ein Szenario verknüpft ein Preset (Playbooks + Einstellungen) fest mit einem Zielgerät. Ausführen per Klick im Startseiten-Abschnitt „Szenarios“.";
+        if (scnDesc) scnDesc.textContent = t("core.vaultScenariosDescCommunity");
         //  (Community): Elemente ausblenden, die nur für Cloud/On-Premise gelten.
         // Hinweis: Wartungs-Config, Selbstregistrierungs-Schalter, Konten-Statistik-Charts und der
         // Webhook-Block werden inzwischen build-zeitlich ENTFERNT (Klasse community-strip), nicht
@@ -559,7 +578,7 @@ function applyEditionRules() {
                 a.href = COMMUNITY_PROJECT_URL;
                 a.target = "_blank";
                 a.rel = "noopener";
-                a.textContent = "Projekt-Webseite";
+                a.textContent = t("nav.projectWebsite");
                 footer.appendChild(sep);
                 footer.appendChild(a);
             }
@@ -741,12 +760,12 @@ async function loadLegalContent(doc) {
         const r = await fetch("/api/legal/text/" + doc);
         if (!r.ok) throw new Error("HTTP " + r.status);
         const d = await r.json();
-        if (titleEl) titleEl.innerHTML = d.title || "Rechtliche Informationen";
+        if (titleEl) titleEl.innerHTML = d.title || t("core.legalInfoTitle");
         if (bodyEl) bodyEl.innerHTML = d.html || "";
     } catch (e) {
         console.warn("Rechtstext konnte nicht geladen werden:", e);
-        if (titleEl) titleEl.textContent = "Rechtliche Informationen";
-        if (bodyEl) bodyEl.textContent = "Die rechtlichen Informationen konnten nicht geladen werden.";
+        if (titleEl) titleEl.textContent = t("core.legalInfoTitle");
+        if (bodyEl) bodyEl.textContent = t("core.legalLoadError");
     }
 }
 
@@ -868,7 +887,7 @@ async function loadLlmInstructions() {
         bodyEl.dataset.loaded = "1";
     } catch (e) {
         console.warn("Agent-Anleitung konnte nicht geladen werden:", e);
-        bodyEl.textContent = "Die Agent-Anleitung konnte nicht geladen werden.";
+        bodyEl.textContent = t("core.llmLoadError");
     }
 }
 
@@ -1118,13 +1137,13 @@ function setupEventListeners() {
         const text = consoleOutput.textContent;
         try {
             await navigator.clipboard.writeText(text);
-            showToast("Protokolle in Zwischenablage kopiert!");
+            showToast(t("core.logsCopied"));
         } catch (e) {
             // Fallback ohne Clipboard-API (z. B. Firefox / unsicherer Kontext).
             const ta = document.createElement("textarea");
             ta.value = text; document.body.appendChild(ta); ta.select();
-            try { document.execCommand("copy"); showToast("Protokolle in Zwischenablage kopiert!"); }
-            catch (x) { showToast("Kopieren fehlgeschlagen."); }
+            try { document.execCommand("copy"); showToast(t("core.logsCopied")); }
+            catch (x) { showToast(t("core.copyFailed")); }
             document.body.removeChild(ta);
         }
     });
@@ -1322,7 +1341,7 @@ function setupEventListeners() {
         srdKeyFile.addEventListener("change", () => {
             const has = !!(srdKeyFile.files && srdKeyFile.files[0]);
             const lbl = document.getElementById("scenario-run-key-filename-lbl");
-            if (lbl) lbl.textContent = has ? srdKeyFile.files[0].name : "Keine Datei ausgewählt";
+            if (lbl) lbl.textContent = has ? srdKeyFile.files[0].name : t("core.noFileSelected");
             if (srdKeyReset) srdKeyReset.classList.toggle("hidden", !has);
         });
     }
@@ -1362,7 +1381,7 @@ function setupEventListeners() {
         mdKeyDz.addEventListener("click", () => mdKeyFile.click());
         mdKeyFile.addEventListener("change", () => {
             const lbl = document.getElementById("managed-device-key-filename-lbl");
-            if (lbl) lbl.textContent = (mdKeyFile.files && mdKeyFile.files[0]) ? mdKeyFile.files[0].name : "Keine Datei ausgewählt";
+            if (lbl) lbl.textContent = (mdKeyFile.files && mdKeyFile.files[0]) ? mdKeyFile.files[0].name : t("core.noFileSelected");
         });
     }
     const mdShareCancel = document.getElementById("managed-device-share-cancel");
@@ -1536,7 +1555,7 @@ function setupEventListeners() {
     const _cpbUpdateLbl = () => {
         const lbl = document.getElementById("custom-playbook-filename-lbl");
         const has = fileInput && fileInput.files.length > 0;
-        if (lbl) lbl.textContent = has ? fileInput.files[0].name : "Keine Datei ausgewählt";
+        if (lbl) lbl.textContent = has ? fileInput.files[0].name : t("core.noFileSelected");
         if (cpbReset) cpbReset.classList.toggle("hidden", !has);
     };
     if (fileInput) {
@@ -1565,7 +1584,7 @@ function setupEventListeners() {
     const updateIconLbl = () => {
         const lbl = document.getElementById("custom-pb-icon-filename-lbl");
         const has = iconInput && iconInput.files.length;
-        if (lbl) lbl.textContent = has ? iconInput.files[0].name : "Keine Datei ausgewählt";
+        if (lbl) lbl.textContent = has ? iconInput.files[0].name : t("core.noFileSelected");
         if (iconReset) iconReset.classList.toggle("hidden", !has);
     };
     if (iconInput) iconInput.addEventListener("change", updateIconLbl);
@@ -1768,7 +1787,7 @@ function setupEventListeners() {
         copyTokenBtn.addEventListener("click", async () => {
             const text = document.getElementById("generated-token-text").textContent;
             const ok = await copyToClipboard(text);
-            showToast(ok ? "Token in die Zwischenablage kopiert!" : "Kopieren fehlgeschlagen — bitte manuell markieren.");
+            showToast(ok ? t("core.tokenCopied") : t("core.copyFailedManual"));
         });
     }
     
@@ -1941,7 +1960,7 @@ async function fetchPlaybooks() {
         playbooksList.innerHTML = `
             <div class="empty-state">
                 <span class="material-symbols-outlined">warning</span>
-                Fehler beim Laden der Playbooks
+                ${t("core.playbooksLoadError")}
             </div>`;
     }
 }
@@ -1958,7 +1977,7 @@ function renderSinglePlaybookItem(pb) {
         requiresHtml = `
             <div class="playbook-requires">
                 <span class="material-symbols-outlined">link</span>
-                <span>Erfordert: <span class="req-names">${reqNames}</span></span>
+                <span>${t("core.requires")} <span class="req-names">${reqNames}</span></span>
             </div>
         `;
     }
@@ -1998,7 +2017,7 @@ function renderSinglePlaybookItem(pb) {
     const locked = isPremium && !entitled;
     if (isPremium) {
         item.classList.add("playbook-item--premium");
-        premiumHtml = `<span class="playbook-premium-badge" title="Premium-Playbook">
+        premiumHtml = `<span class="playbook-premium-badge" title="${t("core.premiumBadgeTitle")}">
                 <span class="material-symbols-outlined">workspace_premium</span>Premium</span>`;
     }
     if (locked) {
@@ -2012,7 +2031,7 @@ function renderSinglePlaybookItem(pb) {
         vendorHtml = `
             <div class="playbook-vendor">
                 <a href="#" class="playbook-vendor-trigger">
-                    <span class="material-symbols-outlined">info</span>Hersteller anzeigen
+                    <span class="material-symbols-outlined">info</span>${t("core.showVendor")}
                 </a>
             </div>
         `;
@@ -2058,7 +2077,7 @@ function openVendorDialog(pb) {
     const dialog = document.getElementById("playbook-vendor-dialog");
     if (!dialog) return;
     const titleEl = document.getElementById("playbook-vendor-title");
-    if (titleEl) titleEl.textContent = `Hersteller-Informationen — ${pb.name || ""}`;
+    if (titleEl) titleEl.textContent = t("core.vendorDialogTitle", { name: pb.name || "" });
     const list = document.getElementById("playbook-vendor-list");
     if (list) {
         list.innerHTML = "";
@@ -2155,7 +2174,7 @@ function renderPlaybooks() {
         playbooksList.innerHTML = `
             <div class="empty-state">
                 <span class="material-symbols-outlined">folder_open</span>
-                Keine Playbooks oder Presets gefunden.
+                ${t("core.noPlaybooksOrPresets")}
             </div>`;
         return;
     }
@@ -2174,14 +2193,14 @@ function renderPlaybooks() {
         scHeader.className = "category-main-title grid-row-header";
         scHeader.innerHTML = `
             <span class="material-symbols-outlined">rocket_launch</span>
-            Szenarios
+            ${t("core.scenariosHeader")}
         `;
         playbooksList.appendChild(scHeader);
         _scenarios.forEach(s => {
             const tile = document.createElement("div");
             tile.className = "playbook-item scenario-tile";
             tile.style.cursor = "pointer";
-            const badge = !s.is_owner ? `<span class="playbook-desc">${s.permission === "flexible" ? "flexibel freigegeben" : "strikt freigegeben"}</span>` : "";
+            const badge = !s.is_owner ? `<span class="playbook-desc">${s.permission === "flexible" ? t("core.sharedFlexible") : t("core.sharedStrict")}</span>` : "";
             // : Kachel-Subtitel nur „→ Zielgerät" (kein Preset-Name); gerätelos -> „beim Ausführen festlegen".
             tile.innerHTML = `<span class="material-symbols-outlined playbook-item-icon">rocket_launch</span>` +
                 `<div class="playbook-info"><span class="playbook-name">${escapeHtml(s.name)}</span>` +
@@ -2210,7 +2229,7 @@ function renderPlaybooks() {
         // : gleiches Icon wie der Presets-Tab (tune).
         presetHeader.innerHTML = `
             <span class="material-symbols-outlined">tune</span>
-            Verfügbare Presets
+            ${t("core.availablePresets")}
         `;
         playbooksList.appendChild(presetHeader);
 
@@ -2220,7 +2239,7 @@ function renderPlaybooks() {
             tile.className = "playbook-item custom-preset-tile";
             tile.style.cursor = "pointer";
             const pbCount = (p.playbook_ids || []).length;
-            const badge = !p.is_owner ? `<span class="playbook-desc">${p.permission === "flexible" ? "flexibel freigegeben" : "strikt freigegeben"}</span>` : "";
+            const badge = !p.is_owner ? `<span class="playbook-desc">${p.permission === "flexible" ? t("core.sharedFlexible") : t("core.sharedStrict")}</span>` : "";
             tile.innerHTML = `<span class="material-symbols-outlined playbook-item-icon">bookmark</span>` +
                 `<div class="playbook-info"><span class="playbook-name">${escapeHtml(p.name)}</span>` +
                 `<span class="playbook-desc">${pbCount} Playbook${pbCount === 1 ? "" : "s"}</span>${badge}</div>`;
@@ -2258,7 +2277,7 @@ function renderPlaybooks() {
             
             const iconHtml = `<img src="${iconSrc}" class="playbook-item-icon-img" alt="${escapeHtml(preset.name || 'Preset')}">`;
             
-            const descriptionText = preset.description || `Module: ${presetPlaybookNames}`;
+            const descriptionText = preset.description || t("core.presetModules", { names: presetPlaybookNames });
             
             tile.innerHTML = `
                 ${iconHtml}
@@ -2279,7 +2298,7 @@ function renderPlaybooks() {
         pbHeader.style.marginTop = "24px";
         pbHeader.innerHTML = `
             <span class="material-symbols-outlined">settings_applications</span>
-            Verfügbare Playbooks
+            ${t("core.availablePlaybooks")}
         `;
         playbooksList.appendChild(pbHeader);
 
@@ -2310,7 +2329,7 @@ function renderPlaybooks() {
             //: innerhalb der Kategorie alphabetisch nach Anzeigenamen sortieren.
             grouped[catName]
                 .slice()
-                .sort((a, b) => (a.name || "").localeCompare(b.name || "", "de", { sensitivity: "base" }))
+                .sort((a, b) => (a.name || "").localeCompare(b.name || "", getLocale(), { sensitivity: "base" }))
                 .forEach(pb => {
                     playbooksList.appendChild(renderSinglePlaybookItem(pb));
                 });
@@ -2371,7 +2390,7 @@ function applyPlaybookSearch() {
             empty.className = "empty-state";
             playbooksList.appendChild(empty);
         }
-        empty.innerHTML = `<span class="material-symbols-outlined">search_off</span> Keine Treffer für „${escapeHtml(term)}".`;
+        empty.innerHTML = `<span class="material-symbols-outlined">search_off</span> ${t("core.noSearchResults", { term: escapeHtml(term) })}`;
         empty.style.display = "";
     } else if (empty) {
         empty.style.display = "none";
@@ -2413,7 +2432,7 @@ function checkPlaybookAndDependencies(checkbox) {
             if (reqCheckbox && !reqCheckbox.checked) {
                 reqCheckbox.checked = true;
                 const reqName = playbookNameMap[reqFile] || reqFile;
-                showToast(`Abhängigkeit '${reqName}' wurde automatisch ausgewählt.`);
+                showToast(t("core.dependencyAutoSelected", { name: reqName }));
                 // Recursively check its dependencies (if any)
                 checkPlaybookAndDependencies(reqCheckbox);
             }
@@ -2429,14 +2448,14 @@ function handleSidebarSubmit(e) {
     
     const checkedBoxes = document.querySelectorAll('input[name="playbooks"]:checked');
     if (checkedBoxes.length === 0) {
-        showToast("Bitte wähle mindestens ein Playbook aus!");
+        showToast(t("core.selectAtLeastOne"));
         return;
     }
 
     // : Spam-Schutz. Ist die anonyme Ausfuehrung serverseitig deaktiviert,
     // fordern wir nicht angemeldete Besucher zur Anmeldung/Registrierung auf.
     if (!currentUser && !allowAnonymousRun) {
-        showToast("Bitte melden Sie sich an oder registrieren Sie sich, um Playbooks auszuführen.");
+        showToast(t("core.loginToRun"));
         const dlg = document.getElementById("login-dialog");
         if (dlg) dlg.classList.remove("hidden");
         return;
@@ -2873,8 +2892,8 @@ function showCredentialsModal() {
             if (pb && pb.requires_https) httpsNames.push(pb.name || baseFile);
         });
         if (httpsNames.length) {
-            const verb = httpsNames.length === 1 ? "setzt" : "setzen";
-            httpsWarnText.textContent = `${httpsNames.join(", ")} ${verb} HTTPS voraus. Bitte stellen Sie sicher, dass Ihre Ziel-Infrastruktur SSL unterstützt.`;
+            const verb = httpsNames.length === 1 ? t("run.requiresVerbSg") : t("run.requiresVerbPl");
+            httpsWarnText.textContent = t("run.httpsWarning", { names: httpsNames.join(", "), verb });
             httpsWarn.classList.remove("hidden");
         } else {
             httpsWarn.classList.add("hidden");
@@ -3018,7 +3037,7 @@ function showCredentialsModal() {
                 acc.style.display = visibleCount > 0 ? "" : "none";
                 //: Anzahl an die tatsaechlich sichtbaren Felder anpassen.
                 const countEl = acc.querySelector(".modal-config-accordion-count");
-                if (countEl) countEl.textContent = `${visibleCount} Einstellung${visibleCount === 1 ? "" : "en"}`;
+                if (countEl) countEl.textContent = `${visibleCount} ${visibleCount === 1 ? t("run.settingSg") : t("run.settingPl")}`;
             });
             //: Die Sektion enthaelt jetzt die Traefik-Checkbox und muss erreichbar bleiben,
             // solange es ueberhaupt Konfig-Felder gibt (totalConfigs > 0) - daher NICHT mehr
@@ -3093,7 +3112,7 @@ function hideCredentialsModal() {
 // Gibt ein Promise<boolean> zurueck (true = bestaetigt). ESC/Backdrop/Abbrechen -> false.
 // : `messageHtml` erlaubt formatierten Inhalt (fette Namen, Akzentfarben). Aufrufer
 // MÜSSEN dynamische Werte darin selbst via escapeHtml() entschärfen; `message` bleibt reiner Text.
-function showConfirmDialog({ title = "Bestätigen", message = "", messageHtml = null, confirmLabel = "Bestätigen", cancelLabel = "Abbrechen" } = {}) {
+function showConfirmDialog({ title = t("common.confirm"), message = "", messageHtml = null, confirmLabel = t("common.confirm"), cancelLabel = t("common.cancel") } = {}) {
     return new Promise(resolve => {
         const dlg = document.getElementById("app-confirm-dialog");
         if (!dlg) { resolve(window.confirm(message)); return; }
@@ -3160,8 +3179,8 @@ function checkPortCollisions() {
     });
     const conflicting = Object.keys(portMap).filter(p => portMap[p].size > 1);
     if (conflicting.length) {
-        const verb = conflicting.length === 1 ? "wird" : "werden";
-        warnText.textContent = `Port-Kollision: ${conflicting.join(", ")} ${verb} von mehreren unterschiedlichen Diensten belegt. Bitte vergeben Sie unterschiedliche Host-Ports.`;
+        const verb = conflicting.length === 1 ? t("run.portConflictVerbSg") : t("run.portConflictVerbPl");
+        warnText.textContent = t("run.portCollision", { ports: conflicting.join(", "), verb });
         warn.classList.remove("hidden");
     } else {
         warn.classList.add("hidden");
@@ -3213,8 +3232,8 @@ async function saveModalPreset(opts) {
     const nameEl = document.getElementById("modal-preset-name");
     const name = ((nameEl && nameEl.value) || "").trim();
     const playbook_ids = collectModalPlaybooks();
-    if (!name) { showToast("Bitte einen Preset-Namen eingeben."); if (nameEl) nameEl.focus(); return false; }
-    if (!playbook_ids.length) { showToast("Bitte mindestens ein Playbook auswählen."); return false; }
+    if (!name) { showToast(t("job.presetNameRequired")); if (nameEl) nameEl.focus(); return false; }
+    if (!playbook_ids.length) { showToast(t("job.selectPlaybook")); return false; }
     // base_dir wie im echten Run aufloesen (gleiche Fallback-Logik).
     const username = modalUsernameInput.value.trim();
     let baseDir = modalBaseDirInput.value.trim();
@@ -3235,16 +3254,16 @@ async function saveModalPreset(opts) {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            if (!opts.silent) showToast("Preset gespeichert.");
+            if (!opts.silent) showToast(t("job.presetSaved"));
             if (typeof fetchUserCustomPresets === "function") await fetchUserCustomPresets();
             //: Katalog-Kacheln auf der Startseite ohne Reload aktualisieren.
             if (typeof renderPlaybooks === "function" && Array.isArray(allPlaybooks) && allPlaybooks.length) renderPlaybooks();
             if (typeof loadPresets === "function" && document.querySelector("#vault-tab-presets #presets-list") && document.body.classList.contains("tab-vault")) loadPresets();
             return true;
         }
-        showToast(errorDetailToMessage(data.detail, "Preset speichern fehlgeschlagen."));
+        showToast(errorDetailToMessage(data.detail, t("job.presetSaveFailed")));
         return false;
-    } catch (e) { showToast("Netzwerkfehler beim Speichern."); return false; }
+    } catch (e) { showToast(t("job.networkErrorSaving")); return false; }
 }
 
 // "Nur als Preset speichern" — speichert ohne Run und schliesst den Dialog bei Erfolg.
@@ -3282,17 +3301,17 @@ async function handleModalSubmit() {
     // manuelle Host-Eingabe erzwingen (das Einzel-Dropdown kann Multi-Host nicht abbilden).
     if (!deviceId && !window._activePresetId) {
         if (!targetHost) {
-            showToast("Zielgerät ist erforderlich.");
+            showToast(t("job.targetRequired"));
             modalTargetHost.focus();
             return;
         }
         if (!username) {
-            showToast("SSH-Benutzername ist erforderlich.");
+            showToast(t("job.sshUserRequired"));
             modalUsernameInput.focus();
             return;
         }
         if (!password) {
-            showToast("SSH-Passwort ist erforderlich.");
+            showToast(t("job.sshPasswordRequired"));
             modalPasswordInput.focus();
             return;
         }
@@ -3303,7 +3322,7 @@ async function handleModalSubmit() {
     // bereits gemachten Eingaben erhalten bleiben.
     // Disable run button and start execution
     runButton.disabled = true;
-    runButton.innerHTML = `<span class="spinner"></span> Ausführen...`;
+    runButton.innerHTML = `<span class="spinner"></span> ${t("job.executingBtn")}`;
     
     // Prepare variables payload (#E: ausfaktorisiert -> byte-gleich zum Preset-Speichern).
     const variables = collectModalVariables(baseDir);
@@ -3342,7 +3361,7 @@ async function handleModalSubmit() {
         if (!response.ok) {
 
             const data = await response.json();
-            throw new Error(errorDetailToMessage(data.detail, "Serverfehler beim Starten des Jobs."));
+            throw new Error(errorDetailToMessage(data.detail, t("job.serverErrorStarting")));
         }
         
         const result = await response.json();
@@ -3351,7 +3370,7 @@ async function handleModalSubmit() {
         const _savePresetCb = document.getElementById("modal-save-preset-cb");
         if (currentEdition !== "community" && _savePresetCb && _savePresetCb.checked) { await saveModalPreset({ silent: true }); }
         hideCredentialsModal();   //: erst nach erfolgreichem Start schliessen
-        showToast("Playbook-Ausführung in die Warteschlange eingereiht!");
+        showToast(t("job.queued"));
         
         // Temporarily enable history button immediately since a job is created
         const btnHistory = document.getElementById("nav-btn-history");
@@ -3377,7 +3396,7 @@ async function handleModalSubmit() {
         else { showToast(err.message); }
     } finally {
         runButton.disabled = false;
-        runButton.innerHTML = `<span class="material-symbols-outlined">play_arrow</span> Ausführen`;
+        runButton.innerHTML = `<span class="material-symbols-outlined">play_arrow</span> ${t("job.executeBtn")}`;
     }
 }
 
@@ -3458,10 +3477,10 @@ async function streamLogs(jobId) {
             if (!response.ok) {
                 // 404/403 sind endgültig -> nicht reconnecten.
                 if (response.status === 404 || response.status === 403) {
-                    if (bytesReceived === 0) consoleOutput.textContent += `\n[Log nicht verfügbar]`;
+                    if (bytesReceived === 0) consoleOutput.textContent += `\n[${t("job.logUnavailable")}]`;
                     return;
                 }
-                throw new Error("Fehler beim Abrufen des Log-Streams.");
+                throw new Error(t("job.logStreamError"));
             }
 
             const reader = response.body.getReader();
@@ -3501,7 +3520,7 @@ async function streamLogs(jobId) {
 
         attempt++;
         if (attempt > 120) {
-            consoleOutput.textContent += `\n[Log-Streaming nach mehreren Fehlversuchen abgebrochen]`;
+            consoleOutput.textContent += `\n[${t("job.logStreamAborted")}]`;
             return;
         }
         await new Promise(r => setTimeout(r, Math.min(1000 * attempt, 3000)));
@@ -3604,7 +3623,7 @@ function renderFlowchart(job) {
     const view = document.getElementById("flowchart-view");
     if (!view) return;
     if (!job || !(job.playbooks || []).length) {
-        view.innerHTML = `<div class="flowchart-empty">${job ? "Für diesen Job liegen keine Playbook-Informationen vor." : "Wähle links einen Job aus, um den Ablauf anzuzeigen."}</div>`;
+        view.innerHTML = `<div class="flowchart-empty">${job ? t("job.noPlaybookInfo") : t("job.selectJobForFlow")}</div>`;
         return;
     }
     const tiles = deriveTileStatuses(job);
@@ -3649,7 +3668,7 @@ function applyJobViewMode() {
     if (flow) flow.classList.toggle("hidden", !showTiles);
     if (log) log.classList.toggle("hidden", showTiles);
     if (btn) {
-        btn.title = showTiles ? "Zur Text-Log-Ansicht wechseln" : "Zur Kachel-Ansicht wechseln";
+        btn.title = showTiles ? t("job.switchToLogView") : t("job.switchToTileView");
         const ic = btn.querySelector(".material-symbols-outlined");
         if (ic) ic.textContent = showTiles ? "terminal" : "account_tree";
     }
@@ -3675,7 +3694,7 @@ function updateConsoleProgressBar() {
         
         const textEl = document.getElementById("console-progress-text");
         if (textEl) {
-            textEl.textContent = `${finished} von ${total} Playbooks (${percent}%) - ${outstanding} ausstehend`;
+            textEl.textContent = t("job.progressText", { finished, total, percent, outstanding });
         }
     } else if (consoleJobProgress) {
         consoleJobProgress.classList.add("hidden");
@@ -3692,23 +3711,23 @@ function updateConsoleProgressBar() {
 async function cancelJob(jobId) {
     if (!jobId) return;
     const ok = await showConfirmDialog({
-        title: "Ausführung abbrechen?",
-        message: "Die Ausführung wird beendet. Bereits ausgeführte Schritte werden nicht rückgängig gemacht.",
-        confirmLabel: "Abbrechen",
-        cancelLabel: "Weiterlaufen lassen"
+        title: t("job.cancelExecTitle"),
+        message: t("job.cancelExecMsg"),
+        confirmLabel: t("common.cancel"),
+        cancelLabel: t("job.keepRunning")
     });
     if (!ok) return;
     try {
         const r = await fetch(`/api/jobs/${jobId}/cancel?session_id=${encodeURIComponent(sessionId)}`, { method: "POST" });
         if (!r.ok) {
             const d = await r.json().catch(() => ({}));
-            showToast(errorDetailToMessage(d.detail, "Abbruch fehlgeschlagen."));
+            showToast(errorDetailToMessage(d.detail, t("job.cancelFailed")));
             return;
         }
-        showToast("Ausführung abgebrochen.");
+        showToast(t("job.execCanceled"));
         await refreshHistory();
     } catch (e) {
-        showToast("Abbruch fehlgeschlagen.");
+        showToast(t("job.cancelFailed"));
     }
 }
 
@@ -3787,8 +3806,8 @@ function updateUI() {
         currentlyStreamingJobId = null;
         selectedJobId = null;
         activeHost = null;
-        consoleOutput.textContent = "Alle Tabs geschlossen. Aktualisieren oder einen neuen Lauf starten, um sie wieder anzuzeigen.";
-        activeJobIdBadge.textContent = "Kein Job aktiv";
+        consoleOutput.textContent = t("job.allTabsClosed");
+        activeJobIdBadge.textContent = t("job.noActiveJob");
         updateConsoleProgressBar();
         return;
     }
@@ -3811,7 +3830,7 @@ function updateUI() {
         tabBtn.innerHTML = `
             <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 6px;">dns</span>
             ${escapeHtml(host)}
-            <span class="tab-close material-symbols-outlined" title="Tab schließen">close</span>
+            <span class="tab-close material-symbols-outlined" title="${t("job.closeTab")}">close</span>
         `;
 
         tabBtn.addEventListener("click", () => {
@@ -3832,10 +3851,10 @@ function updateUI() {
                 // : Schließen bestätigen – der Tab-Fokus geht verloren (der Lauf kann im
                 // Hintergrund weiterlaufen), das lässt sich nicht rückgängig machen.
                 const ok = await showConfirmDialog({
-                    title: "Tab schließen?",
-                    message: "Dieser Verlaufs-Tab wird geschlossen und kann nicht wiederhergestellt werden. Eine laufende Ausführung läuft im Hintergrund weiter, der Fokus auf diesen Tab geht jedoch verloren.",
-                    confirmLabel: "Schließen",
-                    cancelLabel: "Abbrechen"
+                    title: t("job.closeTabTitle"),
+                    message: t("job.closeTabMsg"),
+                    confirmLabel: t("common.close"),
+                    cancelLabel: t("common.cancel")
                 });
                 if (!ok) return;
                 closeHostTab(host);
@@ -3897,15 +3916,15 @@ function updateUI() {
                 durationStr = `${min}m ${sec}s`;
             }
         } else if (job.status === "running") {
-            durationStr = "Läuft...";
+            durationStr = t("job.runningDuration");
         } else if (job.status === "pending") {
-            durationStr = "In Warteschlange";
+            durationStr = t("job.queuedDuration");
         }
 
         const dateObj = new Date(job.created_at);
-        const dateStr = dateObj.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-        const timeStr = dateObj.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
-        const jobTime = `${timeStr} Uhr`;
+        const dateStr = dateObj.toLocaleDateString(getLocale(), { day: "2-digit", month: "2-digit", year: "numeric" });
+        const timeStr = dateObj.toLocaleTimeString(getLocale(), { hour: "2-digit", minute: "2-digit" });
+        const jobTime = t("job.timeSuffix", { time: timeStr });
         
         let progressHtml = "";
         if (job.status === "running") {
@@ -3937,7 +3956,7 @@ function updateUI() {
                 <div class="history-right">
                     <span>${job.status.toUpperCase()}</span>
                     <span>${durationStr}</span>
-                    ${(job.status === "running" || job.status === "pending") ? `<button type="button" class="history-cancel-btn btn-icon" title="Ausführung abbrechen"><span class="material-symbols-outlined">stop_circle</span></button>` : ""}
+                    ${(job.status === "running" || job.status === "pending") ? `<button type="button" class="history-cancel-btn btn-icon" title="${t("job.cancelExecAction")}"><span class="material-symbols-outlined">stop_circle</span></button>` : ""}
                 </div>
             </div>
             ${progressHtml}
@@ -4009,19 +4028,25 @@ async function checkAuthStatus() {
             const response = await fetch("/api/profile");
             if (response.ok) {
                 currentUser = await response.json();
+                // : Serversprache uebernehmen (falls gesetzt) + Nutzer als
+                // eingeloggt markieren, damit spaetere Wechsel serverseitig persistieren.
+                applyServerLanguage(currentUser.language);
                 updateAuthUI();
                 await fetchDevices();
             } else {
                 currentUser = null;
+                setLoggedIn(false);
                 updateAuthUI();
             }
         } catch (err) {
             console.error("Auth check failed:", err);
             currentUser = null;
+            setLoggedIn(false);
             updateAuthUI();
         }
     } else {
         currentUser = null;
+        setLoggedIn(false);
         updateAuthUI();
     }
     // Playbook-/Preset-Katalog haengt von Login/Rolle ab -> bei Auth-Wechsel neu laden
@@ -4065,7 +4090,7 @@ function updateAuthUI() {
         // eigenen Namen aendern. Fuer alle anderen ist das Feld schreibgeschuetzt.
         const unameImmutable = currentUser.role !== "admin";
         unameField.readOnly = unameImmutable;
-        unameField.title = unameImmutable ? "Der Benutzername kann nach der Registrierung nicht mehr geändert werden." : "";
+        unameField.title = unameImmutable ? t("prof.usernameImmutableHint") : "";
         unameField.style.opacity = unameImmutable ? "0.6" : "";
         // : Webhook-URL vorbelegen.
         const webhookField = document.getElementById("profile-webhook-url");
@@ -4195,11 +4220,11 @@ function updateAuthUI() {
                 document.getElementById("profile-avv-company").textContent = currentUser.avv_company;
                 document.getElementById("profile-avv-representative").textContent = currentUser.avv_representative;
                 document.getElementById("profile-avv-date").textContent = new Date(currentUser.avv_accepted_at).toLocaleDateString();
-                avvDownloadBtn.innerHTML = '<span class="material-symbols-outlined">download</span> Unterzeichneten AVV herunterladen (PDF)';
+                avvDownloadBtn.innerHTML = `<span class="material-symbols-outlined">download</span> ${t("prof.avvDownloadSigned")}`;
             } else {
                 avvSignBtn.classList.remove("hidden");
                 avvStatusBanner.classList.add("hidden");
-                avvDownloadBtn.innerHTML = '<span class="material-symbols-outlined">download</span> AVV-Muster herunterladen (PDF)';
+                avvDownloadBtn.innerHTML = `<span class="material-symbols-outlined">download</span> ${t("prof.avvDownloadTemplate")}`;
             }
         }
 
@@ -4244,7 +4269,7 @@ function updateAuthUI() {
                 const active = !!currentUser.is_subscription_active;
                 const badge = document.getElementById("profile-guest-status-val");
                 if (badge) {
-                    badge.textContent = active ? "Aktiv" : "Inaktiv";
+                    badge.textContent = active ? t("prof.statusActive") : t("prof.statusInactive");
                     badge.style.background = active ? "rgba(46, 204, 113, 0.2)" : "rgba(231, 76, 60, 0.2)";
                     badge.style.border = active ? "1px solid #2ecc71" : "1px solid #e74c3c";
                     badge.style.color = active ? "#2ecc71" : "#e74c3c";
@@ -4391,14 +4416,14 @@ async function handle2FAToggle() {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast(enabled ? "2FA aktiviert." : "2FA deaktiviert.");
+            showToast(enabled ? t("prof.twoFaEnabled") : t("prof.twoFaDisabled"));
             await checkAuthStatus();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Ändern der 2FA-Einstellung."));
+            showToast(errorDetailToMessage(data.detail, t("prof.twoFaChangeError")));
             document.getElementById("profile-2fa-toggle").checked = !enabled;
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Ändern der 2FA-Einstellung.");
+        showToast(t("prof.twoFaChangeNetworkError"));
         document.getElementById("profile-2fa-toggle").checked = !enabled;
     }
 }
@@ -4421,11 +4446,11 @@ async function handleLoginSubmit(e) {
             document.getElementById("login-dialog").classList.add("hidden");
             document.getElementById("otp-dialog").classList.remove("hidden");
             document.getElementById("login-form").reset();
-            showToast("2FA PIN gesendet. Bitte E-Mail prüfen.");
+            showToast(t("auth.twoFaPinSent"));
         } else if (response.ok && data.status === "logged_in") {
             document.getElementById("login-dialog").classList.add("hidden");
             document.getElementById("login-form").reset();
-            showToast("Erfolgreich angemeldet!");
+            showToast(t("auth.loginSuccess"));
             // : Login von der Wartungsseite aus -> neu laden, damit das Gate neu
             // greift (Admin -> bypass/App, Nicht-Admin -> bleibt auf der Wartungsseite).
             const mov = document.getElementById("maintenance-overlay");
@@ -4433,24 +4458,24 @@ async function handleLoginSubmit(e) {
             await checkAuthStatus();
         } else if (response.status === 403 && data.detail && data.detail.includes("bestaetigen")) {
             // E-Mail nicht verifiziert: Bestaetigungsmail erneut anbieten
-            showToast(errorDetailToMessage(data.detail, "Aktion fehlgeschlagen."));
-            if ((await showConfirmDialog({ title: "E-Mail bestätigen", message: "Ihre E-Mail-Adresse ist noch nicht bestätigt. Bestätigungslink erneut senden?", confirmLabel: "Erneut senden" }))) {
+            showToast(errorDetailToMessage(data.detail, t("auth.actionFailed")));
+            if ((await showConfirmDialog({ title: t("auth.confirmEmailTitle"), message: t("auth.confirmEmailResendMsg"), confirmLabel: t("auth.resend") }))) {
                 try {
                     await fetch("/api/auth/resend-verification", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ identifier })
                     });
-                    showToast("Falls ein unbestätigtes Konto existiert, wurde ein neuer Bestätigungslink gesendet.");
+                    showToast(t("auth.resendConfirmationSent"));
                 } catch (e) {
-                    showToast("Netzwerkfehler beim erneuten Senden.");
+                    showToast(t("auth.resendNetworkError"));
                 }
             }
         } else {
-            showToast(errorDetailToMessage(data.detail, "Anmeldung fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("auth.loginFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler bei Anmeldung.");
+        showToast(t("auth.loginNetworkError"));
     }
 }
 
@@ -4469,13 +4494,13 @@ async function handleOtpSubmit(e) {
         if (response.ok) {
             document.getElementById("otp-dialog").classList.add("hidden");
             document.getElementById("otp-form").reset();
-            showToast("Erfolgreich angemeldet!");
+            showToast(t("auth.loginSuccess"));
             await checkAuthStatus();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Ungültiger OTP-Code."));
+            showToast(errorDetailToMessage(data.detail, t("auth.invalidOtp")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler bei 2FA Verifizierung.");
+        showToast(t("auth.twoFaVerifyNetworkError"));
     }
 }
 
@@ -4489,7 +4514,7 @@ function setupPasswordToggles() {
             input.type = show ? "text" : "password";
             const icon = btn.querySelector(".material-symbols-outlined");
             if (icon) icon.textContent = show ? "visibility_off" : "visibility";
-            btn.setAttribute("aria-label", show ? "Passwort verbergen" : "Passwort anzeigen");
+            btn.setAttribute("aria-label", show ? t("auth.hidePassword") : t("auth.showPassword"));
         });
     });
 }
@@ -4518,7 +4543,7 @@ function enableAdminDialogDismiss(dialogId, closeFn) {
             dlg.dataset.closing = "1";
             let ok = false;
             try {
-                ok = await showConfirmDialog({ title: "Änderungen verwerfen?", message: "Sie haben ungespeicherte Eingaben. Dialog wirklich schließen?", confirmLabel: "Verwerfen" });
+                ok = await showConfirmDialog({ title: t("prof.discardChangesTitle"), message: t("prof.discardChangesMsg"), confirmLabel: t("prof.discard") });
             } finally { dlg.dataset.closing = ""; }
             if (!ok) return;
         }
@@ -4578,14 +4603,14 @@ async function handleForgotSubmit(e) {
         const data = await response.json();
         if (response.ok) {
             closeForgotModal();
-            showToast(data.message || "Wenn das Konto existiert, wurde ein Link gesendet.");
+            showToast(data.message || t("auth.resetLinkSent"));
         } else {
-            showToast(errorDetailToMessage(data.detail, "Anforderung fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("auth.requestFailed")));
             // refresh captcha after a failed attempt
             await loadCaptchaInto("forgot-captcha-question", "forgot-captcha-id", "forgot-captcha-answer", "forgot-captcha-container");
         }
     } catch (err) {
-        showToast("Netzwerkfehler bei der Passwort-Anforderung.");
+        showToast(t("auth.resetRequestNetworkError"));
     }
 }
 
@@ -4646,11 +4671,11 @@ async function handleResetSubmit(e) {
     const pw = document.getElementById("reset-password").value;
     const confirm = document.getElementById("reset-password-confirm").value;
     if (pw !== confirm) {
-        showToast("Passwörter stimmen nicht überein.");
+        showToast(t("auth.passwordMismatch"));
         return;
     }
     if (!resetToken) {
-        showToast("Kein gültiger Reset-Token. Bitte fordern Sie einen neuen Link an.");
+        showToast(t("auth.noResetToken"));
         return;
     }
     try {
@@ -4662,13 +4687,13 @@ async function handleResetSubmit(e) {
         const data = await response.json();
         if (response.ok) {
             closeResetModal();
-            showToast("Passwort erfolgreich geändert. Sie können sich jetzt anmelden.");
+            showToast(t("auth.resetSuccess"));
             document.getElementById("login-dialog").classList.remove("hidden");
         } else {
-            showToast(errorDetailToMessage(data.detail, "Zurücksetzen fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("auth.resetFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Zurücksetzen.");
+        showToast(t("auth.resetNetworkError"));
     }
 }
 
@@ -4709,7 +4734,7 @@ async function handlePasswordChange(e) {
     const newPw = document.getElementById("pw-change-new").value;
     const confirm = document.getElementById("pw-change-confirm").value;
     if (newPw !== confirm) {
-        showToast("Passwörter stimmen nicht überein.");
+        showToast(t("auth.passwordMismatch"));
         return;
     }
     try {
@@ -4722,12 +4747,12 @@ async function handlePasswordChange(e) {
         if (response.ok) {
             document.getElementById("profile-password-form").reset();
             resetPwChangeRequirements();
-            showToast("Passwort erfolgreich geändert.");
+            showToast(t("prof.passwordChanged"));
         } else {
-            showToast(errorDetailToMessage(data.detail, "Passwort konnte nicht geändert werden."));
+            showToast(errorDetailToMessage(data.detail, t("prof.passwordChangeFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Ändern des Passworts.");
+        showToast(t("prof.passwordChangeNetworkError"));
     }
 }
 
@@ -4741,7 +4766,7 @@ async function handleRegisterSubmit(e) {
     const dsgvo = document.getElementById("register-dsgvo").checked;
 
     if (password !== passwordConfirm) {
-        showToast("Passwörter stimmen nicht überein.");
+        showToast(t("auth.passwordMismatch"));
         return;
     }
 
@@ -4775,19 +4800,19 @@ async function handleRegisterSubmit(e) {
             // : einmaliger Hinweis, falls auf diesem Geraet bereits eine
             // Testphase in Anspruch genommen wurde (keine neue Gratis-Probezeit).
             if (data.fingerprint_seen) {
-                showToast("Konto erstellt. Hinweis: Auf diesem Gerät wurde bereits eine kostenlose Testphase genutzt – das neue Konto startet daher ohne Probezeit.", 9000);
+                showToast(t("auth.registerTrialUsed"), 9000);
             } else {
-                showToast(data.message || "Konto erfolgreich erstellt!");
+                showToast(data.message || t("auth.registerSuccess"));
             }
             // Bei aktivierter E-Mail-Verifikation NICHT direkt zum Login leiten.
             if (!data.verification_required) {
                 document.getElementById("login-dialog").classList.remove("hidden");
             }
         } else {
-            showToast(errorDetailToMessage(data.detail, "Registrierung fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("auth.registerFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler bei Registrierung.");
+        showToast(t("auth.registerNetworkError"));
     }
 }
 
@@ -4806,13 +4831,13 @@ async function handleVerifyEmailFromUrl() {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast(data.message || "E-Mail-Adresse bestätigt. Sie können sich jetzt anmelden.");
+            showToast(data.message || t("auth.emailVerified"));
             document.getElementById("login-dialog").classList.remove("hidden");
         } else {
-            showToast(errorDetailToMessage(data.detail, "Bestätigung fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("auth.verifyFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler bei der E-Mail-Bestätigung.");
+        showToast(t("auth.verifyNetworkError"));
     }
 }
 
@@ -4836,7 +4861,7 @@ async function handleLogout() {
     try {
         const response = await fetch("/api/auth/logout", { method: "POST" });
         if (response.ok) {
-            showToast("Erfolgreich abgemeldet.");
+            showToast(t("auth.logoutSuccess"));
             currentUser = null;
             userDevices = [];
             resetWorkspaceAfterLogout();
@@ -4847,17 +4872,17 @@ async function handleLogout() {
             catch (e) { console.warn("Katalog-Reload nach Logout fehlgeschlagen:", e); }
         }
     } catch (err) {
-        showToast("Fehler beim Abmelden.");
+        showToast(t("auth.logoutError"));
     }
 }
 
 async function handleLogoutAll() {
-    if (!(await showConfirmDialog({ title: "Von allen Geräten abmelden?", message: "Möchten Sie sich wirklich von allen Geräten abmelden?", confirmLabel: "Abmelden" }))) return;
+    if (!(await showConfirmDialog({ title: t("auth.logoutAllTitle"), message: t("auth.logoutAllMsg"), confirmLabel: t("auth.logout") }))) return;
     try {
         const response = await fetch("/api/auth/logout-all", { method: "POST" });
         if (response.ok) {
             document.getElementById("profile-dialog").classList.add("hidden");
-            showToast("Erfolgreich von allen Geräten abgemeldet.");
+            showToast(t("auth.logoutAllSuccess"));
             currentUser = null;
             userDevices = [];
             resetWorkspaceAfterLogout();
@@ -4867,7 +4892,7 @@ async function handleLogoutAll() {
             catch (e) { console.warn("Katalog-Reload nach Logout fehlgeschlagen:", e); }
         }
     } catch (err) {
-        showToast("Fehler beim Abmelden.");
+        showToast(t("auth.logoutError"));
     }
 }
 
@@ -4882,10 +4907,10 @@ async function handleNotificationToggle(e) {
         });
         if (response.ok) {
             currentUser.email_notifications_enabled = enabled;
-            showToast("Benachrichtigungseinstellung aktualisiert.");
+            showToast(t("prof.notifUpdated"));
         }
     } catch (err) {
-        showToast("Fehler beim Ändern der Benachrichtigungseinstellung.");
+        showToast(t("prof.notifChangeError"));
         e.target.checked = !enabled;
     }
 }
@@ -4905,12 +4930,12 @@ async function handleWebhookSave() {
         if (response.ok) {
             currentUser.webhook_url = data.webhook_url || "";
             field.value = currentUser.webhook_url;
-            showToast(data.message || "Webhook gespeichert.");
+            showToast(data.message || t("prof.webhookSaved"));
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern des Webhooks."));
+            showToast(errorDetailToMessage(data.detail, t("prof.webhookSaveError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Speichern des Webhooks.");
+        showToast(t("prof.webhookSaveNetworkError"));
     }
 }
 
@@ -4939,12 +4964,12 @@ async function fetchSessions() {
     try {
         const res = await fetch("/api/profile/sessions");
         if (!res.ok) {
-            container.innerHTML = '<p style="color: var(--text-muted); font-size:13px;">Sitzungen konnten nicht geladen werden.</p>';
+            container.innerHTML = `<p style="color: var(--text-muted); font-size:13px;">${t("prof.sessionsLoadError")}</p>`;
             return;
         }
         renderSessions(await res.json());
     } catch (e) {
-        container.innerHTML = '<p style="color: var(--text-muted); font-size:13px;">Netzwerkfehler.</p>';
+        container.innerHTML = `<p style="color: var(--text-muted); font-size:13px;">${t("prof.networkError")}</p>`;
     }
 }
 
@@ -4952,7 +4977,7 @@ function renderSessions(sessions) {
     const container = document.getElementById("sessions-list-container");
     if (!container) return;
     if (!sessions || sessions.length === 0) {
-        container.innerHTML = '<p style="color: var(--text-muted); font-size:13px;">Keine aktiven Sitzungen.</p>';
+        container.innerHTML = `<p style="color: var(--text-muted); font-size:13px;">${t("prof.noSessions")}</p>`;
         return;
     }
     container.innerHTML = "";
@@ -4960,15 +4985,15 @@ function renderSessions(sessions) {
         const div = document.createElement("div");
         div.className = "session-item" + (s.current ? " current" : "");
         const created = s.created_at ? new Date(s.created_at).toLocaleString() : "-";
-        const ua = (s.user_agent || "Unbekanntes Gerät").slice(0, 70);
+        const ua = (s.user_agent || t("prof.unknownDevice")).slice(0, 70);
         const left = document.createElement("div");
-        left.innerHTML = `<div>${escapeHtml(ua)}${s.current ? ' <span style="color:var(--md-sys-color-primary);">(diese Sitzung)</span>' : ''}</div>` +
+        left.innerHTML = `<div>${escapeHtml(ua)}${s.current ? ` <span style="color:var(--md-sys-color-primary);">${t("prof.thisSession")}</span>` : ''}</div>` +
             `<div style="color: var(--text-muted); font-size:12px;">IP: ${escapeHtml(s.ip_address || '-')} &middot; ${escapeHtml(created)}</div>`;
         div.appendChild(left);
         if (!s.current) {
             const btn = document.createElement("button");
             btn.className = "btn btn-secondary btn-small";
-            btn.textContent = "Beenden";
+            btn.textContent = t("prof.endSession");
             btn.addEventListener("click", () => revokeSession(s.id));
             div.appendChild(btn);
         }
@@ -4980,14 +5005,14 @@ async function revokeSession(id) {
     try {
         const res = await fetch(`/api/profile/sessions/${id}`, { method: "DELETE" });
         if (res.ok) {
-            showToast("Sitzung beendet.");
+            showToast(t("prof.sessionEnded"));
             fetchSessions();
         } else {
             const d = await res.json();
-            showToast(d.detail || "Konnte Sitzung nicht beenden.");
+            showToast(d.detail || t("prof.sessionEndFailed"));
         }
     } catch (e) {
-        showToast("Netzwerkfehler beim Beenden der Sitzung.");
+        showToast(t("prof.sessionEndNetworkError"));
     }
 }
 
@@ -5062,7 +5087,7 @@ function renderDeviceGroupPlaybooks(selPlaybookIds) {
     if (!pc) return;
     const sel = new Set(selPlaybookIds || []);
     const list = (allPlaybooks || []).slice()
-        .sort((a, b) => (a.name || "").localeCompare(b.name || "", "de", { sensitivity: "base" }));
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "", getLocale(), { sensitivity: "base" }));
     if (list.length === 0) {
         pc.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Playbooks verfügbar.</p>';
         return;
@@ -5120,7 +5145,7 @@ function launchGroupScenario(g) {
     });
     updatePresetHighlights();
     if (matched === 0) {
-        showToast("Die Szenario-Playbooks sind aktuell nicht im Katalog verfügbar.");
+        showToast(t("misc.scenarioPlaybooksUnavailable"));
         return;
     }
     if (missing.length) {
@@ -5240,7 +5265,7 @@ function resetDeviceGroupForm() {
 
 async function saveDeviceGroup() {
     const name = document.getElementById("device-group-name").value.trim();
-    if (!name) { showToast("Bitte einen Gruppennamen eingeben."); return; }
+    if (!name) { showToast(t("misc.enterGroupName")); return; }
     const device_ids = Array.from(document.querySelectorAll("#device-group-devices .dg-device:checked")).map(c => c.value);
     const guest_access = Array.from(document.querySelectorAll("#device-group-guests .dg-guest:checked")).map(c => c.value);
     // : vorausgewaehlte Szenario-Playbooks mitsenden.
@@ -5297,9 +5322,9 @@ async function deleteDeviceGroupById(id, name) {
     try {
         const res = await fetch(`/api/profile/device-groups/${id}`, { method: "DELETE" });
         const data = await res.json();
-        if (res.ok) { showToast("Geräte-Gruppe gelöscht."); await loadDeviceGroupsTab(); }
+        if (res.ok) { showToast(t("misc.deviceGroupDeleted")); await loadDeviceGroupsTab(); }
         else showToast(errorDetailToMessage(data.detail, "Löschen fehlgeschlagen."));
-    } catch (e) { showToast("Netzwerkfehler beim Löschen."); }
+    } catch (e) { showToast(t("misc.deleteNetworkError")); }
 }
 
 // =====  (#C): Verwaltete Einzelgeraete (Vault-Geraete-Tab) =====
@@ -5316,7 +5341,7 @@ async function loadManagedDevicesTab() {
         const devices = res.ok ? await res.json() : [];
         renderManagedDevicesList(devices);
     } catch (e) {
-        if (listEl) listEl.innerHTML = '<p style="color:var(--md-sys-color-error); font-size:13px;">Netzwerkfehler beim Laden.</p>';
+        if (listEl) listEl.innerHTML = `<p style="color:var(--md-sys-color-error); font-size:13px;">${t("device.loadError")}</p>`;
     }
 }
 
@@ -5324,7 +5349,7 @@ function renderManagedDevicesList(devices) {
     const c = document.getElementById("managed-devices-list");
     if (!c) return;
     if (!devices || devices.length === 0) {
-        c.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Keine Geräte angelegt.</p>';
+        c.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("device.emptyList")}</p>`;
         return;
     }
     c.innerHTML = "";
@@ -5338,11 +5363,11 @@ function renderManagedDevicesList(devices) {
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
         //: In der Community-Edition kein „Freigeben" (keine weiteren Benutzer/Teams).
         if (currentEdition !== "community") {
-            const share = vaultActionButton("Freigeben", "share", "primary");
+            const share = vaultActionButton(t("device.share"), "share", "primary");
             share.addEventListener("click", () => openManagedDeviceShare(g));
             leftGroup.appendChild(share);
         }
-        const edit = vaultActionButton("Bearbeiten", "edit", "secondary");
+        const edit = vaultActionButton(t("common.edit"), "edit", "secondary");
         edit.addEventListener("click", () => editManagedDevice(g));
         leftGroup.appendChild(edit);
         const info = document.createElement("div");
@@ -5359,7 +5384,7 @@ function renderManagedDevicesList(devices) {
         div.appendChild(leftGroup);
         const right = document.createElement("div");
         right.style.whiteSpace = "nowrap";
-        const del = vaultActionButton("Löschen", "delete", "danger");
+        const del = vaultActionButton(t("common.delete"), "delete", "danger");
         del.addEventListener("click", () => deleteManagedDevice(g.id, g.name));
         right.appendChild(del);
         div.appendChild(right);
@@ -5381,7 +5406,7 @@ function _resetManagedKeyUpload() {
     const keyFile = document.getElementById("managed-device-key-file");
     if (keyFile) keyFile.value = "";
     const keyLbl = document.getElementById("managed-device-key-filename-lbl");
-    if (keyLbl) keyLbl.textContent = "Keine Datei ausgewählt";
+    if (keyLbl) keyLbl.textContent = t("device.noFileSelected");
 }
 
 function resetManagedDeviceForm() {
@@ -5395,7 +5420,7 @@ function resetManagedDeviceForm() {
     set("managed-device-tz", browserTz);
     _resetManagedKeyUpload();
     const title = document.getElementById("managed-device-form-title");
-    if (title) title.textContent = "Neues Gerät";
+    if (title) title.textContent = t("device.newTitle");
     // : Neuanlage -> Geräte-Icon (kein Stift).
     const icon = document.getElementById("managed-device-form-icon");
     if (icon) icon.textContent = "devices";
@@ -5437,7 +5462,7 @@ function editManagedDevice(g) {
     set("managed-device-tz", g.timezone || "");
     _resetManagedKeyUpload();
     const title = document.getElementById("managed-device-form-title");
-    if (title) title.textContent = "Gerät bearbeiten";
+    if (title) title.textContent = t("device.editTitle");
     // : Bearbeiten -> Stift-Icon im Header.
     const icon = document.getElementById("managed-device-form-icon");
     if (icon) icon.textContent = "edit";
@@ -5467,8 +5492,8 @@ function editManagedDevice(g) {
 async function saveManagedDevice() {
     const name = document.getElementById("managed-device-name").value.trim();
     const host = document.getElementById("managed-device-host").value.trim();
-    if (!name) { showToast("Bitte einen Gerätenamen eingeben."); return; }
-    if (!host) { showToast("Bitte einen Host / eine IP eingeben."); return; }
+    if (!name) { showToast(t("device.nameRequired")); return; }
+    if (!host) { showToast(t("device.hostRequired")); return; }
     const payload = {
         name, host,
         default_ssh_user: document.getElementById("managed-device-user").value.trim(),
@@ -5490,8 +5515,8 @@ async function saveManagedDevice() {
     if (keyFile) {
         let keyText;
         try { keyText = await readFileAsText(keyFile); }
-        catch (e) { showToast("SSH-Key konnte nicht gelesen werden."); return; }
-        if (!keyText || !keyText.trim()) { showToast("Die gewählte Key-Datei ist leer."); return; }
+        catch (e) { showToast(t("device.keyReadError")); return; }
+        if (!keyText || !keyText.trim()) { showToast(t("device.keyFileEmpty")); return; }
         payload.default_credential = keyText;
         payload.default_credential_type = "key";
     } else if (credUntouched) {
@@ -5522,31 +5547,31 @@ async function saveManagedDevice() {
         const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast(editingManagedDevice ? "Gerät aktualisiert." : "Gerät erstellt.");
+            showToast(editingManagedDevice ? t("device.updated") : t("device.created"));
             closeManagedDeviceDialog();  // 
             await loadManagedDevicesTab();
             if (typeof fetchDevices === "function") fetchDevices();  // Run-Dropdown synchron halten
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("device.saveFailed")));
         }
-    } catch (e) { showToast("Netzwerkfehler beim Speichern."); }
+    } catch (e) { showToast(t("device.saveNetworkError")); }
 }
 
 async function deleteManagedDevice(id, name) {
     // : Gerätename fett in der Bestätigungsfrage.
-    const msgHtml = name ? `Möchten Sie das Gerät <b>${escapeHtml(name)}</b> wirklich löschen?` : "Gerät wirklich löschen?";
-    if (!(await showConfirmDialog({ title: "Gerät löschen?", messageHtml: msgHtml, confirmLabel: "Löschen" }))) return;
+    const msgHtml = name ? t("device.deleteConfirmHtml", {name: escapeHtml(name)}) : t("device.deleteConfirmGeneric");
+    if (!(await showConfirmDialog({ title: t("device.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
         const res = await fetch(`/api/profile/devices-unified/${id}`, { method: "DELETE" });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast("Gerät gelöscht.");
+            showToast(t("device.deleted"));
             await loadManagedDevicesTab();
             if (typeof fetchDevices === "function") fetchDevices();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Löschen fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("device.deleteFailed")));
         }
-    } catch (e) { showToast("Netzwerkfehler beim Löschen."); }
+    } catch (e) { showToast(t("device.deleteNetworkError")); }
 }
 
 let sharingManagedDevice = null;
@@ -5554,12 +5579,12 @@ async function openManagedDeviceShare(g) {
     sharingManagedDevice = g.id;
     document.getElementById("managed-device-share-name").textContent = g.name || "";
     const container = document.getElementById("managed-device-share-guests");
-    container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade Teammitglieder...</p>';
+    container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("device.loadingGuests")}</p>`;
     document.getElementById("managed-device-share-dialog").classList.remove("hidden");
     try {
         const guests = await fetchGuestList();
         if (!guests || guests.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Teammitglieder vorhanden. Legen Sie zuerst im Team-Bereich welche an.</p>';
+            container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("device.noGuests")}</p>`;
             return;
         }
         const enabled = new Set(g.guest_access || []);
@@ -5577,7 +5602,7 @@ async function openManagedDeviceShare(g) {
             container.appendChild(row);
         });
     } catch (e) {
-        container.innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Teammitglieder konnten nicht geladen werden.</p>';
+        container.innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("device.guestsLoadError")}</p>`;
     }
 }
 
@@ -5596,13 +5621,13 @@ async function saveManagedDeviceShare() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast("Freigabe gespeichert.");
+            showToast(t("device.shareSaved"));
             closeManagedDeviceShare();
             await loadManagedDevicesTab();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("device.saveFailed")));
         }
-    } catch (e) { showToast("Netzwerkfehler beim Speichern."); }
+    } catch (e) { showToast(t("device.saveNetworkError")); }
 }
 
 // ===== : Benutzerdefinierte Presets (Verwaltung + Ausfuehrung) =====
@@ -5631,7 +5656,7 @@ async function loadPresets() {
         userCustomPresets = presets;
         if (typeof renderPlaybooks === "function" && allPlaybooks && allPlaybooks.length) renderPlaybooks();
     } catch (e) {
-        listEl.innerHTML = '<p style="color:var(--md-sys-color-error);">Netzwerkfehler beim Laden der Presets.</p>';
+        listEl.innerHTML = `<p style="color:var(--md-sys-color-error);">${t("preset.loadError")}</p>`;
     }
 }
 
@@ -5639,8 +5664,8 @@ function renderPresetPlaybooks(selIds) {
     const pc = document.getElementById("preset-playbooks");
     if (!pc) return;
     const sel = new Set(selIds || []);
-    const list = (allPlaybooks || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "de", { sensitivity: "base" }));
-    if (!list.length) { pc.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Playbooks verfügbar.</p>'; return; }
+    const list = (allPlaybooks || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", getLocale(), { sensitivity: "base" }));
+    if (!list.length) { pc.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("preset.noPlaybooksAvail")}</p>`; return; }
     pc.innerHTML = "";
     list.forEach(pb => {
         const row = document.createElement("label");
@@ -5672,7 +5697,7 @@ function renderPresetDevices(selIds) {
     const sel = new Set(selIds || []);
     const devices = window._presetDevices || [];
     if (!devices.length) {
-        c.innerHTML = '<p style="color: var(--text-muted); margin:0; font-size:12px;">Keine Geräte angelegt.</p>';
+        c.innerHTML = `<p style="color: var(--text-muted); margin:0; font-size:12px;">${t("preset.noDevices")}</p>`;
         return;
     }
     c.innerHTML = "";
@@ -5697,7 +5722,7 @@ function renderPresetShares(shares) {
     const guests = window._presetGuests || [];
     const byGuest = {};
     (shares || []).forEach(s => { byGuest[s.guest_id] = s.permission || "strict"; });
-    if (!guests.length) { sc.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Teammitglieder vorhanden.</p>'; return; }
+    if (!guests.length) { sc.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("preset.noTeamMembers")}</p>`; return; }
     sc.innerHTML = "";
     guests.forEach(g => {
         const row = document.createElement("div");
@@ -5711,7 +5736,7 @@ function renderPresetShares(shares) {
         const perm = document.createElement("select");
         perm.className = "preset-share-perm"; perm.dataset.guest = g.id;
         perm.style.cssText = "padding:4px 6px; font-size:12px; background:rgba(0,0,0,0.2); color:#fff; border:1px solid rgba(255,255,255,0.15); border-radius:6px;";
-        perm.innerHTML = '<option value="strict">strikt (nur ausführen)</option><option value="flexible">flexibel (anpassbar)</option>';
+        perm.innerHTML = `<option value="strict">${t("preset.permStrict")}</option><option value="flexible">${t("preset.permFlexible")}</option>`;
         perm.value = byGuest[g.id] || "strict";
         row.appendChild(cb); row.appendChild(name); row.appendChild(perm);
         sc.appendChild(row);
@@ -5722,7 +5747,7 @@ function renderPresetsList(presets) {
     const c = document.getElementById("presets-list");
     if (!c) return;
     if (!presets || !presets.length) {
-        c.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Keine Presets angelegt.</p>';
+        c.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("preset.noPresets")}</p>`;
         return;
     }
     c.innerHTML = "";
@@ -5733,9 +5758,9 @@ function renderPresetsList(presets) {
         const leftGroup = document.createElement("div");
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
         if (p.is_owner) {
-            const share = vaultActionButton("Freigeben", "share", "primary");
+            const share = vaultActionButton(t("preset.share"), "share", "primary");
             share.addEventListener("click", () => openPresetModal(p));
-            const edit = vaultActionButton("Bearbeiten", "edit", "secondary");
+            const edit = vaultActionButton(t("common.edit"), "edit", "secondary");
             edit.addEventListener("click", () => openPresetModal(p));
             leftGroup.appendChild(share); leftGroup.appendChild(edit);
         }
@@ -5744,8 +5769,8 @@ function renderPresetsList(presets) {
         const pbCount = (p.playbook_ids || []).length;
         const shareCount = (p.shares || []).length;
         const meta = [`${pbCount} Playbook${pbCount === 1 ? "" : "s"}`];
-        if (p.is_owner && shareCount) meta.push(`${shareCount} Freigabe${shareCount === 1 ? "" : "n"}`);
-        if (!p.is_owner) meta.push(p.permission === "flexible" ? "flexibel freigegeben" : "strikt freigegeben");
+        if (p.is_owner && shareCount) meta.push(shareCount === 1 ? t("preset.shareOne", { count: shareCount }) : t("preset.shareMany", { count: shareCount }));
+        if (!p.is_owner) meta.push(p.permission === "flexible" ? t("preset.sharedFlexible") : t("preset.sharedStrict"));
         info.innerHTML = `<div style="font-weight:bold; color:var(--md-sys-color-primary);">${escapeHtml(p.name)}</div>` +
             `<div style="color:var(--text-secondary); font-size:12px;">${escapeHtml(meta.join(" · "))}</div>`;
         leftGroup.appendChild(info);
@@ -5753,7 +5778,7 @@ function renderPresetsList(presets) {
         const right = document.createElement("div");
         right.style.whiteSpace = "nowrap";
         if (p.is_owner) {
-            const del = vaultActionButton("Löschen", "delete", "danger");
+            const del = vaultActionButton(t("common.delete"), "delete", "danger");
             del.addEventListener("click", () => deletePresetById(p.id, p.name));
             right.appendChild(del);
         }
@@ -5766,7 +5791,7 @@ function editPreset(p) {
     editingPreset = p.id;
     document.getElementById("preset-id").value = p.id;
     document.getElementById("preset-name").value = p.name || "";
-    document.getElementById("preset-form-title").textContent = "Preset bearbeiten";
+    document.getElementById("preset-form-title").textContent = t("preset.editTitle");
     document.getElementById("preset-cancel-btn").style.display = "";
     const vars = p.variables || {};
     document.getElementById("preset-variables").value = Object.keys(vars).map(k => `${k}=${vars[k]}`).join("\n");
@@ -5780,7 +5805,7 @@ function resetPresetForm() {
     const id = document.getElementById("preset-id"); if (id) id.value = "";
     const name = document.getElementById("preset-name"); if (name) name.value = "";
     const vars = document.getElementById("preset-variables"); if (vars) vars.value = "";
-    const title = document.getElementById("preset-form-title"); if (title) title.textContent = "Neues Preset";
+    const title = document.getElementById("preset-form-title"); if (title) title.textContent = t("preset.newTitle");
     const pf = document.getElementById("preset-playbook-filter"); if (pf) pf.value = "";
     renderPresetPlaybooks([]);
     renderPresetDevices([]);
@@ -5804,9 +5829,9 @@ function closePresetModal() {
 
 async function savePreset() {
     const name = document.getElementById("preset-name").value.trim();
-    if (!name) { showToast("Bitte einen Preset-Namen eingeben."); return; }
+    if (!name) { showToast(t("preset.nameRequired")); return; }
     const playbook_ids = Array.from(document.querySelectorAll("#preset-playbooks .preset-playbook:checked")).map(c => c.value);
-    if (!playbook_ids.length) { showToast("Bitte mindestens ein Playbook auswählen."); return; }
+    if (!playbook_ids.length) { showToast(t("preset.selectPlaybook")); return; }
     const variables = {};
     document.getElementById("preset-variables").value.split(/\r?\n/).forEach(line => {
         const idx = line.indexOf("=");
@@ -5824,21 +5849,21 @@ async function savePreset() {
     try {
         const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const data = await res.json();
-        if (res.ok) { showToast(editingPreset ? "Preset aktualisiert." : "Preset erstellt."); closePresetModal(); await loadPresets(); }
-        else showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
-    } catch (e) { showToast("Netzwerkfehler beim Speichern."); }
+        if (res.ok) { showToast(editingPreset ? t("preset.updated") : t("preset.created")); closePresetModal(); await loadPresets(); }
+        else showToast(errorDetailToMessage(data.detail, t("preset.saveFailed")));
+    } catch (e) { showToast(t("preset.saveError")); }
 }
 
 async function deletePresetById(id, name) {
     // : Preset-Name fett in der Bestätigungsfrage.
-    const msgHtml = name ? `Möchten Sie das Preset <b>${escapeHtml(name)}</b> wirklich löschen?` : "Preset wirklich löschen?";
-    if (!(await showConfirmDialog({ title: "Preset löschen?", messageHtml: msgHtml, confirmLabel: "Löschen" }))) return;
+    const msgHtml = name ? t("preset.deleteConfirmNamed", { name: escapeHtml(name) }) : t("preset.deleteConfirmGeneric");
+    if (!(await showConfirmDialog({ title: t("preset.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
         const res = await fetch(`/api/profile/presets/${id}`, { method: "DELETE" });
         const data = await res.json();
-        if (res.ok) { showToast("Preset gelöscht."); await loadPresets(); }
-        else showToast(errorDetailToMessage(data.detail, "Löschen fehlgeschlagen."));
-    } catch (e) { showToast("Netzwerkfehler beim Löschen."); }
+        if (res.ok) { showToast(t("preset.deleted")); await loadPresets(); }
+        else showToast(errorDetailToMessage(data.detail, t("preset.deleteFailed")));
+    } catch (e) { showToast(t("preset.deleteError")); }
 }
 
 // Preset ausfuehren: Playbooks im Katalog vorwaehlen, Geraete-Gruppe als Ziel setzen, Run-Modal
@@ -5846,7 +5871,7 @@ async function deletePresetById(id, name) {
 // und erzwingt Berechtigung (strict/flexible) + Premium-Gate.
 function launchPreset(p) {
     const ids = p.playbook_ids || [];
-    if (!ids.length) { showToast("Dieses Preset hat keine Playbooks."); return; }
+    if (!ids.length) { showToast(t("preset.noPlaybooksInPreset")); return; }
     const profileDialog = document.getElementById("profile-dialog");
     if (profileDialog && typeof profileDialog.close === "function" && profileDialog.open) profileDialog.close();
     navigateTo("/");
@@ -5858,8 +5883,8 @@ function launchPreset(p) {
         else missing.push(playbookNameMap[file] || file);
     });
     updatePresetHighlights();
-    if (!matched) { showToast("Die Preset-Playbooks sind aktuell nicht im Katalog verfügbar."); return; }
-    if (missing.length) showToast(`${missing.length} Playbook(s) nicht verfügbar: ${missing.join(", ")}`);
+    if (!matched) { showToast(t("preset.playbooksNotInCatalog")); return; }
+    if (missing.length) showToast(t("preset.playbooksUnavailable", { count: missing.length, list: missing.join(", ") }));
     // : Eigenes Preset verhält sich wie ein System-Preset — nur Playbooks vorwählen, KEIN
     // Dialog. Die gespeicherten Einstellungen werden beim Öffnen des Run-Dialogs übernommen
     // (showCredentialsModal bezieht userCustomPresets in die activeVariables ein).
@@ -5869,7 +5894,7 @@ function launchPreset(p) {
     }
     // Freigegebenes (fremdes) Preset: Dialog öffnen + Server-Bindung (strict/flexible-Durchsetzung).
     window._activePresetId = p.id;
-    if (p.permission === "strict") showToast("Strikt freigegebenes Preset – die hinterlegten Werte sind fest.");
+    if (p.permission === "strict") showToast(t("preset.strictSharedInfo"));
     showCredentialsModal();
     // (Device-Flatten): Bei genau EINEM gebundenen Geraet dieses im Dropdown vorwaehlen.
     // Bei mehreren (oder keinem) loest der Server die Zielgeraete aus preset.device_ids auf
@@ -5896,7 +5921,7 @@ async function handleProfileUpdateSubmit(e) {
 
         const data = await response.json();
         if (response.ok) {
-            showToast("Profil erfolgreich aktualisiert.");
+            showToast(t("misc.profileUpdated"));
             await checkAuthStatus();
         } else {
             showToast(errorDetailToMessage(data.detail, "Profil-Update fehlgeschlagen."));
@@ -5920,10 +5945,10 @@ async function handleProfileExport() {
             a.click();
             document.body.removeChild(a);
             window.URL.revokeObjectURL(url);
-            showToast("Datenexport erfolgreich heruntergeladen.");
+            showToast(t("misc.exportDownloaded"));
         }
     } catch (err) {
-        showToast("Fehler beim Datenexport.");
+        showToast(t("misc.exportError"));
     }
 }
 
@@ -5943,7 +5968,7 @@ async function handleDeleteConfirmSubmit(e) {
             document.getElementById("delete-confirm-dialog").classList.add("hidden");
             document.getElementById("profile-dialog").classList.add("hidden");
             document.getElementById("delete-confirm-form").reset();
-            showToast("Konto erfolgreich zur Löschung vorgemerkt.");
+            showToast(t("misc.deleteScheduled"));
             currentUser = null;
             userDevices = [];
             updateAuthUI();
@@ -5951,7 +5976,7 @@ async function handleDeleteConfirmSubmit(e) {
             showToast(errorDetailToMessage(data.detail, "Passwort ungültig."));
         }
     } catch (err) {
-        showToast("Fehler beim Einleiten der Kontolöschung.");
+        showToast(t("misc.deleteInitError"));
     }
 }
 
@@ -5960,13 +5985,13 @@ async function handleCancelDeletion() {
         const response = await fetch("/api/profile/delete-cancel", { method: "POST" });
         const data = await response.json();
         if (response.ok) {
-            showToast("Löschungsanfrage erfolgreich storniert.");
+            showToast(t("misc.deleteRequestCancelled"));
             await checkAuthStatus();
         } else {
             showToast(errorDetailToMessage(data.detail, "Stornierung fehlgeschlagen."));
         }
     } catch (err) {
-        showToast("Fehler beim Stornieren der Löschung.");
+        showToast(t("misc.deleteCancelError"));
     }
 }
 
@@ -6152,14 +6177,14 @@ async function handleDeviceFormSubmit(e) {
 
         const data = await response.json();
         if (response.ok) {
-            showToast("Gerät erfolgreich gespeichert.");
+            showToast(t("misc.deviceSaved"));
             resetDeviceForm();
             await fetchDevices();
         } else {
             showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern des Geräts."));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Speichern des Geräts.");
+        showToast(t("misc.deviceSaveNetworkError"));
     }
 }
 
@@ -6168,14 +6193,14 @@ async function deleteDevice(id) {
     try {
         const response = await fetch(`/api/devices/${id}`, { method: "DELETE" });
         if (response.ok) {
-            showToast("Gerät erfolgreich gelöscht.");
+            showToast(t("misc.deviceDeleted"));
             await fetchDevices();
         } else {
             const data = await response.json();
             showToast(errorDetailToMessage(data.detail, "Fehler beim Löschen des Geräts."));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Löschen des Geräts.");
+        showToast(t("misc.deviceDeleteNetworkError"));
     }
 }
 
@@ -6237,7 +6262,7 @@ function renderDashboardPies(s) {
         _adminCharts.usersPie = new Chart(usersPie, {
             type: "doughnut",
             data: {
-                labels: ["Aktiv (Paid)", "Aktiv (Trial)", "Inaktiv"],
+                labels: [t("adminDash.pieActivePaid"), t("adminDash.pieActiveTrial"), t("adminDash.pieInactive")],
                 datasets: [{ data: [s.active_paid || 0, s.active_trial || 0, s.inactive || 0], backgroundColor: ["#2ecc71", "#f1c40f", "#e74c3c"], borderWidth: 0 }],
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: tc.text, boxWidth: 12, font: { size: 11 } } } } },
@@ -6250,7 +6275,7 @@ function renderDashboardPies(s) {
         _adminCharts.ipPie = new Chart(ipPie, {
             type: "doughnut",
             data: {
-                labels: ["Automatisch (Rate-Limit)", "Manuell (Admin)"],
+                labels: [t("adminDash.ipAuto"), t("adminDash.ipManual")],
                 datasets: [{ data: [ip.auto || 0, ip.manual || 0], backgroundColor: ["#3498db", "#9b59b6"], borderWidth: 0 }],
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { color: tc.text, boxWidth: 12, font: { size: 11 } } } } },
@@ -6290,11 +6315,11 @@ function renderDashboardTimeseries(rows) {
     };
     const ds = (label, field, color) => ({ label, data: rows.map(x => x[field]), borderColor: color, backgroundColor: color + "33", tension: 0.3, pointRadius: rows.length > 30 ? 0 : 2, borderWidth: 2 });
     mkLine("chart-users-line", "usersLine", [
-        ds("Gesamt", "total", "#1abc9c"), ds("Paid", "paid", "#2ecc71"), ds("Trial", "trial", "#f1c40f"), ds("Inaktiv", "inactive", "#e74c3c"),
+        ds(t("adminDash.total"), "total", "#1abc9c"), ds("Paid", "paid", "#2ecc71"), ds("Trial", "trial", "#f1c40f"), ds(t("adminDash.pieInactive"), "inactive", "#e74c3c"),
     ]);
-    mkLine("chart-ip-line", "ipLine", [ ds("IP-Sperren", "ip_total", "#3498db") ]);
+    mkLine("chart-ip-line", "ipLine", [ ds(t("adminDash.ipBlocks"), "ip_total", "#3498db") ]);
     mkLine("chart-storage-line", "storageLine", [
-        { label: "Speicher (MB)", data: rows.map(x => Math.round((x.storage || 0) / 1024 / 1024 * 10) / 10), borderColor: "#9b59b6", backgroundColor: "#9b59b633", tension: 0.3, pointRadius: rows.length > 30 ? 0 : 2, borderWidth: 2 },
+        { label: t("adminDash.storageMb"), data: rows.map(x => Math.round((x.storage || 0) / 1024 / 1024 * 10) / 10), borderColor: "#9b59b6", backgroundColor: "#9b59b633", tension: 0.3, pointRadius: rows.length > 30 ? 0 : 2, borderWidth: 2 },
     ]);
 }
 
@@ -6308,12 +6333,12 @@ async function fetchAdminStats(force = false) {
     }
     try {
         const res = await fetch("/api/admin/stats");
-        if (!res.ok) { if (cfg) cfg.innerHTML = '<p style="color:var(--md-sys-color-error);">Fehler beim Laden.</p>'; return; }
+        if (!res.ok) { if (cfg) cfg.innerHTML = `<p style="color:var(--md-sys-color-error);">${t("adminDash.loadError")}</p>`; return; }
         const s = await res.json();
         _adminStatsCache = s;
         renderAdminStats(s, force);
     } catch (e) {
-        if (cfg) cfg.innerHTML = '<p style="color:var(--md-sys-color-error);">Netzwerkfehler.</p>';
+        if (cfg) cfg.innerHTML = `<p style="color:var(--md-sys-color-error);">${t("adminDash.networkError")}</p>`;
     }
 }
 
@@ -6325,7 +6350,7 @@ function renderAdminStats(s, force = false) {
 
         const chip = (label, ok, okText, badText) => {
             const color = ok ? "#2ecc71" : "#e74c3c";
-            const txt = ok ? (okText || "aktiv") : (badText || "inaktiv");
+            const txt = ok ? (okText || t("adminDash.active")) : (badText || t("adminDash.inactive"));
             return `<div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 12px;">
                 <span style="width:9px; height:9px; border-radius:50%; background:${color}; display:inline-block;"></span>
                 <span style="font-size:13px;">${label}: <strong style="color:${color};">${txt}</strong></span></div>`;
@@ -6341,27 +6366,27 @@ function renderAdminStats(s, force = false) {
         const sconn = cf.stripe_connection || {};
         let stColor, stTxt;
         if (cf.stripe_mock) {
-            stColor = "#e74c3c"; stTxt = "Inaktiv (Mock / keine Schlüssel)";
+            stColor = "#e74c3c"; stTxt = t("adminDash.stripeInactiveMock");
         } else if (sconn.status === "error") {
-            stColor = "#e74c3c"; stTxt = "Fehler" + (sconn.detail ? `: ${String(sconn.detail).slice(0, 80)}` : "");
+            stColor = "#e74c3c"; stTxt = t("adminDash.error") + (sconn.detail ? `: ${String(sconn.detail).slice(0, 80)}` : "");
         } else if (sconn.status === "ok") {
             if (cf.stripe_livemode && cf.stripe_signature_check) {
-                stColor = "#2ecc71"; stTxt = "Aktiv – Live" + (sconn.account ? ` (${sconn.account})` : "");
+                stColor = "#2ecc71"; stTxt = t("adminDash.stripeActiveLive") + (sconn.account ? ` (${sconn.account})` : "");
             } else {
-                stColor = "#f1c40f"; stTxt = cf.stripe_livemode ? "Live – Webhook fehlt" : "Aktiv – Test";
+                stColor = "#f1c40f"; stTxt = cf.stripe_livemode ? t("adminDash.stripeLiveNoWebhook") : t("adminDash.stripeActiveTest");
             }
         } else {
-            stColor = "#e74c3c"; stTxt = "Inaktiv / unbekannt";
+            stColor = "#e74c3c"; stTxt = t("adminDash.stripeInactiveUnknown");
         }
         //  (Community): editionsabhängige Status-Kacheln.
         //  - Stripe: nur Cloud (Billing existiert nur dort).
         //  - Captcha: nur Cloud.
         //  - E-Mail-Verifikation: Cloud + On-Premise (in Community ausgeblendet).
-        let _chips = chip("SMTP", cf.smtp, "konfiguriert", "nicht konfiguriert");
+        let _chips = chip("SMTP", cf.smtp, t("adminDash.configured"), t("adminDash.notConfigured"));
         if (currentEdition === "cloud") _chips += chipColored("Stripe", stColor, stTxt);
-        if (currentEdition === "cloud") _chips += chip("Captcha", cf.captcha, "an", "aus");
-        if (currentEdition !== "community") _chips += chip("E-Mail-Verifikation", cf.email_verification, "an", "aus");
-        _chips += chip("API-Docs", cf.api_docs, "an", "aus");
+        if (currentEdition === "cloud") _chips += chip("Captcha", cf.captcha, t("adminDash.on"), t("adminDash.off"));
+        if (currentEdition !== "community") _chips += chip(t("adminDash.emailVerification"), cf.email_verification, t("adminDash.on"), t("adminDash.off"));
+        _chips += chip("API-Docs", cf.api_docs, t("adminDash.on"), t("adminDash.off"));
         cfg.innerHTML = _chips;
             // : Wartungsmodus-Kachel entfernt (durch Banner + Tab-Indikatoren abgedeckt).
         //: auffaelliger Banner oben, sichtbar wenn der Stripe-Mock-/Demo-Modus aktiv ist.
@@ -6535,7 +6560,7 @@ function renderScenarioShareList(shares) {
     const guests = window._scenarioGuests || [];
     const byGuest = {};
     (shares || []).forEach(s => { byGuest[s.guest_id] = s.permission || "strict"; });
-    if (!guests.length) { sc.innerHTML = '<p style="color: var(--text-muted); font-size: 12px;">Keine Teammitglieder vorhanden.</p>'; return; }
+    if (!guests.length) { sc.innerHTML = `<p style="color: var(--text-muted); font-size: 12px;">${t("vault.noTeamMembers")}</p>`; return; }
     sc.innerHTML = "";
     guests.forEach(g => {
         const row = document.createElement("div");
@@ -6549,7 +6574,7 @@ function renderScenarioShareList(shares) {
         const perm = document.createElement("select");
         perm.className = "scenario-share-perm"; perm.dataset.guest = g.id;
         perm.style.cssText = "padding:4px 6px; font-size:12px; background: rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#fff;";
-        perm.innerHTML = '<option value="strict">strikt (nur ausführen)</option><option value="flexible">flexibel (anpassbar)</option>';
+        perm.innerHTML = `<option value="strict">${t("vault.permStrict")}</option><option value="flexible">${t("vault.permFlexible")}</option>`;
         perm.value = byGuest[g.id] || "strict";
         row.appendChild(cb); row.appendChild(name); row.appendChild(perm);
         sc.appendChild(row);
@@ -6580,7 +6605,7 @@ function renderScenariosList(scenarios) {
     const c = document.getElementById("scenarios-list");
     if (!c) return;
     if (!scenarios || !scenarios.length) {
-        c.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">Keine Szenarien angelegt.</p>';
+        c.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("scenario.emptyList")}</p>`;
         return;
     }
     c.innerHTML = "";
@@ -6595,11 +6620,11 @@ function renderScenariosList(scenarios) {
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
         //: In der Community-Edition kein „Freigeben" (keine weiteren Benutzer/Teams).
         if (currentEdition !== "community") {
-            const share = vaultActionButton("Freigeben", "share", "primary");
+            const share = vaultActionButton(t("scenario.share"), "share", "primary");
             share.addEventListener("click", () => openScenarioShareDialog(s));
             leftGroup.appendChild(share);
         }
-        const edit = vaultActionButton("Bearbeiten", "edit", "secondary");
+        const edit = vaultActionButton(t("common.edit"), "edit", "secondary");
         edit.addEventListener("click", () => editScenario(s));
         leftGroup.appendChild(edit);
         const info = document.createElement("div");
@@ -6608,12 +6633,12 @@ function renderScenariosList(scenarios) {
         // : Subtitel nur „→ Zielgerät" (Preset-Name nicht mehr wiederholen).
         const meta = s.valid
             ? `→ ${escapeHtml(scenarioTargetLabel(s))}`
-            : "Preset oder Gerät gelöscht – bitte bearbeiten";
+            : t("scenario.metaBroken");
         // : kompakte Metadaten (Anzahl Playbooks/Geräte/freigegebene Benutzer) wie in anderen Listen.
         const counts = [];
         if (typeof s.playbook_count === "number") counts.push(`${s.playbook_count} Playbook${s.playbook_count === 1 ? "" : "s"}`);
-        if (!s.device_optional && typeof s.device_count === "number") counts.push(`${s.device_count} Gerät${s.device_count === 1 ? "" : "e"}`);
-        if (currentEdition !== "community" && typeof s.shared_count === "number") counts.push(`für ${s.shared_count} Benutzer freigegeben`);
+        if (!s.device_optional && typeof s.device_count === "number") counts.push(s.device_count === 1 ? t("scenario.deviceCountOne", { count: s.device_count }) : t("scenario.deviceCountMany", { count: s.device_count }));
+        if (currentEdition !== "community" && typeof s.shared_count === "number") counts.push(s.shared_count === 1 ? t("scenario.sharedCountOne", { count: s.shared_count }) : t("scenario.sharedCountMany", { count: s.shared_count }));
         const countsHtml = counts.length
             ? `<div style="color:var(--text-muted); font-size:11px;">${counts.join(" &middot; ")}</div>`
             : "";
@@ -6624,7 +6649,7 @@ function renderScenariosList(scenarios) {
         div.appendChild(leftGroup);
         const right = document.createElement("div");
         right.style.whiteSpace = "nowrap";
-        const del = vaultActionButton("Löschen", "delete", "danger");
+        const del = vaultActionButton(t("common.delete"), "delete", "danger");
         del.addEventListener("click", () => deleteScenarioById(s.id, s.name));
         right.appendChild(del);
         div.appendChild(right);
@@ -6637,9 +6662,9 @@ function resetScenarioForm() {
     const name = document.getElementById("scenario-name");
     if (name) name.value = "";
     const title = document.getElementById("scenario-form-title");
-    if (title) title.textContent = "Neues Szenario";
+    if (title) title.textContent = t("scenario.newScenario");
     const saveBtn = document.getElementById("scenario-save-btn");
-    if (saveBtn) saveBtn.textContent = "Speichern";
+    if (saveBtn) saveBtn.textContent = t("common.save");
     // : Abbrechen ist im Dialog immer sichtbar (schließt den Dialog).
 }
 
@@ -6649,7 +6674,7 @@ function editScenario(s) {
     if (s.valid === false && !s.preset_name) {
         // Preset gelöscht -> Playbooks/Variablen lassen sich nicht vorbefüllen; trotzdem bearbeitbar
         // (der Wizard legt beim Speichern ein neues Preset an).
-        showToast("Das Preset dieses Szenarios fehlt – bitte Playbooks neu auswählen.");
+        showToast(t("scenario.presetMissingReselect"));
     }
     openScenarioWizard(s);
 }
@@ -6658,17 +6683,17 @@ async function saveScenario() {
     const name = (document.getElementById("scenario-name").value || "").trim();
     const presetId = document.getElementById("scenario-preset-select").value;
     const deviceGroupId = document.getElementById("scenario-device-select").value;
-    if (!name) { showToast("Bitte einen Namen vergeben."); return; }
+    if (!name) { showToast(t("scenario.nameRequired")); return; }
     // : Zielgerät optional (leer = geräteloses Szenario); nur das Preset ist Pflicht.
-    if (!presetId) { showToast("Bitte ein Preset wählen."); return; }
+    if (!presetId) { showToast(t("scenario.presetRequired")); return; }
     // : Freigaben laufen über den eigenen Freigabe-Dialog -> hier NICHT mitsenden
     // (Backend lässt shares bei None unverändert). Beim Neuanlegen startet das Szenario ohne Freigaben.
     const payload = { name, preset_id: presetId, device_group_id: deviceGroupId || null };
     const url = editingScenario ? `/api/profile/scenarios/${editingScenario}` : "/api/profile/scenarios";
     try {
         const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, "Speichern fehlgeschlagen.")); }
-        showToast(editingScenario ? "Szenario aktualisiert." : "Szenario erstellt.");
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, t("vault.saveFailed"))); }
+        showToast(editingScenario ? t("scenario.updated") : t("scenario.created"));
         closeScenarioDialog();  // 
         await loadScenarios();
     } catch (e) {
@@ -6678,12 +6703,12 @@ async function saveScenario() {
 
 async function deleteScenarioById(id, name) {
     // : Szenario-Name fett in der Bestätigungsfrage.
-    const msgHtml = name ? `Möchten Sie das Szenario <b>${escapeHtml(name)}</b> wirklich löschen?` : "Szenario wirklich löschen?";
-    if (!(await showConfirmDialog({ title: "Szenario löschen?", messageHtml: msgHtml, confirmLabel: "Löschen" }))) return;
+    const msgHtml = name ? t("scenario.deleteConfirmNamed", { name: escapeHtml(name) }) : t("scenario.deleteConfirm");
+    if (!(await showConfirmDialog({ title: t("scenario.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
         const res = await fetch(`/api/profile/scenarios/${id}`, { method: "DELETE" });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, "Löschen fehlgeschlagen.")); }
-        showToast("Szenario gelöscht.");
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, t("vault.deleteFailed"))); }
+        showToast(t("scenario.deleted"));
         if (editingScenario === id) resetScenarioForm();
         await loadScenarios();
     } catch (e) {
@@ -6695,13 +6720,13 @@ async function deleteScenarioById(id, name) {
 // Variablen) und festes Zielgerät auf und erzwingt Freigabe/Berechtigung (auch für Gäste).
 // : Bestätigungs-Dialog vor dem Start;: geräteloses Szenario -> Einmal-Geräte-Dialog.
 async function runScenario(s) {
-    if (s.valid === false) { showToast("Preset oder Gerät fehlt – bitte das Szenario bearbeiten."); return; }
+    if (s.valid === false) { showToast(t("scenario.invalidEdit")); return; }
     // : Szenario-Name und Zielgerät in Akzentfarbe hervorheben (Werte via escapeHtml entschärft).
     const accent = (txt) => `<b style="color: var(--md-sys-color-primary);">${escapeHtml(txt)}</b>`;
     const messageHtml = s.device_optional
-        ? `Szenario ${accent(s.name)} jetzt ausführen? Das Zielgerät wird im nächsten Schritt eingegeben.`
-        : `Szenario ${accent(s.name)} jetzt auf ${accent(s.device_name || "dem hinterlegten Gerät")} ausführen?`;
-    const ok = await showConfirmDialog({ title: "Szenario ausführen", messageHtml, confirmLabel: "Ausführen" });
+        ? t("scenario.runConfirmDeviceless", { name: accent(s.name) })
+        : t("scenario.runConfirmDevice", { name: accent(s.name), device: accent(s.device_name || t("scenario.storedDevice")) });
+    const ok = await showConfirmDialog({ title: t("scenario.runTitle"), messageHtml, confirmLabel: t("landing.run") });
     if (!ok) return;
     if (s.device_optional) { openScenarioRunDeviceDialog(s); return; }
     await executeScenarioRun(s, {});
@@ -6712,7 +6737,7 @@ let scenarioRunPending = null;
 function openScenarioRunDeviceDialog(s) {
     scenarioRunPending = s;
     const t = document.getElementById("scenario-run-device-title");
-    if (t) t.textContent = `Szenario „${s.name}" ausführen`;
+    if (t) t.textContent = window.t("scenario.runDeviceTitle", { name: s.name });
     ["scenario-run-host", "scenario-run-user", "scenario-run-password", "scenario-run-basedir"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
     // Autofill-Sperre zuruecksetzen: base_dir leitet sich wieder vom Benutzernamen ab.
     const _srBaseDir = document.getElementById("scenario-run-basedir");
@@ -6725,7 +6750,7 @@ function _resetScenarioRunKeyUpload() {
     const keyFile = document.getElementById("scenario-run-key-file");
     if (keyFile) keyFile.value = "";
     const lbl = document.getElementById("scenario-run-key-filename-lbl");
-    if (lbl) lbl.textContent = "Keine Datei ausgewählt";
+    if (lbl) lbl.textContent = t("core.noFileSelected");
     const reset = document.getElementById("scenario-run-key-reset");
     if (reset) reset.classList.add("hidden");
 }
@@ -6741,18 +6766,18 @@ async function submitScenarioRunDevice() {
     //: optionales Sudo-/Become-Passwort für diesen Lauf.
     const becomeEl = document.getElementById("scenario-run-become");
     const becomePassword = becomeEl ? (becomeEl.value || "") : "";
-    if (!host) { showToast("Bitte Host/IP angeben."); return; }
-    if (!user) { showToast("Bitte SSH-Benutzer angeben."); return; }
+    if (!host) { showToast(t("scenario.hostRequired")); return; }
+    if (!user) { showToast(t("scenario.userRequired")); return; }
     // : optionaler SSH-Key (Vorrang vor Passwort); nur für diesen Lauf, nicht gespeichert.
     let ssh_key = "";
     const keyInput = document.getElementById("scenario-run-key-file");
     const keyFile = keyInput && keyInput.files && keyInput.files[0];
     if (keyFile) {
         try { ssh_key = await readFileAsText(keyFile); }
-        catch (e) { showToast("SSH-Key konnte nicht gelesen werden."); return; }
-        if (!ssh_key || !ssh_key.trim()) { showToast("Die gewählte Key-Datei ist leer."); return; }
+        catch (e) { showToast(t("scenario.keyReadFailed")); return; }
+        if (!ssh_key || !ssh_key.trim()) { showToast(t("scenario.keyFileEmpty")); return; }
     }
-    if (!password && !ssh_key) { showToast("Bitte ein Passwort eingeben oder einen SSH-Key hochladen."); return; }
+    if (!password && !ssh_key) { showToast(t("scenario.passwordOrKeyRequired")); return; }
     // Basisverzeichnis ist optional; leer lassen wir weg, damit der Server auf das
     // Heimatverzeichnis des SSH-Benutzers zurueckfallen kann.
     const baseDir = (document.getElementById("scenario-run-basedir").value || "").trim();
@@ -6775,9 +6800,9 @@ async function executeScenarioRun(s, extra) {
             // der Server ersetzt es serverseitig durch die Playbooks des Szenario-Presets.
             body: JSON.stringify({ playbooks: [], scenario_id: s.id, session_id: sessionId, ...rest, ...(variables ? { variables } : {}) })
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, "Start fehlgeschlagen.")); }
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, t("vault.startFailed"))); }
         const result = await res.json();
-        showToast(`Szenario „${s.name}" gestartet.`);
+        showToast(t("scenario.started", { name: s.name }));
         const btnHistory = document.getElementById("nav-btn-history");
         if (btnHistory) btnHistory.disabled = false;
         selectedJobId = result.job_id;
@@ -6818,8 +6843,8 @@ async function saveScenarioShares() {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name: sharingScenario.name, preset_id: sharingScenario.preset_id, device_ids: sharingScenario.device_ids || [], shares })
         });
-        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, "Freigabe fehlgeschlagen.")); }
-        showToast("Freigabe gespeichert.");
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, t("vault.shareFailed"))); }
+        showToast(t("vault.shareSaved"));
         closeScenarioShareDialog();
         await loadScenarios();
     } catch (e) {
@@ -6873,8 +6898,8 @@ function switchVaultTab(tabName) {
     currentVaultTab = tabName;
     const fabLabel = document.getElementById("vault-fab-label");
     if (fabLabel) {
-        const labels = { playbooks: "Playbook hochladen", devices: "Gerät hinzufügen", presets: "Preset erstellen", scenarios: "Szenario erstellen" };
-        fabLabel.textContent = labels[tabName] || "Hinzufügen";
+        const labels = { playbooks: t("vault.fabUploadPlaybook"), devices: t("vault.fabAddDevice"), presets: t("vault.fabCreatePreset"), scenarios: t("scenario.create") };
+        fabLabel.textContent = labels[tabName] || t("vault.fabAdd");
     }
 }
 
@@ -6892,8 +6917,8 @@ function onVaultFab() {
 function openCustomPbCreateDialog() {
     const form = document.getElementById("custom-playbook-upload-form");
     if (form) form.reset();
-    const fl = document.getElementById("custom-playbook-filename-lbl"); if (fl) fl.textContent = "Keine Datei ausgewählt";
-    const il = document.getElementById("custom-pb-icon-filename-lbl"); if (il) il.textContent = "Keine Datei ausgewählt";
+    const fl = document.getElementById("custom-playbook-filename-lbl"); if (fl) fl.textContent = t("core.noFileSelected");
+    const il = document.getElementById("custom-pb-icon-filename-lbl"); if (il) il.textContent = t("core.noFileSelected");
     ["custom-playbook-reset", "custom-pb-icon-reset"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add("hidden"); });
     const d = document.getElementById("custom-pb-create-dialog"); if (d) d.classList.remove("hidden");
 }
@@ -6935,7 +6960,7 @@ function closePresetWizard() {
 function presetWizardGoTo(step) {
     presetWizardStep = step;
     [1, 2, 3].forEach(n => { const el = document.getElementById("preset-wizard-step-" + n); if (el) el.classList.toggle("hidden", n !== step); });
-    const titles = { 1: "Neues Preset – Playbooks", 2: "Neues Preset – Einstellungen", 3: "Neues Preset – Freigeben (optional)" };
+    const titles = { 1: window.t("vault.presetWizStep1"), 2: window.t("vault.presetWizStep2"), 3: window.t("vault.presetWizStep3") };
     const t = document.getElementById("preset-wizard-title"); if (t) t.textContent = titles[step];
     const back = document.getElementById("preset-wizard-back"); if (back) back.style.display = step > 1 ? "" : "none";
     const next = document.getElementById("preset-wizard-next"); if (next) next.style.display = step < 3 ? "" : "none";
@@ -6961,8 +6986,8 @@ function renderWizardPlaybooks(filter, ctx = presetWizardCtx()) {
     const c = document.getElementById(ctx.pb);
     if (!c) return;
     const ftxt = (filter || "").toLowerCase();
-    const list = (allPlaybooks || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", "de", { sensitivity: "base" }));
-    if (!list.length) { c.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">Keine Playbooks verfügbar.</p>'; return; }
+    const list = (allPlaybooks || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || "", getLocale(), { sensitivity: "base" }));
+    if (!list.length) { c.innerHTML = `<p style="color:var(--text-muted); font-size:13px;">${t("vault.noPlaybooksAvailable")}</p>`; return; }
     c.innerHTML = "";
     list.forEach(pb => {
         const hay = `${pb.name || ""} ${pb.category || ""} ${pb.file || ""}`.toLowerCase();
@@ -6990,9 +7015,9 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
     const general = document.createElement("div");
     general.style.cssText = "margin-bottom:14px;";
     general.innerHTML =
-        `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}base-dir" placeholder=" " style="width:100%;"><label for="${ctx.prefix}base-dir">Basisverzeichnis (optional)</label></div>` +
-        `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}timezone" placeholder=" " value="${escapeHtml(tz)}" style="width:100%;"><label for="${ctx.prefix}timezone">Zeitzone</label></div>` +
-        `<label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-bottom:6px;"><input type="checkbox" id="${ctx.prefix}use-traefik" class="styled-checkbox" checked> Traefik verwenden (Domains statt Ports)</label>`;
+        `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}base-dir" placeholder=" " style="width:100%;"><label for="${ctx.prefix}base-dir">${t("vault.baseDir")}</label></div>` +
+        `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}timezone" placeholder=" " value="${escapeHtml(tz)}" style="width:100%;"><label for="${ctx.prefix}timezone">${t("vault.timezone")}</label></div>` +
+        `<label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-bottom:6px;"><input type="checkbox" id="${ctx.prefix}use-traefik" class="styled-checkbox" checked> ${t("vault.useTraefik")}</label>`;
     container.appendChild(general);
     Array.from(ctx.selected).forEach(pbPath => {
         const baseName = pbPath.split("/").pop();
@@ -7041,14 +7066,14 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
             });
             acc.style.display = visible > 0 ? "" : "none";
             const cnt = acc.querySelector(".modal-config-accordion-count");
-            if (cnt) cnt.textContent = `${visible} Einstellung${visible === 1 ? "" : "en"}`;
+            if (cnt) cnt.textContent = visible === 1 ? t("vault.settingCountOne", { count: visible }) : t("vault.settingCountMany", { count: visible });
         });
     };
     if (traefik) { traefik.onchange = applyVis; applyVis(); }
     if (!container.querySelector(".modal-config-accordion")) {
         const note = document.createElement("p");
         note.style.cssText = "color:var(--text-muted); font-size:12px;";
-        note.textContent = "Für die gewählten Playbooks gibt es keine zusätzlichen Einstellungen.";
+        note.textContent = t("vault.noExtraSettings");
         container.appendChild(note);
     }
 }
@@ -7078,7 +7103,7 @@ function renderWizardShares(ctx = presetWizardCtx(), selected = null) {
     const sc = document.getElementById(ctx.shares);
     if (!sc) return;
     const guests = (ctx.guests && ctx.guests.length ? ctx.guests : (window._presetGuests || []));
-    if (!guests.length) { sc.innerHTML = '<p style="color:var(--text-muted); font-size:12px;">Keine Teammitglieder vorhanden.</p>'; return; }
+    if (!guests.length) { sc.innerHTML = `<p style="color:var(--text-muted); font-size:12px;">${t("vault.noTeamMembers")}</p>`; return; }
     const byGuest = {};
     (selected || []).forEach(s => { byGuest[s.guest_id] = s.permission || "strict"; });
     sc.innerHTML = "";
@@ -7090,7 +7115,7 @@ function renderWizardShares(ctx = presetWizardCtx(), selected = null) {
         const name = document.createElement("span"); name.style.cssText = "flex:1; min-width:0; font-size:12px;"; name.textContent = `${g.username} (${g.email})`;
         const perm = document.createElement("select"); perm.className = "wizard-share-perm"; perm.dataset.guest = g.id;
         perm.style.cssText = "padding:4px 6px; font-size:12px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.1); border-radius:4px; color:#fff;";
-        perm.innerHTML = '<option value="strict">strikt (nur ausführen)</option><option value="flexible">flexibel (anpassbar)</option>';
+        perm.innerHTML = `<option value="strict">${t("vault.permStrict")}</option><option value="flexible">${t("vault.permFlexible")}</option>`;
         perm.value = byGuest[g.id] || "strict";
         row.appendChild(cb); row.appendChild(name); row.appendChild(perm);
         sc.appendChild(row);
@@ -7122,8 +7147,8 @@ function applyWizardVariables(ctx, vars) {
 function presetWizardNext() {
     if (presetWizardStep === 1) {
         const name = (document.getElementById("preset-wizard-name").value || "").trim();
-        if (!name) { showToast("Bitte einen Preset-Namen eingeben."); return; }
-        if (!presetWizardSelected.size) { showToast("Bitte mindestens ein Playbook auswählen."); return; }
+        if (!name) { showToast(t("vault.presetNameRequired")); return; }
+        if (!presetWizardSelected.size) { showToast(t("vault.selectPlaybook")); return; }
         renderWizardConfig();
         presetWizardGoTo(2);
     } else if (presetWizardStep === 2) {
@@ -7138,7 +7163,7 @@ function presetWizardBack() {
 async function presetWizardFinish() {
     const name = (document.getElementById("preset-wizard-name").value || "").trim();
     const playbook_ids = Array.from(presetWizardSelected);
-    if (!name || !playbook_ids.length) { showToast("Name und mindestens ein Playbook erforderlich."); return; }
+    if (!name || !playbook_ids.length) { showToast(t("vault.nameAndPlaybookRequired")); return; }
     const variables = collectWizardVariables();
     const shares = Array.from(document.querySelectorAll("#preset-wizard-shares .wizard-share-cb:checked")).map(cb => {
         const permEl = document.querySelector(`#preset-wizard-shares .wizard-share-perm[data-guest="${cssEscape(cb.value)}"]`);
@@ -7148,8 +7173,8 @@ async function presetWizardFinish() {
     try {
         const res = await fetch("/api/profile/presets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
         const d = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(errorDetailToMessage(d.detail, "Erstellen fehlgeschlagen."));
-        showToast("Preset erstellt.");
+        if (!res.ok) throw new Error(errorDetailToMessage(d.detail, t("vault.createFailed")));
+        showToast(t("vault.presetCreated"));
         closePresetWizard();
         await loadPresets();
     } catch (e) {
@@ -7216,8 +7241,8 @@ function scenarioWizardGoTo(step) {
     [1, 2, 3, 4].forEach(n => { const el = document.getElementById("scenario-wizard-step-" + n); if (el) el.classList.toggle("hidden", n !== step); });
     // : Titel/Icon/Buttons spiegeln Neuanlage vs. Bearbeiten.
     const editing = !!scenarioWizardEditing;
-    const prefix = editing ? "Szenario bearbeiten" : "Neues Szenario";
-    const titles = { 1: `${prefix} – Playbooks`, 2: `${prefix} – Einstellungen`, 3: `${prefix} – Gerät`, 4: `${prefix} – Freigeben (optional)` };
+    const prefix = editing ? window.t("scenario.editScenario") : window.t("scenario.newScenario");
+    const titles = { 1: window.t("scenario.wizStep1", { prefix }), 2: window.t("scenario.wizStep2", { prefix }), 3: window.t("scenario.wizStep3", { prefix }), 4: window.t("scenario.wizStep4", { prefix }) };
     const t = document.getElementById("scenario-wizard-title"); if (t) t.textContent = titles[step];
     const icon = document.getElementById("scenario-wizard-icon"); if (icon) icon.textContent = editing ? "edit" : "rocket_launch";  //
     //: In der Community-Edition entfaellt der Freigabe-Schritt (Schritt 4) — keine weiteren Benutzer.
@@ -7225,7 +7250,7 @@ function scenarioWizardGoTo(step) {
     const back = document.getElementById("scenario-wizard-back"); if (back) back.style.display = step > 1 ? "" : "none";
     const next = document.getElementById("scenario-wizard-next"); if (next) next.style.display = step < lastStep ? "" : "none";
     const finish = document.getElementById("scenario-wizard-finish");
-    if (finish) { finish.style.display = step === lastStep ? "" : "none"; finish.textContent = editing ? "Änderungen speichern" : "Szenario erstellen"; }
+    if (finish) { finish.style.display = step === lastStep ? "" : "none"; finish.textContent = editing ? window.t("scenario.saveChanges") : window.t("scenario.create"); }
 }
 
 // Schritt 3: (Device-Flatten): Mehrfachauswahl der Zielgeraete (Checkboxen). Keine Auswahl
@@ -7236,14 +7261,14 @@ function renderScenarioWizardDevices() {
     c.innerHTML = "";
     const note = document.createElement("p");
     note.style.cssText = "color:var(--text-secondary); font-size:12px; margin:0 0 8px 0;";
-    note.textContent = "Ohne Auswahl wird das Zielgerät beim Ausführen einmalig eingegeben (geräteloses Szenario).";
+    note.textContent = t("scenario.wizDeviceNote");
     c.appendChild(note);
     const selected = new Set(scenarioWizardDevices || []);
     const devices = userScenarioDevices || [];
     if (!devices.length) {
         const empty = document.createElement("p");
         empty.style.cssText = "color:var(--text-muted); font-size:12px; margin:0;";
-        empty.textContent = "Keine Geräte angelegt – das Szenario läuft gerätelos.";
+        empty.textContent = t("scenario.wizNoDevices");
         c.appendChild(empty);
         return;
     }
@@ -7267,8 +7292,8 @@ function renderScenarioWizardDevices() {
 function scenarioWizardNext() {
     if (scenarioWizardStep === 1) {
         const name = (document.getElementById("scenario-wizard-name").value || "").trim();
-        if (!name) { showToast("Bitte einen Szenario-Namen eingeben."); return; }
-        if (!scenarioWizardSelected.size) { showToast("Bitte mindestens ein Playbook auswählen."); return; }
+        if (!name) { showToast(t("scenario.nameRequiredWiz")); return; }
+        if (!scenarioWizardSelected.size) { showToast(t("vault.selectPlaybook")); return; }
         renderWizardConfig(scenarioWizardCtx());
         // : gespeicherte Variablen einmalig vorbefüllen (nur im Bearbeiten-Modus).
         if (scenarioWizardEditing && !scenarioWizardVarsApplied) {
@@ -7295,7 +7320,7 @@ function scenarioWizardBack() {
 async function scenarioWizardFinish() {
     const name = (document.getElementById("scenario-wizard-name").value || "").trim();
     const playbook_ids = Array.from(scenarioWizardSelected);
-    if (!name || !playbook_ids.length) { showToast("Name und mindestens ein Playbook erforderlich."); return; }
+    if (!name || !playbook_ids.length) { showToast(t("vault.nameAndPlaybookRequired")); return; }
     const variables = collectWizardVariables(scenarioWizardCtx());
     //: In der Community-Edition gibt es keinen Freigabe-Schritt -> nie Freigaben mitsenden.
     const shares = currentEdition === "community" ? [] : Array.from(document.querySelectorAll("#scenario-wizard-shares .wizard-share-cb:checked")).map(cb => {
@@ -7315,7 +7340,7 @@ async function scenarioWizardFinish() {
                 body: JSON.stringify({ name, playbook_ids, variables, device_ids: [], shares: presetShares })
             });
             const presetData = await presetRes.json().catch(() => ({}));
-            if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, "Speichern fehlgeschlagen."));
+            if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, t("vault.saveFailed")));
             presetId = presetData.id;
         } else {
             // Neuanlage – oder Bearbeiten eines Szenarios, dessen Preset zwischenzeitlich gelöscht wurde.
@@ -7324,7 +7349,7 @@ async function scenarioWizardFinish() {
                 body: JSON.stringify({ name, playbook_ids, variables, device_ids: [], shares: [] })
             });
             const presetData = await presetRes.json().catch(() => ({}));
-            if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, "Erstellen fehlgeschlagen."));
+            if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, t("vault.createFailed")));
             presetId = presetData.id;
         }
         // ... dann das Szenario, das das Preset mit dem gewählten Gerät (oder geräteslos) verknüpft.
@@ -7334,8 +7359,8 @@ async function scenarioWizardFinish() {
             body: JSON.stringify({ name, preset_id: presetId, device_ids: scenarioWizardDevices, shares })
         });
         const scenarioData = await scenarioRes.json().catch(() => ({}));
-        if (!scenarioRes.ok) throw new Error(errorDetailToMessage(scenarioData.detail, scenarioWizardEditing ? "Szenario konnte nicht gespeichert werden." : "Szenario konnte nicht erstellt werden."));
-        showToast(scenarioWizardEditing ? "Szenario aktualisiert." : "Szenario erstellt.");
+        if (!scenarioRes.ok) throw new Error(errorDetailToMessage(scenarioData.detail, scenarioWizardEditing ? t("scenario.saveFailed") : t("scenario.createFailed")));
+        showToast(scenarioWizardEditing ? t("scenario.updated") : t("scenario.created"));
         closeScenarioWizard();
         await loadScenarios();
     } catch (e) {
@@ -7374,7 +7399,7 @@ function exportAdminLog(kind, format) {
         ? { tbody: "admin-audit-tbody", headers: ["Zeit", "Benutzer", "Aktion", "Ziel", "Detail", "IP"], base: "audit-log" }
         : { tbody: "admin-security-tbody", headers: ["Zuletzt", "Typ", "Fingerabdruck", "Anzahl", "Detail", "Status"], base: "ungewoehnliche-aktivitaeten" };
     const rows = _collectTableRows(cfg.tbody, cfg.headers.length);
-    if (!rows.length) { showToast("Keine Einträge zum Exportieren."); return; }
+    if (!rows.length) { showToast(t("misc.noExportEntries")); return; }
     // Datumsstempel ohne Date.now-Verbot-Problematik (Browser-Kontext erlaubt new Date()).
     const stamp = new Date().toISOString().slice(0, 10);
     let content, mime, ext;
@@ -7403,7 +7428,7 @@ function closeAdminExportDialog() {
 function runAdminExport() {
     const wantSecurity = document.getElementById("export-log-security").checked;
     const wantAudit = document.getElementById("export-log-audit").checked;
-    if (!wantSecurity && !wantAudit) { showToast("Bitte mindestens ein Protokoll auswählen."); return; }
+    if (!wantSecurity && !wantAudit) { showToast(t("adminExport.selectAtLeastOne")); return; }
     const fmtEl = document.querySelector('input[name="admin-export-format"]:checked');
     const format = fmtEl ? fmtEl.value : "csv";
     if (wantSecurity) exportAdminLog("security", format);
@@ -7414,13 +7439,13 @@ function runAdminExport() {
 async function fetchAuditLog() {
     const tbody = document.getElementById("admin-audit-tbody");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--text-muted);">Lade...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--text-muted);">${t("adminExport.loading")}</td></tr>`;
     try {
         const res = await fetch("/api/admin/audit-log");
-        if (!res.ok) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">Fehler beim Laden.</td></tr>`; return; }
+        if (!res.ok) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">${t("adminExport.loadError")}</td></tr>`; return; }
         const entries = await res.json();
         if (!entries || entries.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--text-muted);">Keine Einträge.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--text-muted);">${t("adminExport.noEntries")}</td></tr>`;
             return;
         }
         tbody.innerHTML = entries.map(e => {
@@ -7435,7 +7460,7 @@ async function fetchAuditLog() {
             </tr>`;
         }).join("");
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">Netzwerkfehler.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">${t("adminExport.networkError")}</td></tr>`;
     }
 }
 
@@ -7450,13 +7475,13 @@ async function fetchSecurityAlerts() {
     }
     const tbody = document.getElementById("admin-security-tbody");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--text-muted);">Lade...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--text-muted);">${t("adminExport.loading")}</td></tr>`;
     try {
         const res = await fetch("/api/admin/security-alerts");
-        if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">Fehler beim Laden.</td></tr>`; return; }
+        if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">${t("adminExport.loadError")}</td></tr>`; return; }
         const alerts = await res.json();
         if (!alerts || alerts.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--text-muted);">Keine Sicherheitshinweise.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--text-muted);">${t("adminExport.noAlerts")}</td></tr>`;
             return;
         }
         tbody.innerHTML = "";
@@ -7467,8 +7492,8 @@ async function fetchSecurityAlerts() {
             const last = a.last_seen_at ? new Date(a.last_seen_at).toLocaleString() : "-";
             const fp = a.fingerprint ? (a.fingerprint.slice(0, 16) + "…") : "-";
             const statusHtml = a.acknowledged
-                ? `<span style="color: var(--text-muted);">erledigt${a.acknowledged_by ? " (" + escapeHtml(a.acknowledged_by) + ")" : ""}</span>`
-                : `<span style="color: var(--md-sys-color-error); font-weight: bold;">offen</span>`;
+                ? `<span style="color: var(--text-muted);">${t("adminExport.resolved")}${a.acknowledged_by ? " (" + escapeHtml(a.acknowledged_by) + ")" : ""}</span>`
+                : `<span style="color: var(--md-sys-color-error); font-weight: bold;">${t("adminExport.open")}</span>`;
             tr.innerHTML =
                 `<td style="padding:6px;">${escapeHtml(last)}</td>` +
                 `<td style="padding:6px;">${escapeHtml(a.type || '-')}</td>` +
@@ -7482,7 +7507,7 @@ async function fetchSecurityAlerts() {
             if (!a.acknowledged) {
                 const btn = document.createElement("button");
                 btn.className = "btn btn-small";
-                btn.textContent = "Erledigt";
+                btn.textContent = t("adminExport.markResolved");
                 btn.addEventListener("click", () => acknowledgeSecurityAlert(a.id));
                 actTd.appendChild(btn);
             }
@@ -7490,7 +7515,7 @@ async function fetchSecurityAlerts() {
             tbody.appendChild(tr);
         });
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">Netzwerkfehler.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:15px; color:var(--md-sys-color-error);">${t("adminExport.networkError")}</td></tr>`;
     }
 }
 
@@ -7499,13 +7524,13 @@ async function acknowledgeSecurityAlert(alertId) {
         const res = await fetch(`/api/admin/security-alerts/${alertId}/acknowledge`, { method: "POST" });
         const data = await res.json();
         if (res.ok) {
-            showToast(data.message || "Als erledigt markiert.");
+            showToast(data.message || t("adminExport.markedResolved"));
             fetchSecurityAlerts();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Aktion fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("adminExport.actionFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler.");
+        showToast(t("adminExport.networkError"));
     }
 }
 
@@ -7568,7 +7593,7 @@ function renderAdminUsers() {
     });
 
     if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--text-muted);">Keine Benutzer gefunden.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--text-muted);">${t("adminUsers.noUsersFound")}</td></tr>`;
         return;
     }
 
@@ -7578,15 +7603,15 @@ function renderAdminUsers() {
         const tr = document.createElement("tr");
         tr.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
         const activeBadge = user.is_active
-            ? '<span style="color:#2ecc71;">Ja</span>'
-            : '<span style="color:#e74c3c;">Nein</span>';
+            ? `<span style="color:#2ecc71;">${t("adminUsers.yes")}</span>`
+            : `<span style="color:#e74c3c;">${t("adminUsers.no")}</span>`;
         // : „Verwalten" (Icon manage_accounts) links neben dem Namen.
         const nameTd = document.createElement("td");
         nameTd.style.cssText = "padding:8px; white-space:nowrap;";
         if (!isSelf) {
             const manage = document.createElement("button");
             manage.type = "button"; manage.className = "btn btn-secondary btn-small"; manage.style.marginRight = "8px";
-            manage.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">manage_accounts</span>Verwalten';
+            manage.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">manage_accounts</span>${t("adminUsers.manage")}`;
             manage.addEventListener("click", () => openAdminEditUser(user.id));
             nameTd.appendChild(manage);
         }
@@ -7597,7 +7622,7 @@ function renderAdminUsers() {
         tr.appendChild(cell(escapeHtml(user.email || '-')));
         tr.appendChild(cell(escapeHtml(user.role)));
         tr.appendChild(cell(escapeHtml(user.tier)));
-        tr.appendChild(cell(escapeHtml(user.subscription_status || 'inaktiv')));
+        tr.appendChild(cell(escapeHtml(user.subscription_status || t("adminUsers.inactive"))));
         tr.appendChild(cell(activeBadge));
         // : „Löschen" ganz rechts (Warndialog mit fettem Namen).
         const tdAct = document.createElement("td");
@@ -7607,7 +7632,7 @@ function renderAdminUsers() {
         } else {
             const del = document.createElement("button");
             del.type = "button"; del.className = "btn btn-danger btn-small";
-            del.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">delete</span>Löschen';
+            del.innerHTML = `<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle; margin-right:4px;">delete</span>${t("common.delete")}`;
             del.addEventListener("click", () => deleteAdminUserById(user.id, user.username));
             tdAct.appendChild(del);
         }
@@ -7633,15 +7658,15 @@ async function handleAdminUserCreate(e) {
     const email = document.getElementById("admin-new-user-email").value.trim();
     const password = document.getElementById("admin-new-user-pass").value;
     const role = document.getElementById("admin-new-user-role").value;
-    if (!username || !email || !password) { showToast("Bitte alle Felder ausfüllen."); return; }
+    if (!username || !email || !password) { showToast(t("adminUsers.fillAllFields")); return; }
     try {
         const res = await fetch("/api/admin/users", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, email, password, role })
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(errorDetailToMessage(data.detail, "Erstellen fehlgeschlagen."));
-        showToast("Benutzer erstellt.");
+        if (!res.ok) throw new Error(errorDetailToMessage(data.detail, t("adminUsers.createFailed")));
+        showToast(t("adminUsers.userCreated"));
         closeAdminUserCreateDialog();
         fetchAdminUsers();
     } catch (err) {
@@ -7652,7 +7677,7 @@ async function handleAdminUserCreate(e) {
 async function fetchAdminUsers() {
     const tbody = document.getElementById("admin-users-tbody");
     if (!tbody) return;
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--text-muted);">Lade Benutzer...</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--text-muted);">${t("adminUsers.loadingUsers")}</td></tr>`;
     try {
         const response = await fetch("/api/admin/users");
         if (response.ok) {
@@ -7660,10 +7685,10 @@ async function fetchAdminUsers() {
             renderAdminUsers();
         } else {
             const data = await response.json();
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--md-sys-color-error);">Fehler: ${escapeHtml(errorDetailToMessage(data.detail, 'Fehler beim Laden'))}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--md-sys-color-error);">${t("adminUsers.errorPrefix")} ${escapeHtml(errorDetailToMessage(data.detail, t("adminUsers.loadError")))}</td></tr>`;
         }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--md-sys-color-error);">Netzwerkfehler beim Laden der Benutzer.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 15px; color: var(--md-sys-color-error);">${t("adminUsers.networkErrorLoadUsers")}</td></tr>`;
     }
 }
 
@@ -7685,21 +7710,21 @@ async function openAdminEditUser(userId) {
     currentAdminEditUserData = null;
     document.getElementById("admin-edit-user-id").value = userId;
     document.getElementById("admin-edit-user-header").innerHTML = '<strong id="admin-edit-username-lbl">...</strong>';
-    document.getElementById("admin-edit-user-info").innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade...</p>';
-    document.getElementById("admin-user-invoices").innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade Rechnungen...</p>';
+    document.getElementById("admin-edit-user-info").innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("adminUsers.loading")}</p>`;
+    document.getElementById("admin-user-invoices").innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("adminUsers.loadingInvoices")}</p>`;
     dialog.classList.remove("hidden");
 
     try {
         const res = await fetch(`/api/admin/users/${userId}`);
         if (!res.ok) {
-            document.getElementById("admin-edit-user-info").innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Konnte Benutzer nicht laden.</p>';
+            document.getElementById("admin-edit-user-info").innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("adminUsers.couldNotLoadUser")}</p>`;
             return;
         }
         const u = await res.json();
         currentAdminEditUserData = u;
         document.getElementById("admin-edit-username-lbl").textContent = u.username;
         const toggleBtn = document.getElementById("admin-toggle-active-btn");
-        toggleBtn.textContent = u.is_active ? "Deaktivieren" : "Aktivieren";
+        toggleBtn.textContent = u.is_active ? t("adminUsers.deactivate") : t("adminUsers.activate");
         toggleBtn.dataset.active = u.is_active ? "1" : "0";
 
         // : Rolle-Dropdown vorbelegen
@@ -7733,11 +7758,11 @@ async function openAdminEditUser(userId) {
             `<span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:3px 9px; border-radius:99px; background:${color}22; color:${color}; border:1px solid ${color}55;">` +
             (icon ? `<span class="material-symbols-outlined" style="font-size:14px;">${icon}</span>` : "") + `${txt}</span>`;
         const verifyBadge = u.email_verified
-            ? badge("Verifiziert", "#2ecc71", "verified")
-            : badge("Ausstehend", "#e74c3c", "schedule");
+            ? badge(t("adminUsers.verified"), "#2ecc71", "verified")
+            : badge(t("adminUsers.pending"), "#e74c3c", "schedule");
         const statusBadge = u.is_active
-            ? badge("Aktiv", "#2ecc71", "check_circle")
-            : badge("Deaktiviert", "#e74c3c", "block");
+            ? badge(t("adminUsers.statusActive"), "#2ecc71", "check_circle")
+            : badge(t("adminUsers.statusDeactivated"), "#e74c3c", "block");
         const premiumBadge = u.is_subscription_active ? badge("Premium", "#f1c40f", "workspace_premium") : "";
         document.getElementById("admin-edit-user-header").innerHTML =
             `<div style="font-size:17px; font-weight:700; margin-bottom:8px;">${escapeHtml(u.username)}</div>` +
@@ -7745,39 +7770,39 @@ async function openAdminEditUser(userId) {
 
         // : Konto-Informationen — Rolle (nicht Tarif), 2FA als Icon neben E-Mail
         const twofaIcon = u.two_factor_enabled
-            ? `<span class="material-symbols-outlined" title="2FA aktiv" style="font-size:15px; color:#2ecc71; vertical-align:middle;">lock</span>`
-            : `<span class="material-symbols-outlined" title="2FA inaktiv" style="font-size:15px; color:var(--text-muted); vertical-align:middle;">no_encryption</span>`;
-        const roleLabels = { user: "Benutzer", admin: "Administrator", guest: "Gast" };
+            ? `<span class="material-symbols-outlined" title="${t("adminUsers.twofaActive")}" style="font-size:15px; color:#2ecc71; vertical-align:middle;">lock</span>`
+            : `<span class="material-symbols-outlined" title="${t("adminUsers.twofaInactive")}" style="font-size:15px; color:var(--text-muted); vertical-align:middle;">no_encryption</span>`;
+        const roleLabels = { user: t("adminUsers.roleUser"), admin: t("adminUsers.roleAdmin"), guest: t("adminUsers.roleGuest") };
         document.getElementById("admin-edit-user-info").innerHTML =
-            `<div><strong>E-Mail:</strong> ${escapeHtml(u.email)} ${twofaIcon}</div>` +
-            `<div><strong>Rolle:</strong> ${escapeHtml(roleLabels[u.role] || u.role)}</div>` +
-            `<div><strong>Registriert:</strong> ${fmt(u.created_at)}</div>` +
-            `<div><strong>Geräte:</strong> ${u.device_count} &middot; <strong>Gäste:</strong> ${u.guest_count} &middot; <strong>API-Tokens:</strong> ${u.token_count}</div>` +
-            (u.avv_accepted_at ? `<div><strong>AVV:</strong> ${escapeHtml(u.avv_company || '')} am ${fmt(u.avv_accepted_at)}</div>` : "");
+            `<div><strong>${t("adminUsers.labelEmail")}:</strong> ${escapeHtml(u.email)} ${twofaIcon}</div>` +
+            `<div><strong>${t("adminUsers.labelRole")}:</strong> ${escapeHtml(roleLabels[u.role] || u.role)}</div>` +
+            `<div><strong>${t("adminUsers.labelRegistered")}:</strong> ${fmt(u.created_at)}</div>` +
+            `<div><strong>${t("adminUsers.labelDevices")}:</strong> ${u.device_count} &middot; <strong>${t("adminUsers.labelGuests")}:</strong> ${u.guest_count} &middot; <strong>${t("adminUsers.labelApiTokens")}:</strong> ${u.token_count}</div>` +
+            (u.avv_accepted_at ? `<div><strong>${t("adminUsers.labelAvv")}:</strong> ${escapeHtml(u.avv_company || '')} ${t("adminUsers.avvOn")} ${fmt(u.avv_accepted_at)}</div>` : "");
 
         // : Aktueller Tarif — Abo-Status, Laufzeitende, Stripe-Kunden-ID
         const endDate = u.subscription_ends_at || u.trial_ends_at;
         document.getElementById("admin-edit-user-tariff").innerHTML =
-            `<div><strong>Abo-Status:</strong> ${escapeHtml(u.subscription_status || '-')}${u.is_subscription_active ? ' (aktiv)' : ''}</div>` +
-            `<div><strong>Laufzeitende:</strong> ${fmtDate(endDate)}${u.cancels_at_period_end ? ' (endet zum Laufzeitende)' : ''}</div>` +
-            `<div><strong>Stripe-Kunden-ID:</strong> ${u.stripe_customer_id ? escapeHtml(u.stripe_customer_id) : '-'}</div>`;
+            `<div><strong>${t("adminUsers.labelSubStatus")}:</strong> ${escapeHtml(u.subscription_status || '-')}${u.is_subscription_active ? ' (' + t("adminUsers.active") + ')' : ''}</div>` +
+            `<div><strong>${t("adminUsers.labelEndDate")}:</strong> ${fmtDate(endDate)}${u.cancels_at_period_end ? t("adminUsers.endsAtPeriodEnd") : ''}</div>` +
+            `<div><strong>${t("adminUsers.labelStripeCustomerId")}:</strong> ${u.stripe_customer_id ? escapeHtml(u.stripe_customer_id) : '-'}</div>`;
 
         // Verknuepfte Gast-Accounts
         const gc = document.getElementById("admin-edit-user-guests");
         if (gc) {
             const guests = u.guests || [];
             if (guests.length === 0) {
-                gc.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Gast-Accounts.</p>';
+                gc.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("adminUsers.noGuestAccounts")}</p>`;
             } else {
                 gc.innerHTML = guests.map(g =>
                     `<div style="display:flex; justify-content:space-between; padding:3px 0;">
                         <span>${escapeHtml(g.username)} <span style="color:var(--text-muted);">(${escapeHtml(g.email)})</span></span>
-                        <span style="color:${g.is_active ? '#2ecc71' : '#e74c3c'};">${g.is_active ? 'aktiv' : 'inaktiv'}</span>
+                        <span style="color:${g.is_active ? '#2ecc71' : '#e74c3c'};">${g.is_active ? t("adminUsers.active") : t("adminUsers.inactive")}</span>
                     </div>`).join("");
             }
         }
     } catch (e) {
-        document.getElementById("admin-edit-user-info").innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Netzwerkfehler.</p>';
+        document.getElementById("admin-edit-user-info").innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("adminUsers.networkError")}</p>`;
     }
 
     // Rechnungen laden (: nur die letzten 30 Tage)
@@ -7793,7 +7818,7 @@ async function openAdminEditUser(userId) {
         }
         renderInvoicesInto("admin-user-invoices", invoices);
     } catch (e) {
-        document.getElementById("admin-user-invoices").innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Rechnungen konnten nicht geladen werden.</p>';
+        document.getElementById("admin-user-invoices").innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("adminUsers.invoicesLoadFailed")}</p>`;
     }
 }
 
@@ -7817,8 +7842,8 @@ async function adminSaveChanges() {
                 body: JSON.stringify({ role: newRole, tier: cur.tier })
             });
             const data = await res.json();
-            if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, "Fehler beim Ändern der Rolle.")); }
-        } catch (e) { ok = false; showToast("Netzwerkfehler beim Ändern der Rolle."); }
+            if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, t("adminUsers.roleChangeError"))); }
+        } catch (e) { ok = false; showToast(t("adminUsers.roleChangeNetworkError")); }
     }
 
     // : Benutzername (nur wenn geändert).
@@ -7831,8 +7856,8 @@ async function adminSaveChanges() {
                 body: JSON.stringify({ username: newUsername })
             });
             const data = await res.json();
-            if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, "Fehler beim Ändern des Benutzernamens.")); }
-        } catch (e) { ok = false; showToast("Netzwerkfehler beim Ändern des Benutzernamens."); }
+            if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, t("adminUsers.usernameChangeError"))); }
+        } catch (e) { ok = false; showToast(t("adminUsers.usernameChangeNetworkError")); }
     }
 
     // 2) Limits
@@ -7847,17 +7872,17 @@ async function adminSaveChanges() {
             body: JSON.stringify(body)
         });
         const data = await res.json();
-        if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern der Limits.")); }
-    } catch (e) { ok = false; showToast("Netzwerkfehler beim Speichern der Limits."); }
+        if (!res.ok) { ok = false; showToast(errorDetailToMessage(data.detail, t("adminUsers.limitsSaveError"))); }
+    } catch (e) { ok = false; showToast(t("adminUsers.limitsSaveNetworkError")); }
 
-    if (ok) { showToast("Änderungen gespeichert."); fetchAdminUsers(); }
+    if (ok) { showToast(t("adminUsers.changesSaved")); fetchAdminUsers(); }
     openAdminEditUser(currentAdminEditUser);
 }
 
 async function adminGrantTime() {
     if (!currentAdminEditUser) return;
     const days = parseInt(document.getElementById("admin-grant-days").value, 10);
-    if (!days || days < 1) { showToast("Bitte eine Anzahl Tage eingeben."); return; }
+    if (!days || days < 1) { showToast(t("adminUsers.enterDays")); return; }
     try {
         const res = await fetch(`/api/admin/users/${currentAdminEditUser}/grant-time`, {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -7865,8 +7890,8 @@ async function adminGrantTime() {
         });
         const data = await res.json();
         if (res.ok) { showToast(data.message); openAdminEditUser(currentAdminEditUser); fetchAdminUsers(); }
-        else showToast(errorDetailToMessage(data.detail, "Fehler."));
-    } catch (e) { showToast("Netzwerkfehler."); }
+        else showToast(errorDetailToMessage(data.detail, t("adminUsers.error")));
+    } catch (e) { showToast(t("adminUsers.networkError")); }
 }
 
 async function adminToggleActive() {
@@ -7880,35 +7905,35 @@ async function adminToggleActive() {
         });
         const data = await res.json();
         if (res.ok) { showToast(data.message); openAdminEditUser(currentAdminEditUser); fetchAdminUsers(); }
-        else showToast(errorDetailToMessage(data.detail, "Fehler."));
-    } catch (e) { showToast("Netzwerkfehler."); }
+        else showToast(errorDetailToMessage(data.detail, t("adminUsers.error")));
+    } catch (e) { showToast(t("adminUsers.networkError")); }
 }
 
 // : Benutzer direkt aus der Liste löschen (Warndialog mit fettem Namen).
 async function deleteAdminUserById(id, name) {
-    const ok = await showConfirmDialog({ title: "Benutzer löschen?", messageHtml: `Möchten Sie den Benutzer <b>${escapeHtml(name)}</b> und ALLE zugehörigen Daten endgültig löschen?`, confirmLabel: "Endgültig löschen" });
+    const ok = await showConfirmDialog({ title: t("adminUsers.deleteUserTitle"), messageHtml: t("adminUsers.deleteUserConfirm", { name: escapeHtml(name) }), confirmLabel: t("adminUsers.deletePermanently") });
     if (!ok) return;
     try {
         const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
         const data = await res.json().catch(() => ({}));
-        if (res.ok) { showToast("Benutzer gelöscht."); fetchAdminUsers(); }
-        else showToast(errorDetailToMessage(data.detail, "Fehler beim Löschen."));
-    } catch (e) { showToast("Netzwerkfehler beim Löschen."); }
+        if (res.ok) { showToast(t("adminUsers.userDeleted")); fetchAdminUsers(); }
+        else showToast(errorDetailToMessage(data.detail, t("adminUsers.deleteError")));
+    } catch (e) { showToast(t("adminUsers.deleteNetworkError")); }
 }
 
 async function adminDeleteUser() {
     if (!currentAdminEditUser) return;
-    const name = (currentAdminEditUserData && currentAdminEditUserData.username) || "diesen Benutzer";
-    if (!(await showConfirmDialog({ title: "Benutzer löschen?", messageHtml: `Möchten Sie den Benutzer <b>${escapeHtml(name)}</b> und ALLE zugehörigen Daten endgültig löschen?`, confirmLabel: "Endgültig löschen" }))) return;
+    const name = (currentAdminEditUserData && currentAdminEditUserData.username) || t("adminUsers.thisUser");
+    if (!(await showConfirmDialog({ title: t("adminUsers.deleteUserTitle"), messageHtml: t("adminUsers.deleteUserConfirm", { name: escapeHtml(name) }), confirmLabel: t("adminUsers.deletePermanently") }))) return;
     try {
         const res = await fetch(`/api/admin/users/${currentAdminEditUser}`, { method: "DELETE" });
         const data = await res.json();
         if (res.ok) {
-            showToast("Benutzer gelöscht.");
+            showToast(t("adminUsers.userDeleted"));
             document.getElementById("admin-edit-user-dialog").classList.add("hidden");
             fetchAdminUsers();
-        } else showToast(errorDetailToMessage(data.detail, "Fehler beim Löschen."));
-    } catch (e) { showToast("Netzwerkfehler beim Löschen."); }
+        } else showToast(errorDetailToMessage(data.detail, t("adminUsers.deleteError")));
+    } catch (e) { showToast(t("adminUsers.deleteNetworkError")); }
 }
 
 async function fetchAdminConfig() {
@@ -7957,10 +7982,10 @@ async function fetchAdminConfig() {
             const entContact = document.getElementById("admin-cfg-enterprise-contact");
             if (entContact) entContact.value = settings.enterprise_contact_email || "";
         } else {
-            showToast("Fehler beim Laden der Einstellungen.");
+            showToast(t("adminCfg.loadError"));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Laden der Einstellungen.");
+        showToast(t("adminCfg.loadNetworkError"));
     }
     //: In der Community-Edition gelten weder Quota-/Limit- noch Fingerprint-Alert-
     // Einstellungen — die zugehörigen Felder ausblenden (Wrapper .text-field). handleAdminConfigSubmit
@@ -7979,7 +8004,7 @@ async function fetchAdminConfig() {
 // : Test-E-Mail zur SMTP-Verifizierung senden.
 async function sendAdminTestEmail() {
     const addr = (document.getElementById("admin-test-email-addr").value || "").trim();
-    if (!addr) { showToast("Bitte eine Empfänger-E-Mail angeben."); return; }
+    if (!addr) { showToast(t("adminCfg.enterRecipientEmail")); return; }
     const btn = document.getElementById("admin-test-email-btn");
     if (btn) btn.disabled = true;
     try {
@@ -7988,10 +8013,10 @@ async function sendAdminTestEmail() {
             body: JSON.stringify({ email: addr })
         });
         const data = await res.json().catch(() => ({}));
-        if (res.ok) showToast(data.message || "Test-E-Mail gesendet.");
-        else showToast(errorDetailToMessage(data.detail, "Test-E-Mail fehlgeschlagen."));
+        if (res.ok) showToast(data.message || t("adminCfg.testEmailSent"));
+        else showToast(errorDetailToMessage(data.detail, t("adminCfg.testEmailFailed")));
     } catch (e) {
-        showToast("Netzwerkfehler beim Senden der Test-E-Mail.");
+        showToast(t("adminCfg.testEmailNetworkError"));
     } finally {
         if (btn) btn.disabled = false;
     }
@@ -8012,8 +8037,8 @@ function prefillGobdDates() {
 function handleGobdExport() {
     const start = document.getElementById("gobd-start-date").value;
     const end = document.getElementById("gobd-end-date").value;
-    if (!start || !end) { showToast("Bitte Start- und Enddatum wählen."); return; }
-    if (start > end) { showToast("Das Enddatum muss nach dem Startdatum liegen."); return; }
+    if (!start || !end) { showToast(t("adminCfg.gobdSelectDates")); return; }
+    if (start > end) { showToast(t("adminCfg.gobdEndAfterStart")); return; }
     const url = `/api/admin/tax-export?start_date=${encodeURIComponent(start)}&end_date=${encodeURIComponent(end)}`;
     window.location.href = url;
 }
@@ -8099,13 +8124,13 @@ async function handleAdminConfigSubmit(e) {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast("Einstellungen erfolgreich gespeichert.");
+            showToast(t("adminCfg.saved"));
             updateMaintenanceBanner();  // : Banner sofort nach Wartungsmodus-Änderung aktualisieren.
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern der Einstellungen."));
+            showToast(errorDetailToMessage(data.detail, t("adminCfg.saveError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Speichern der Einstellungen.");
+        showToast(t("adminCfg.saveNetworkError"));
     }
 }
 
@@ -8114,8 +8139,8 @@ async function fetchAdminIPBlocks() {
     const historyTbody = document.getElementById("admin-history-bans-tbody");
     if (!activeTbody || !historyTbody) return;
 
-    activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Lade aktive Sperren...</td></tr>`;
-    historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Lade Historie...</td></tr>`;
+    activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("adminCfg.loadingActiveBans")}</td></tr>`;
+    historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("adminCfg.loadingHistory")}</td></tr>`;
 
     try {
         const response = await fetch("/api/admin/ip-blocks");
@@ -8123,7 +8148,7 @@ async function fetchAdminIPBlocks() {
             const data = await response.json();
 
             if (data.blocks.length === 0) {
-                activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Keine aktiven Sperren.</td></tr>`;
+                activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("adminCfg.noActiveBans")}</td></tr>`;
             } else {
                 // DOM-Aufbau statt String-Interpolation: kein onclick aus dem (spoofbaren) IP-Wert
                 activeTbody.innerHTML = "";
@@ -8140,7 +8165,7 @@ async function fetchAdminIPBlocks() {
                     const btn = document.createElement("button");
                     btn.type = "button"; btn.className = "btn btn-primary btn-small";
                     btn.style.cssText = "background:var(--md-sys-color-error); border-color:var(--md-sys-color-error);";
-                    btn.textContent = "Freigeben";
+                    btn.textContent = t("adminCfg.release");
                     btn.addEventListener("click", () => releaseIPBan(b.ip));
                     actTd.appendChild(btn);
                     tr.appendChild(actTd);
@@ -8149,7 +8174,7 @@ async function fetchAdminIPBlocks() {
             }
 
             if (data.history.length === 0) {
-                historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Keine Historie vorhanden.</td></tr>`;
+                historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("adminCfg.noHistory")}</td></tr>`;
             } else {
                 historyTbody.innerHTML = data.history.map(h => {
                     const releasedStr = new Date(h.released_at).toLocaleString();
@@ -8164,12 +8189,12 @@ async function fetchAdminIPBlocks() {
                 }).join("");
             }
         } else {
-            activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">Fehler beim Laden.</td></tr>`;
-            historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">Fehler beim Laden.</td></tr>`;
+            activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">${t("msg.loadFailed")}</td></tr>`;
+            historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">${t("msg.loadFailed")}</td></tr>`;
         }
     } catch (err) {
-        activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">Netzwerkfehler.</td></tr>`;
-        historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">Netzwerkfehler.</td></tr>`;
+        activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">${t("msg.networkError")}</td></tr>`;
+        historyTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--md-sys-color-error);">${t("msg.networkError")}</td></tr>`;
     }
 }
 
@@ -8190,20 +8215,20 @@ async function handleAdminIPBanSubmit(e) {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast(`IP ${ip} erfolgreich gesperrt.`);
+            showToast(t("adminCfg.ipBanned", { ip }));
             document.getElementById("admin-ip-ban-form").reset();
             closeIpBlockDialog();  // 
             fetchAdminIPBlocks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Sperren der IP."));
+            showToast(errorDetailToMessage(data.detail, t("adminCfg.ipBanError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Sperren der IP.");
+        showToast(t("adminCfg.ipBanNetworkError"));
     }
 }
 
 async function releaseIPBan(ip) {
-    if (!(await showConfirmDialog({ title: "IP-Sperre aufheben?", message: `Möchten Sie die IP-Sperre für ${ip} wirklich aufheben?`, confirmLabel: "Aufheben" }))) return;
+    if (!(await showConfirmDialog({ title: t("adminCfg.ipReleaseTitle"), message: t("adminCfg.ipReleaseConfirm", { ip }), confirmLabel: t("adminCfg.releaseBan") }))) return;
 
     try {
         const response = await fetch(`/api/admin/ip-blocks/${ip}`, {
@@ -8211,13 +8236,13 @@ async function releaseIPBan(ip) {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast(`IP ${ip} erfolgreich freigegeben.`);
+            showToast(t("adminCfg.ipReleased", { ip }));
             fetchAdminIPBlocks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Freigeben der IP."));
+            showToast(errorDetailToMessage(data.detail, t("adminCfg.ipReleaseError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Freigeben der IP.");
+        showToast(t("adminCfg.ipReleaseNetworkError"));
     }
 }
 
@@ -8259,14 +8284,14 @@ function downloadExamplePlaybook() {
 async function fetchCustomPlaybooks() {
     const listEl = document.getElementById("custom-playbooks-list");
     if (!listEl) return;
-    listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">Lade eigene Playbooks...</p>`;
+    listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("customPb.loading")}</p>`;
 
     try {
         // : kein HTTP-Cache -> nach Login/Upload sofort die aktuellen eigenen Playbooks
         // (eine vor dem Login gecachte Antwort ohne Custom-Einträge wird nicht wiederverwendet).
         const response = await fetch("/api/playbooks", { cache: "no-store" });
         if (!response.ok) {
-            listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">Fehler beim Laden der Playbooks.</p>`;
+            listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">${t("customPb.loadError")}</p>`;
             return;
         }
         const playbooks = await response.json();
@@ -8275,7 +8300,7 @@ async function fetchCustomPlaybooks() {
         custom.forEach(pb => { customPlaybooksData[pb.filename] = pb; });
 
         if (custom.length === 0) {
-            listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">Keine eigenen Playbooks hochgeladen.</p>`;
+            listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("customPb.none")}</p>`;
             return;
         }
 
@@ -8288,9 +8313,9 @@ async function fetchCustomPlaybooks() {
             // : Linke Gruppe = Freigeben + Bearbeiten + Logo/Name/Meta (Layout wie).
             const leftGroup = document.createElement("div");
             leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
-            const shareBtn = vaultActionButton("Freigeben", "share", "primary");
+            const shareBtn = vaultActionButton(t("customPb.share"), "share", "primary");
             shareBtn.addEventListener("click", () => openShareCustomPlaybook(pb.filename));
-            const editBtn = vaultActionButton("Bearbeiten", "edit", "secondary");
+            const editBtn = vaultActionButton(t("common.edit"), "edit", "secondary");
             editBtn.addEventListener("click", () => openEditCustomPlaybook(pb.filename));
             leftGroup.appendChild(shareBtn); leftGroup.appendChild(editBtn);
             const logoBox = document.createElement("div");
@@ -8317,14 +8342,14 @@ async function fetchCustomPlaybooks() {
             row.appendChild(leftGroup);
             const right = document.createElement("div");
             right.style.whiteSpace = "nowrap";
-            const delBtn = vaultActionButton("Löschen", "delete", "danger");
+            const delBtn = vaultActionButton(t("common.delete"), "delete", "danger");
             delBtn.addEventListener("click", () => deleteCustomPlaybook(pb.filename, pb.name));
             right.appendChild(delBtn);
             row.appendChild(right);
             listEl.appendChild(row);
         });
     } catch (err) {
-        listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">Netzwerkfehler beim Laden der Playbooks.</p>`;
+        listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">${t("customPb.loadNetworkError")}</p>`;
     }
 }
 
@@ -8349,7 +8374,7 @@ async function openEditCustomPlaybook(filename) {
 function updateEditIconLbl() {
     const editIconInput = document.getElementById("custom-pb-edit-icon-file");
     const lbl = document.getElementById("custom-pb-edit-icon-filename-lbl");
-    if (lbl) lbl.textContent = (editIconInput && editIconInput.files.length) ? editIconInput.files[0].name : "Keine Datei ausgewählt";
+    if (lbl) lbl.textContent = (editIconInput && editIconInput.files.length) ? editIconInput.files[0].name : t("customPb.noFileSelected");
 }
 
 function closeEditCustomPlaybook() {
@@ -8366,12 +8391,12 @@ async function openShareCustomPlaybook(filename) {
     sharingCustomPlaybook = filename;
     document.getElementById("playbook-share-filename").textContent = filename;
     const container = document.getElementById("playbook-share-guests");
-    container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade Teammitglieder...</p>';
+    container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.loadingMembers")}</p>`;
     document.getElementById("playbook-share-dialog").classList.remove("hidden");
     try {
         const guests = await fetchGuestList();
         if (!guests || guests.length === 0) {
-            container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Teammitglieder vorhanden. Legen Sie zuerst im Team-Bereich welche an.</p>';
+        container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.noMembersHint")}</p>`;
             return;
         }
         const enabled = new Set(pb.guest_access || []);
@@ -8391,7 +8416,7 @@ async function openShareCustomPlaybook(filename) {
             container.appendChild(row);
         });
     } catch (e) {
-        container.innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Teammitglieder konnten nicht geladen werden.</p>';
+        container.innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("team.loadMembersError")}</p>`;
     }
 }
 
@@ -8411,15 +8436,15 @@ async function saveShareCustomPlaybook() {
         const res = await fetch("/api/playbooks/custom-meta", { method: "POST", body: fd });
         const data = await res.json();
         if (res.ok) {
-            showToast("Freigabe gespeichert.");
+            showToast(t("customPb.shareSaved"));
             closeShareCustomPlaybook();
             await fetchCustomPlaybooks();
             await fetchPlaybooks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("msg.saveFailed")));
         }
     } catch (e) {
-        showToast("Netzwerkfehler beim Speichern.");
+        showToast(t("msg.networkErrorSaving"));
     }
 }
 
@@ -8439,15 +8464,15 @@ async function saveCustomPlaybookMeta() {
         const res = await fetch("/api/playbooks/custom-meta", { method: "POST", body: fd });
         const data = await res.json();
         if (res.ok) {
-            showToast("Playbook-Einstellungen gespeichert.");
+            showToast(t("customPb.metaSaved"));
             closeEditCustomPlaybook();
             await fetchCustomPlaybooks();
             await fetchPlaybooks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("msg.saveFailed")));
         }
     } catch (e) {
-        showToast("Netzwerkfehler beim Speichern.");
+        showToast(t("msg.networkErrorSaving"));
     }
 }
 
@@ -8455,7 +8480,7 @@ async function handleCustomPlaybookUpload(e) {
     e.preventDefault();
     const fileInput = document.getElementById("custom-playbook-file-input");
     if (!fileInput || fileInput.files.length === 0) {
-        showToast("Bitte wählen Sie zuerst eine Datei aus.");
+        showToast(t("customPb.selectFileFirst"));
         return;
     }
 
@@ -8478,12 +8503,12 @@ async function handleCustomPlaybookUpload(e) {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast("Playbook erfolgreich hochgeladen und validiert.");
+            showToast(t("customPb.uploaded"));
             document.getElementById("custom-playbook-upload-form").reset();
-            document.getElementById("custom-playbook-filename-lbl").textContent = "Keine Datei ausgewählt";
+            document.getElementById("custom-playbook-filename-lbl").textContent = t("customPb.noFileSelected");
             //: Logo-Upload-Box-Label ebenfalls zuruecksetzen.
             const iconLbl = document.getElementById("custom-pb-icon-filename-lbl");
-            if (iconLbl) iconLbl.textContent = "Keine Datei ausgewählt";
+            if (iconLbl) iconLbl.textContent = t("customPb.noFileSelected");
             // : Reset-Buttons der Dropzones nach erfolgreichem Upload wieder ausblenden.
             ["custom-playbook-reset", "custom-pb-icon-reset"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add("hidden"); });
             closeCustomPbCreateDialog();  // : Hochladen-Dialog nach Erfolg schließen
@@ -8491,17 +8516,17 @@ async function handleCustomPlaybookUpload(e) {
             await fetchCustomPlaybooks();
             await fetchPlaybooks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Hochladen."));
+            showToast(errorDetailToMessage(data.detail, t("customPb.uploadError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Hochladen des Playbooks.");
+        showToast(t("customPb.uploadNetworkError"));
     }
 }
 
 async function deleteCustomPlaybook(filename, name) {
     // : Playbook-Anzeigename (Fallback Dateiname) fett in der Bestätigungsfrage.
     const label = name || filename;
-    if (!(await showConfirmDialog({ title: "Playbook löschen?", messageHtml: `Möchten Sie das Playbook <b>${escapeHtml(label)}</b> wirklich löschen?`, confirmLabel: "Löschen" }))) return;
+    if (!(await showConfirmDialog({ title: t("customPb.deleteTitle"), messageHtml: t("customPb.deleteConfirm", { label: escapeHtml(label) }), confirmLabel: t("common.delete") }))) return;
 
     try {
         const response = await fetch(`/api/playbooks/custom/${filename}`, {
@@ -8509,14 +8534,14 @@ async function deleteCustomPlaybook(filename, name) {
         });
         const data = await response.json();
         if (response.ok) {
-            showToast("Playbook erfolgreich gelöscht.");
+            showToast(t("customPb.deleted"));
             await fetchCustomPlaybooks();
             await fetchPlaybooks();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Löschen."));
+            showToast(errorDetailToMessage(data.detail, t("msg.deleteError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Löschen des Playbooks.");
+        showToast(t("customPb.deleteNetworkError"));
     }
 }
 
@@ -8542,7 +8567,7 @@ async function handleAVVSignFormSubmit(e) {
     const acceptChecked = document.getElementById("avv-checkbox-input").checked;
 
     if (!company || !representative || !acceptChecked) {
-        showToast("Bitte füllen Sie alle Felder aus und bestätigen Sie die Einwilligung.");
+        showToast(t("avv.fillAllAndConsent"));
         return;
     }
 
@@ -8557,7 +8582,7 @@ async function handleAVVSignFormSubmit(e) {
         const data = await response.json();
         
         if (response.ok) {
-            showToast("AVV erfolgreich unterzeichnet.");
+            showToast(t("avv.signed"));
             closeAVVSignatureModal();
             // Refresh auth status to reload signed AVV status
             await checkAuthStatus();
@@ -8565,10 +8590,10 @@ async function handleAVVSignFormSubmit(e) {
             // Proactively trigger the download of the personalized PDF
             window.location.href = "/api/legal/avv-download";
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Unterzeichnen des AVVs."));
+            showToast(errorDetailToMessage(data.detail, t("avv.signError")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Unterzeichnen des AVVs.");
+        showToast(t("avv.signNetworkError"));
     }
 }
 
@@ -8601,7 +8626,7 @@ function saveCookieConsent(functional, analytics) {
     if (analytics) {
         initializeTelemetry();
     }
-    showToast("Cookie-Einstellungen gespeichert.");
+    showToast(t("cookie.saved"));
 }
 
 function saveCustomCookieConsent() {
@@ -8627,18 +8652,18 @@ let guestsData = {};   //: id -> guest (inkl. revoked_playbooks)
 
 // : menschenlesbare Bezeichnungen fuer die Audit-Aktionscodes.
 const AUDIT_ACTION_LABELS = {
-    "playbook.run": "Playbook ausgeführt",
-    "device_group.create": "Gerätegruppe erstellt",
-    "device_group.update": "Gerätegruppe geändert",
-    "device_group.delete": "Gerätegruppe gelöscht",
-    "guest.create": "Gast-Account angelegt",
-    "guest.delete": "Gast-Account gelöscht",
-    "guest.update": "Teammitglied bearbeitet",
-    "guest.permissions_update": "Freigaben geändert",
-    "playbook.share_update": "Playbook-Freigabe geändert",
-    "scenario.create": "Szenario erstellt",
-    "scenario.update": "Szenario geändert",
-    "scenario.delete": "Szenario gelöscht",
+    "playbook.run": "audit.act.playbookRun",
+    "device_group.create": "audit.act.deviceGroupCreate",
+    "device_group.update": "audit.act.deviceGroupUpdate",
+    "device_group.delete": "audit.act.deviceGroupDelete",
+    "guest.create": "audit.act.guestCreate",
+    "guest.delete": "audit.act.guestDelete",
+    "guest.update": "audit.act.guestUpdate",
+    "guest.permissions_update": "audit.act.permissionsUpdate",
+    "playbook.share_update": "audit.act.playbookShareUpdate",
+    "scenario.create": "audit.act.scenarioCreate",
+    "scenario.update": "audit.act.scenarioUpdate",
+    "scenario.delete": "audit.act.scenarioDelete",
 };
 
 // : kompakte, sichere Detail-Darstellung (nur Schlüssel/Anzahl, keine Secrets).
@@ -8648,16 +8673,16 @@ function formatAuditDetails(action, details) {
     if (Array.isArray(details.playbooks) && details.playbooks.length) {
         parts.push(`Playbooks: ${details.playbooks.join(", ")}`);
     }
-    if (details.target) parts.push(`Ziel: ${details.target}`);
+    if (details.target) parts.push(`${t("msg.target")}: ${details.target}`);
     if (details.variables && typeof details.variables === "object") {
         const keys = Object.keys(details.variables).filter(k => k !== "use_traefik");
-        if (keys.length) parts.push(`Variablen: ${keys.join(", ")}`);
+        if (keys.length) parts.push(`${t("audit.det.variables")}: ${keys.join(", ")}`);
     }
-    if (typeof details.devices === "number") parts.push(`${details.devices} Geräte`);
-    if (typeof details.guests === "number") parts.push(`${details.guests} Freigaben`);
+    if (typeof details.devices === "number") parts.push(t("audit.det.devices", { n: details.devices }));
+    if (typeof details.guests === "number") parts.push(t("audit.det.shares", { n: details.guests }));
     if (typeof details.playbooks === "number") parts.push(`${details.playbooks} Playbooks`);
-    if (typeof details.revoked === "number") parts.push(`${details.revoked} gesperrt`);
-    if (typeof details.shared_premium === "number") parts.push(`${details.shared_premium} Premium freigegeben`);
+    if (typeof details.revoked === "number") parts.push(t("audit.det.revoked", { n: details.revoked }));
+    if (typeof details.shared_premium === "number") parts.push(t("audit.det.premiumShared", { n: details.shared_premium }));
     if (details.email) parts.push(escapeHtml(details.email));
     return parts.map(p => escapeHtml(String(p))).join(" · ");
 }
@@ -8666,24 +8691,24 @@ async function loadAuditLog() {
     const tbody = document.getElementById("audit-log-tbody");
     const statusEl = document.getElementById("audit-log-status");
     if (!tbody) return;
-    if (statusEl) statusEl.textContent = "Lade…";
+    if (statusEl) statusEl.textContent = t("msg.loading");
     try {
         const res = await fetch("/api/profile/audit-log");
         if (!res.ok) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:10px; color:var(--md-sys-color-error);">Protokoll konnte nicht geladen werden.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px; color:var(--md-sys-color-error);">${t("audit.loadError")}</td></tr>`;
             if (statusEl) statusEl.textContent = "";
             return;
         }
         const entries = await res.json();
         if (!entries.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:10px; color: var(--text-muted);">Noch keine Aktivitäten protokolliert.</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px; color: var(--text-muted);">${t("audit.noActivityYet")}</td></tr>`;
             if (statusEl) statusEl.textContent = "";
             return;
         }
         tbody.innerHTML = entries.map(e => {
-            const ts = e.timestamp ? new Date(e.timestamp).toLocaleString("de-DE") : "";
+            const ts = e.timestamp ? new Date(e.timestamp).toLocaleString(getLocale()) : "";
             const actor = escapeHtml(e.actor || "—");
-            const action = escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action || "");
+            const action = escapeHtml(AUDIT_ACTION_LABELS[e.action] ? t(AUDIT_ACTION_LABELS[e.action]) : (e.action || ""));
             const target = escapeHtml(e.target || "—");
             const det = formatAuditDetails(e.action, e.details);
             return `
@@ -8695,9 +8720,9 @@ async function loadAuditLog() {
                     <td style="padding: 8px 5px; color: var(--text-secondary); font-size: 12px;">${det}</td>
                 </tr>`;
         }).join("");
-        if (statusEl) statusEl.textContent = `${entries.length} Einträge`;
+        if (statusEl) statusEl.textContent = t("audit.entriesCount", { n: entries.length });
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:10px; color:var(--md-sys-color-error);">Netzwerkfehler.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:10px; color:var(--md-sys-color-error);">${t("msg.networkError")}</td></tr>`;
         if (statusEl) statusEl.textContent = "";
     }
 }
@@ -8725,32 +8750,32 @@ async function fetchGuests() {
             const listEl = document.getElementById("guests-list");
             if (listEl) {
                 if (guests.length === 0) {
-                    listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 13px; margin:0;">Keine Teammitglieder angelegt.</p>';
+                    listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; margin:0;">${t("team.noMembers")}</p>`;
                 } else {
                     listEl.innerHTML = guests.map(g => {
                         // : Freigabe-Zähler je Typ (Playbooks/Geräte/Szenarien) als kurzer Überblick.
                         const sh = g.shares || {};
                         const fmt = (o) => o ? `${o.shared}/${o.total}` : "0/0";
-                        const counts = `Playbooks ${fmt(sh.playbooks)} · Geräte ${fmt(sh.devices)} · Szenarien ${fmt(sh.scenarios)}`;
+                        const counts = `Playbooks ${fmt(sh.playbooks)} · ${t("team.devices")} ${fmt(sh.devices)} · ${t("team.scenarios")} ${fmt(sh.scenarios)}`;
                         // : Freigabe- & Verwaltungs-Buttons + Name/Mail neben Freigaben.
                         return `
                         <div class="team-member-row" style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02);">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap;">
                                 <!-- M52: feste Reihenfolge Szenarios, Playbooks, Geräte, Aktivitäten, Bearbeiten (mit Text). -->
-                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-scenarios" data-id="${escapeHtml(g.id)}" title="Szenarien freigeben">
-                                    <span class="material-symbols-outlined" style="font-size: 14px;">rocket_launch</span> Szenarien
+                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-scenarios" data-id="${escapeHtml(g.id)}" title="${t("team.shareScenarios")}">
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">rocket_launch</span> ${t("team.scenarios")}
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-revoke" data-id="${escapeHtml(g.id)}" title="Playbooks freigeben">
+                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-revoke" data-id="${escapeHtml(g.id)}" title="${t("team.sharePlaybooks")}">
                                     <span class="material-symbols-outlined" style="font-size: 14px;">terminal</span> Playbooks
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-devices" data-id="${escapeHtml(g.id)}" title="Geräte freigeben">
-                                    <span class="material-symbols-outlined" style="font-size: 14px;">devices</span> Geräte
+                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-devices" data-id="${escapeHtml(g.id)}" title="${t("team.shareDevices")}">
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">devices</span> ${t("team.devices")}
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-activity" data-id="${escapeHtml(g.id)}" title="Aktivitäten anzeigen">
-                                    <span class="material-symbols-outlined" style="font-size: 14px;">history</span> Aktivitäten
+                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-activity" data-id="${escapeHtml(g.id)}" title="${t("team.viewActivity")}">
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">history</span> ${t("team.activity")}
                                 </button>
-                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-edit" data-id="${escapeHtml(g.id)}" title="Teammitglied bearbeiten">
-                                    <span class="material-symbols-outlined" style="font-size: 14px;">edit</span> Bearbeiten
+                                <button type="button" class="btn btn-secondary btn-small" data-action="guest-edit" data-id="${escapeHtml(g.id)}" title="${t("team.editMember")}">
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">edit</span> ${t("common.edit")}
                                 </button>
                                 <div class="team-member-meta">
                                     <span style="font-weight:bold; color:var(--md-sys-color-primary);">${escapeHtml(g.username)} <span style="font-weight:normal; color:var(--text-secondary);">(${escapeHtml(g.email)})</span></span>
@@ -8759,7 +8784,7 @@ async function fetchGuests() {
                             </div>
                             <div style="white-space:nowrap;">
                                 <button type="button" class="btn btn-small btn-danger" data-action="guest-delete" data-id="${escapeHtml(g.id)}">
-                                    <span class="material-symbols-outlined" style="font-size: 14px;">delete</span> Löschen
+                                    <span class="material-symbols-outlined" style="font-size: 14px;">delete</span> ${t("common.delete")}
                                 </button>
                             </div>
                         </div>`;
@@ -8781,14 +8806,14 @@ async function openGuestDevicesDialog(guestId) {
     sharingDevicesGuestId = guestId;
     document.getElementById("guest-devices-username").textContent = guest.username;
     const container = document.getElementById("guest-devices-list");
-    container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade Geräte...</p>';
+    container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.loadingDevices")}</p>`;
     document.getElementById("guest-devices-dialog").classList.remove("hidden");
     try {
         // (Device-Flatten): Freigabe je Geraet (flache Geraeteliste).
         const res = await fetch("/api/profile/devices-unified");
         const devices = res.ok ? await res.json() : [];
         if (!devices.length) {
-            container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Geräte vorhanden. Legen Sie zuerst Geräte unter „My Vault → Geräte" an.</p>';
+            container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.noDevicesHint")}</p>`;
             return;
         }
         container.innerHTML = "";
@@ -8805,7 +8830,7 @@ async function openGuestDevicesDialog(guestId) {
             container.appendChild(row);
         });
     } catch (e) {
-        container.innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Geräte konnten nicht geladen werden.</p>';
+        container.innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("team.loadDevicesError")}</p>`;
     }
 }
 function closeGuestDevicesDialog() {
@@ -8822,13 +8847,13 @@ async function saveGuestDevicesDialog() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast("Geräte-Freigabe gespeichert.");
+            showToast(t("team.deviceShareSaved"));
             closeGuestDevicesDialog();
             await fetchGuests();  // Zähler aktualisieren
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("msg.saveFailed")));
         }
-    } catch (e) { showToast("Netzwerkfehler beim Speichern."); }
+    } catch (e) { showToast(t("msg.networkErrorSaving")); }
 }
 
 //: Dialog - Besitzer entzieht einem Gast selektiv Playbooks
@@ -8860,7 +8885,7 @@ async function openGuestRevokeDialog(guestId) {
     revokingGuestId = guestId;
     document.getElementById("guest-revoke-username").textContent = guest.username;
     const container = document.getElementById("guest-revoke-list");
-    container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Lade Playbooks...</p>';
+    container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.loadingPlaybooks")}</p>`;
     document.getElementById("guest-revoke-dialog").classList.remove("hidden");
     try {
         const res = await fetch("/api/playbooks");
@@ -8869,7 +8894,7 @@ async function openGuestRevokeDialog(guestId) {
         // dieser Dialog steuert den Standardkatalog (Free + Premium).
         const playbooks = all.filter(pb => !pb.custom);
         if (!playbooks.length) {
-            container.innerHTML = '<p style="color: var(--text-muted); margin:0;">Keine Playbooks vorhanden.</p>';
+            container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.noPlaybooks")}</p>`;
             return;
         }
         const revoked = new Set(guest.revoked_playbooks || []);
@@ -8919,7 +8944,7 @@ async function openGuestRevokeDialog(guestId) {
             });
         });
     } catch (e) {
-        container.innerHTML = '<p style="color:var(--md-sys-color-error); margin:0;">Playbooks konnten nicht geladen werden.</p>';
+        container.innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("team.loadPlaybooksError")}</p>`;
     }
 }
 
@@ -8942,31 +8967,31 @@ async function saveGuestRevoke() {
         });
         const data = await res.json();
         if (res.ok) {
-            showToast("Playbook-Freigaben aktualisiert.");
+            showToast(t("team.playbookSharesUpdated"));
             closeGuestRevokeDialog();
             fetchGuests();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Speichern fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("msg.saveFailed")));
         }
     } catch (e) {
-        showToast("Netzwerkfehler beim Speichern.");
+        showToast(t("msg.networkErrorSaving"));
     }
 }
 
 async function deleteGuest(id) {
-    if (!(await showConfirmDialog({ title: "Teammitglied löschen?", message: "Möchten Sie dieses Teammitglied wirklich löschen?", confirmLabel: "Löschen" }))) return;
+    if (!(await showConfirmDialog({ title: t("team.deleteTitle"), message: t("team.deleteConfirm"), confirmLabel: t("common.delete") }))) return;
     try {
         const res = await fetch(`/api/profile/guests/${id}`, { method: "DELETE" });
         if (res.ok) {
-            showToast("Teammitglied erfolgreich gelöscht.");
+            showToast(t("team.memberDeleted"));
             fetchGuests();
         } else {
             const err = await res.json();
-            showToast(err.detail || "Fehler beim Löschen des Teammitglieds.");
+            showToast(err.detail || t("team.memberDeleteError"));
         }
     } catch (err) {
         console.error("Failed to delete guest:", err);
-        showToast("Netzwerkfehler.");
+        showToast(t("msg.networkError"));
     }
 }
 
@@ -8978,26 +9003,26 @@ async function fetchTokens() {
             const tbody = document.getElementById("tokens-tbody");
             if (tbody) {
                 if (tokens.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Keine API-Token generiert.</td></tr>';
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("tokens.none")}</td></tr>`;
                 } else {
-                    tbody.innerHTML = tokens.map(t => {
-                        const scopesBadges = t.scopes.map(s => {
+                    tbody.innerHTML = tokens.map(tok => {
+                        const scopesBadges = tok.scopes.map(s => {
                             //: run_playbook -> "run", alles andere (read_logs/manage_*) -> "read"-Stil.
                             const scopeClass = s === "run_playbook" ? "run" : "read";
                             return `<span class="scope-badge ${scopeClass}">${escapeHtml(s)}</span>`;
                         }).join('');
                         //: Ablaufdatum anzeigen (falls gesetzt), sonst „unbegrenzt".
-                        const expiryLabel = t.expires_at
-                            ? escapeHtml(new Date(t.expires_at).toLocaleDateString("de-DE"))
-                            : '<span style="color: var(--text-muted);">unbegrenzt</span>';
+                        const expiryLabel = tok.expires_at
+                            ? escapeHtml(new Date(tok.expires_at).toLocaleDateString(getLocale()))
+                            : `<span style="color: var(--text-muted);">${t("tokens.unlimited")}</span>`;
                         return `
                             <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
-                                <td style="padding: 8px 5px;">${escapeHtml(t.name)}</td>
+                                <td style="padding: 8px 5px;">${escapeHtml(tok.name)}</td>
                                 <td style="padding: 8px 5px;">${scopesBadges}</td>
                                 <td style="padding: 8px 5px; font-size: 12px; color: var(--text-secondary);">${expiryLabel}</td>
                                 <td style="padding: 8px 5px; text-align: right;">
-                                    <button type="button" class="btn-small-danger" data-action="token-delete" data-id="${escapeHtml(t.id)}">
-                                        <span class="material-symbols-outlined" style="font-size: 14px;">link_off</span> Widerrufen
+                                    <button type="button" class="btn-small-danger" data-action="token-delete" data-id="${escapeHtml(tok.id)}">
+                                        <span class="material-symbols-outlined" style="font-size: 14px;">link_off</span> ${t("tokens.revoke")}
                                     </button>
                                 </td>
                             </tr>
@@ -9012,19 +9037,19 @@ async function fetchTokens() {
 }
 
 async function deleteToken(id) {
-    if (!(await showConfirmDialog({ title: "Token widerrufen?", message: "Möchten Sie diesen API-Token wirklich widerrufen?", confirmLabel: "Widerrufen" }))) return;
+    if (!(await showConfirmDialog({ title: t("tokens.revokeTitle"), message: t("tokens.revokeConfirm"), confirmLabel: t("tokens.revoke") }))) return;
     try {
         const res = await fetch(`/api/profile/tokens/${id}`, { method: "DELETE" });
         if (res.ok) {
-            showToast("API-Token erfolgreich widerrufen.");
+            showToast(t("tokens.revoked"));
             fetchTokens();
         } else {
             const err = await res.json();
-            showToast(err.detail || "Fehler beim Widerrufen des Tokens.");
+            showToast(err.detail || t("tokens.revokeError"));
         }
     } catch (err) {
         console.error("Failed to delete token:", err);
-        showToast("Netzwerkfehler.");
+        showToast(t("msg.networkError"));
     }
 }
 
@@ -9038,7 +9063,7 @@ async function handleGuestSubmit() {
     const password = passwordInput.value;
     
     if (!username || !email || !password) {
-        showToast("Bitte füllen Sie alle Felder aus.");
+        showToast(t("team.fillAllFields"));
         return;
     }
     
@@ -9050,7 +9075,7 @@ async function handleGuestSubmit() {
         });
         
         if (res.ok) {
-            showToast("Teammitglied erfolgreich angelegt.");
+            showToast(t("team.memberCreated"));
             usernameInput.value = "";
             emailInput.value = "";
             passwordInput.value = "";
@@ -9058,11 +9083,11 @@ async function handleGuestSubmit() {
             fetchGuests();
         } else {
             const err = await res.json();
-            showToast(err.detail || "Fehler beim Anlegen des Teammitglieds.");
+            showToast(err.detail || t("team.memberCreateError"));
         }
     } catch (err) {
         console.error("Guest creation failed:", err);
-        showToast("Netzwerkfehler.");
+        showToast(t("msg.networkError"));
     }
 }
 
@@ -9127,7 +9152,7 @@ async function saveGuestEdit() {
     const username = document.getElementById("guest-edit-username").value.trim();
     const email = document.getElementById("guest-edit-email").value.trim();
     const password = document.getElementById("guest-edit-password").value;
-    if (!username || !email) { showToast("Benutzername und E-Mail sind erforderlich."); return; }
+    if (!username || !email) { showToast(t("team.usernameEmailRequired")); return; }
     const body = { username, email };
     if (password) body.password = password;
     try {
@@ -9137,14 +9162,14 @@ async function saveGuestEdit() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            showToast("Teammitglied aktualisiert.");
+            showToast(t("team.memberUpdated"));
             closeGuestEditDialog();
             fetchGuests();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern."));
+            showToast(errorDetailToMessage(data.detail, t("msg.saveError")));
         }
     } catch (e) {
-        showToast("Netzwerkfehler beim Speichern.");
+        showToast(t("msg.networkErrorSaving"));
     }
 }
 
@@ -9159,7 +9184,7 @@ async function openGuestScenariosDialog(guestId) {
     const nameEl = document.getElementById("guest-scenarios-name");
     if (nameEl) nameEl.textContent = `${g.username} (${g.email})`;
     const list = document.getElementById("guest-scenarios-list");
-    if (list) list.innerHTML = '<p style="color: var(--text-muted); font-size: 12px;">Lade…</p>';
+    if (list) list.innerHTML = `<p style="color: var(--text-muted); font-size: 12px;">${t("msg.loading")}</p>`;
     const dlg = document.getElementById("guest-scenarios-dialog");
     if (dlg) dlg.classList.remove("hidden");
     try {
@@ -9168,7 +9193,7 @@ async function openGuestScenariosDialog(guestId) {
     } catch (e) { _guestScenariosCache = []; }
     if (!list) return;
     if (!_guestScenariosCache.length) {
-        list.innerHTML = '<p style="color: var(--text-muted); font-size: 12px;">Keine Szenarien vorhanden. Szenarien werden in „My Vault" erstellt.</p>';
+        list.innerHTML = `<p style="color: var(--text-muted); font-size: 12px;">${t("team.noScenariosHint")}</p>`;
         return;
     }
     list.innerHTML = "";
@@ -9210,8 +9235,8 @@ async function saveGuestScenarios() {
             if (!res.ok) ok = false;
         } catch (e) { ok = false; }
     }
-    if (ok) showToast(changed ? "Szenario-Freigaben gespeichert." : "Keine Änderungen.");
-    else showToast("Einige Freigaben konnten nicht gespeichert werden.");
+    if (ok) showToast(changed ? t("team.scenarioSharesSaved") : t("team.noChanges"));
+    else showToast(t("team.someSharesFailed"));
     closeGuestScenariosDialog();
     fetchGuests();
 }
@@ -9224,9 +9249,9 @@ async function openGuestActivityDialog(guestId) {
     if (!g) return;
     _guestActivityName = `${g.username} (${g.email})`;
     const titleEl = document.getElementById("guest-activity-title");
-    if (titleEl) titleEl.textContent = `Aktivitäten — ${_guestActivityName}`;
+    if (titleEl) titleEl.textContent = t("team.activityTitle", { name: _guestActivityName });
     const tbody = document.getElementById("guest-activity-tbody");
-    if (tbody) tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:10px; color: var(--text-muted);">Lade…</td></tr>';
+    if (tbody) tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:10px; color: var(--text-muted);">${t("msg.loading")}</td></tr>`;
     const dlg = document.getElementById("guest-activity-dialog");
     if (dlg) dlg.classList.remove("hidden");
     try {
@@ -9235,12 +9260,12 @@ async function openGuestActivityDialog(guestId) {
     } catch (e) { _guestActivityEntries = []; }
     if (!tbody) return;
     if (!_guestActivityEntries.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:10px; color: var(--text-muted);">Keine Aktivitäten protokolliert.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding:10px; color: var(--text-muted);">${t("team.noActivity")}</td></tr>`;
         return;
     }
     tbody.innerHTML = _guestActivityEntries.map(e => {
-        const ts = e.timestamp ? new Date(e.timestamp).toLocaleString("de-DE") : "";
-        const action = escapeHtml(AUDIT_ACTION_LABELS[e.action] || e.action || "");
+        const ts = e.timestamp ? new Date(e.timestamp).toLocaleString(getLocale()) : "";
+        const action = escapeHtml(AUDIT_ACTION_LABELS[e.action] ? t(AUDIT_ACTION_LABELS[e.action]) : (e.action || ""));
         const target = escapeHtml(e.target || "—");
         const det = formatAuditDetails(e.action, e.details);
         return `<tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
@@ -9256,14 +9281,14 @@ function closeGuestActivityDialog() {
     if (dlg) dlg.classList.add("hidden");
 }
 function _guestActivityAsText() {
-    const header = `Aktivitätsprotokoll — ${_guestActivityName}\n${"=".repeat(40)}\n`;
+    const header = `${t("team.activityLogHeader", { name: _guestActivityName })}\n${"=".repeat(40)}\n`;
     const lines = _guestActivityEntries.map(e => {
-        const ts = e.timestamp ? new Date(e.timestamp).toLocaleString("de-DE") : "";
-        const action = AUDIT_ACTION_LABELS[e.action] || e.action || "";
+        const ts = e.timestamp ? new Date(e.timestamp).toLocaleString(getLocale()) : "";
+        const action = AUDIT_ACTION_LABELS[e.action] ? t(AUDIT_ACTION_LABELS[e.action]) : (e.action || "");
         const target = e.target || "-";
         let det = "";
         try { det = e.details ? JSON.stringify(e.details) : ""; } catch (x) { det = ""; }
-        return `[${ts}] ${action} | Ziel: ${target}${det ? " | " + det : ""}`;
+        return `[${ts}] ${action} | ${t("msg.target")}: ${target}${det ? " | " + det : ""}`;
     });
     return header + lines.join("\n") + "\n";
 }
@@ -9271,13 +9296,13 @@ async function copyGuestActivity() {
     const text = _guestActivityAsText();
     try {
         await navigator.clipboard.writeText(text);
-        showToast("Logs in die Zwischenablage kopiert.");
+        showToast(t("team.logsCopied"));
     } catch (e) {
         // Fallback ohne Clipboard-API (z. B. unsicherer Kontext).
         const ta = document.createElement("textarea");
         ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand("copy"); showToast("Logs kopiert."); }
-        catch (x) { showToast("Kopieren nicht möglich."); }
+        try { document.execCommand("copy"); showToast(t("team.logsCopiedShort")); }
+        catch (x) { showToast(t("team.copyFailed")); }
         document.body.removeChild(ta);
     }
 }
@@ -9296,7 +9321,7 @@ async function handleTokenSubmit() {
     const nameInput = document.getElementById("token-name");
     const name = nameInput.value.trim();
     if (!name) {
-        showToast("Bitte geben Sie einen Token-Namen an.");
+        showToast(t("tokens.enterName"));
         return;
     }
     
@@ -9308,7 +9333,7 @@ async function handleTokenSubmit() {
     if (document.getElementById("token-scope-scenarios").checked) scopes.push("manage_scenarios");
 
     if (scopes.length === 0) {
-        showToast("Bitte wählen Sie mindestens einen Scope aus.");
+        showToast(t("tokens.selectScope"));
         return;
     }
     
@@ -9325,7 +9350,7 @@ async function handleTokenSubmit() {
         
         if (res.ok) {
             const data = await res.json();
-            showToast("API-Token erfolgreich generiert.");
+            showToast(t("tokens.generated"));
             nameInput.value = "";
             
             // Show generated token display
@@ -9335,11 +9360,11 @@ async function handleTokenSubmit() {
             fetchTokens();
         } else {
             const err = await res.json();
-            showToast(err.detail || "Fehler beim Generieren des Tokens.");
+            showToast(err.detail || t("tokens.generateError"));
         }
     } catch (err) {
         console.error("Token generation failed:", err);
-        showToast("Netzwerkfehler.");
+        showToast(t("msg.networkError"));
     }
 }
 
@@ -9357,7 +9382,7 @@ function escapeHtml(str) {
 // Singular wie im Plural identisch ist, entfällt die frühere Gast/Gäste-Pluralisierung.
 function guestShareLabel(count) {
     const n = Number(count) || 0;
-    return `für ${n} Benutzer freigegeben`;
+    return t("customPb.sharedWith", { n });
 }
 
 //: Keine window-Bindings mehr noetig – die ehemaligen Inline-onclick-Handler

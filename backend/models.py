@@ -46,7 +46,10 @@ class User(Base):
     # Default True: bestehende Konten, Admin-Bootstrap und Gaeste gelten als verifiziert.
     # Nur die Selbstregistrierung setzt dies bei aktivierter Verifikation explizit auf False.
     email_verified = Column(Boolean, default=True, nullable=False)
-    
+    # : bevorzugte UI-Sprache (de|en). NULL = automatisch (Browser-Erkennung greift).
+    # Kernfunktion (KEIN Editions-Marker) — account-gebunden, geraeteuebergreifend, auch Community.
+    language = Column(String(5), nullable=True)
+
     
     # Collaboration / Guest Accounts
     associated_user_id = Column(String, nullable=True, index=True)
