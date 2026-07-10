@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ansimate-core"
+version = "0.1.0"
+description = "Ansimate core backend (open-core: community/on-premise). Cloud billing is a separable extension."
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.100.0",
+    # CVE-2026-54283 (HIGH): starlette<1.3.1 -> request.form()-Limits-DoS. Transitiv via fastapi,
+    # hier explizit auf den Fix gepinnt.
+    "starlette>=1.3.1",
+    "uvicorn>=0.22.0",
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "psycopg2-binary>=2.9",
+    "bcrypt>=4.0",
+    "cryptography>=41.0",
+    "python-multipart",
+    "PyYAML",
+]
+
+[project.optional-dependencies]
+
+[tool.setuptools]
+# Flache Distribution: die Backend-Module werden als Top-Level-py-Module verpackt (keine
+# Verzeichnis-Umstrukturierung -> die `dirname(__file__)`-Asset-Pfade fuer legal/, gdpdu/ und
+# branding-runtime.json bleiben unveraendert gueltig). `edition.py` wird zur Build-Zeit erzeugt
+# und ist daher NICHT gelistet. Das Cloud-Billing liegt im Paket `editions.billing`
+# und wird in in eine EIGENE Distribution mit Entry-Point `ansimate.editions`
+# ausgelagert; bis dahin wird es nur in der cloud-Edition geladen (register_extensions).
+py-modules = [
+    "main", "models", "auth", "crypto", "database",
+    "email_helper", "middleware", "extensions",
+    "entitlements", "limits",
+]
+# Hinweis: editions/billing wird NICHT als Core-Paket gelistet. Es kommt nur in der
+# cloud-Edition ins Image (Dockerfile) und ist dort ueber PYTHONPATH=/app importierbar.

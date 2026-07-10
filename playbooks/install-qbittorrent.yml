@@ -1,0 +1,12 @@
+- name: install qBittorrent (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install qBittorrent (org.qbittorrent.qBittorrent) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub org.qbittorrent.qBittorrent"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

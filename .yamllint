@@ -1,0 +1,26 @@
+# : yamllint-Konfiguration fuer die CI-Lint-Stage.
+# Relaxt: nur STRUKTURELLE YAML-Fehler (Syntax, Schluessel-Duplikate) blockieren die Pipeline.
+# Kosmetik (Leerzeichen, Zeilenlaenge, Zeilenumbrueche, CRLF) ist toleriert, damit der Bestand
+# (Playbooks mit Trailing-Spaces / Windows-Zeilenenden) nicht hart fehlschlaegt.
+extends: relaxed
+
+# User-hochgeladene Custom-Playbooks NICHT linten (beliebiger Fremdinhalt).
+ignore: |
+  playbooks/custom/
+
+rules:
+  line-length: disable
+  trailing-spaces: disable
+  new-line-at-end-of-file: disable
+  new-lines: disable
+  empty-lines: disable
+  comments: disable
+  comments-indentation: disable
+  document-start: disable
+  truthy: disable
+  indentation: disable
+  brackets: disable
+  # Ausgerichtete Werte (mehrere Leerzeichen nach dem Doppelpunkt) sind bewusste Lesbarkeit, kein Fehler.
+  colons: disable
+  # Duplikat-Schluessel sind ein echter Fehler -> blockierend.
+  key-duplicates: enable

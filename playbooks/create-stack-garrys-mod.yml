@@ -1,0 +1,63 @@
+- name: deploy Garry's Mod Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "garrys-mod"
+    image: "ceifa/garrysmod:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          garrys-mod:
+            restart: unless-stopped
+            container_name: garrys-mod
+            image: ceifa/garrysmod:latest
+            ports:
+              - "27015:27015/udp"
+              - "27015:27015/tcp"
+              - "27005:27005/udp"
+            environment:
+              - NAME=Garrys Mod Server
+              - MAXPLAYERS=16
+              - GAMEMODE=sandbox
+              - MAP=gm_construct
+              - PORT=27015
+              - GSLT=
+              - ARGS=
+              - AUTOUPDATE=1
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/gmod/server/garrysmod/data"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

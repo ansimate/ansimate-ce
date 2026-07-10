@@ -1,0 +1,68 @@
+- name: deploy Counter-Strike 2 Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "counter-strike-2"
+    image: "joedwards32/cs2:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          counter-strike-2:
+            restart: unless-stopped
+            container_name: counter-strike-2
+            image: joedwards32/cs2:latest
+            ports:
+              - "27015:27015/tcp"
+              - "27015:27015/udp"
+              - "27020:27020/udp"
+            environment:
+              - SRCDS_TOKEN=
+              - CS2_SERVERNAME=Counter-Strike 2 Server
+              - CS2_PW=
+              - CS2_RCONPW=changeme
+              - CS2_PORT=27015
+              - CS2_MAXPLAYERS=16
+              - CS2_GAMEALIAS=competitive
+              - CS2_MAPGROUP=mg_active
+              - CS2_STARTMAP=de_dust2
+              - CS2_BOT_QUOTA=0
+              - TV_ENABLE=0
+              - TV_PORT=27020
+              - STEAMAPPVALIDATE=1
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/cs2-dedicated/"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

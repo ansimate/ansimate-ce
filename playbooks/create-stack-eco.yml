@@ -1,0 +1,59 @@
+- name: deploy Eco Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "eco"
+    image: "strangeloopgames/eco-game-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          eco:
+            restart: unless-stopped
+            container_name: eco
+            image: strangeloopgames/eco-game-server:latest
+            ports:
+              - "3000:3000/udp"
+              - "3001:3001/tcp"
+            environment:
+              - SERVER_NAME=Eco Dedicated Server
+              - SERVER_DESCRIPTION=An Eco Global Survival Server
+              - MAX_PLAYERS=50
+              - GAME_PORT=3000
+              - WEB_SERVER_PORT=3001
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/app/Storage"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

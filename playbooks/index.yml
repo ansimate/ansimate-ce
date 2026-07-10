@@ -1,0 +1,1610 @@
+- file: install-docker.yml
+  name: "Docker Engine"
+  vendor_urls:
+    - "https://www.docker.com"
+  icon: docker.svg
+  description: "Installiert Docker CE mit Docker Compose und Buildx, erstellt die Docker-Gruppe und richtet Standardverzeichnisstrukturen ein."
+  category: "System"
+
+- file: install-flatpak.yml
+  name: "Flatpak"
+  vendor_urls:
+    - "https://flatpak.org"
+  icon: "flatpak.svg"
+  description: "Installiert den Flatpak-Paketmanager und richtet das Flathub-Remote ein – die gemeinsame Grundlage für alle als Flatpak ausgelieferten Desktop-Anwendungen."
+  category: "System"
+
+- file: install-git.yml
+  name: "Git"
+  vendor_urls:
+    - "https://git-scm.com"
+  icon: git.svg
+  description: "Stellt sicher, dass das Versionskontrollsystem Git auf dem neuesten Stand auf dem Zielgerät installiert ist."
+  category: "System"
+
+- file: install-nmap.yml
+  name: "Nmap"
+  vendor_urls:
+    - "https://nmap.org"
+  icon: "radar"
+  description: "Installiert Nmap für Netzwerksicherheits-Scans und Port-Audits auf dem Zielgerät."
+  category: "Netzwerk Sicherheit"
+
+- file: install-zerotier.yml
+  name: "ZeroTier"
+  vendor_urls:
+    - "https://www.zerotier.com"
+  icon: zerotier.svg
+  description: "Installiert den ZeroTier-Client, um das Gerät in sichere, private Overlay-Netzwerke zu integrieren."
+  category: "Netzwerk Sicherheit"
+
+- file: install-fail2ban.yml
+  name: "Fail2ban"
+  vendor_urls:
+    - "https://github.com/fail2ban/fail2ban"
+  icon: fail2ban.png
+  description: "Installiert Fail2ban, um das Zielgerät gegen Brute-Force-Angriffe abzusichern."
+  category: "Netzwerk Sicherheit"
+
+- file: create-stack-traefik.yml
+  name: "Traefik"
+  vendor_urls:
+    - "https://traefik.io"
+  icon: traefik.svg
+  description: "Richtet den Traefik-Reverse-Proxy-Stack mit automatischer SSL-Zertifikatsausstellung ein."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+
+- file: create-stack-pihole.yml
+  name: "Pi-Hole"
+  vendor_urls:
+    - "https://pi-hole.net"
+  icon: pihole.svg
+  description: "Richtet einen Pi-hole-Stack für netzwerkweiten Werbeblocker und DNS-Filterung ein."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+
+- file: create-stack-vaultwarden.yml
+  name: "Vaultwarden"
+  vendor_urls:
+    - "https://github.com/dani-garcia/vaultwarden"
+  icon: bitwarden.svg
+  # : WebAuthn/Passkeys und der Web-Tresor erfordern einen sicheren Kontext (HTTPS).
+  requires_https: true
+  description: "Installiert einen Passwort-Manager-Tresor (Vaultwarden / Bitwarden-API) mit persistenter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+  # variables-Schema (Referenz fuer , siehe docs/PLAYBOOKS_VARIABLES.md).
+  # Von der heutigen UI noch nicht ausgewertet; Namespacing per Playbook-Praefix.
+  variables:
+    - name: vaultwarden_domain
+      label: "Vaultwarden Domain"
+      type: domain
+      placeholder: "vault.local"
+      required: false
+    - name: vaultwarden_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8080"
+      required: false
+    - name: vaultwarden_signups_allowed
+      label: "Registrierung erlauben"
+      type: bool
+      default: false
+    - name: vaultwarden_admin_token
+      label: "Admin-Token (optional)"
+      type: secret
+      required: false
+
+- file: create-stack-nodered.yml
+  name: "Node-RED"
+  vendor_urls:
+    - "https://nodered.org"
+  icon: nodered.svg
+  description: "Richtet ein Node-RED-Entwicklungstool für flussbasierte IoT-Programmierung ein."
+  requires:
+    - install-docker.yml
+  category: "Smart Home"
+
+- file: create-stack-mqtt.yml
+  name: "MQTT Broker"
+  vendor_urls:
+    - "https://mosquitto.org"
+  icon: mqtt.svg
+  description: "Richtet einen Mosquitto MQTT-Broker-Stack für IoT-Messaging ein."
+  requires:
+    - install-docker.yml
+  category: "Smart Home"
+
+- file: create-stack-filebrowser.yml
+  name: "Filebrowser"
+  vendor_urls:
+    - "https://filebrowser.org"
+  icon: filebrowser.svg
+  description: "Richtet einen Web-Dateimanager-Stack ein, um Dateien über den Browser zu verwalten."
+  requires:
+    - install-docker.yml
+  category: "Dateiverwaltung"
+
+- file: create-stack-searxng.yml
+  name: "SearXNG"
+  vendor_urls:
+    - "https://github.com/searxng/searxng"
+  icon: searxng.svg
+  description: "Installiert eine datenschutzfreundliche Metasuchmaschine basierend auf SearXNG."
+  requires:
+    - install-docker.yml
+  category: "System"
+
+- file: create-stack-prometheus.yml
+  name: "Prometheus"
+  vendor_urls:
+    - "https://prometheus.io"
+  icon: prometheus.svg
+  description: "Installiert ein Prometheus-Monitoring-System zur Erfassung von Systemmetriken."
+  requires:
+    - install-docker.yml
+  category: "System"
+
+- file: create-stack-jdownloader2.yml
+  name: "JDownloader 2"
+  vendor_urls:
+    - "https://jdownloader.org"
+  icon: jdownloader2.svg
+  description: "Installiert den JDownloader 2 Download-Manager mit Web-Oberfläche."
+  requires:
+    - install-docker.yml
+  category: "Dateiverwaltung"
+
+- file: create-stack-dockman.yml
+  name: "Dockman"
+  vendor_urls:
+    - "https://github.com/RA341/dockman"
+  icon: dockman.png
+  description: "Richtet eine Web-Verwaltungsoberfläche für Docker-Container auf dem Host ein."
+  requires:
+    - install-docker.yml
+  category: "System"
+
+- file: create-stack-dashboard.yml
+  name: "Dashboard"
+  vendor_urls:
+    - "https://github.com/bastienwirtz/homer"
+  icon: homepage.svg
+  description: "Installiert eine anpassbare Dashboard-Startseite zur Übersicht aller laufenden Dienste."
+  requires:
+    - install-docker.yml
+  category: "System"
+
+# --- Playbook Roadmap (Free) – Batch 1 ---
+
+- file: create-stack-uptime-kuma.yml
+  name: "Uptime Kuma"
+  vendor_urls:
+    - "https://github.com/louislam/uptime-kuma"
+  icon: uptime-kuma.svg
+  description: "Richtet Uptime Kuma ein – ein schlankes, selbstgehostetes Status- und Uptime-Monitoring mit Web-Oberfläche und eingebetteter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "System"
+  variables:
+    - name: uptime_kuma_domain
+      label: "Uptime Kuma Domain (bei Traefik)"
+      type: domain
+      placeholder: "status.local"
+      required: false
+    - name: uptime_kuma_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "3001"
+      required: false
+
+- file: create-stack-it-tools.yml
+  name: "IT-Tools"
+  vendor_urls:
+    - "https://github.com/CorentinTh/it-tools"
+  icon: "construction"
+  description: "Installiert IT-Tools – eine clientseitige Sammlung praktischer Entwickler-Werkzeuge (JSON-/JWT-Tools, Generatoren, Konverter), zustandslos und offline nutzbar."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: it_tools_domain
+      label: "IT-Tools Domain (bei Traefik)"
+      type: domain
+      placeholder: "tools.local"
+      required: false
+    - name: it_tools_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8082"
+      required: false
+
+- file: create-stack-gotenberg.yml
+  name: "Gotenberg"
+  vendor_urls:
+    - "https://gotenberg.dev"
+  icon: gotenberg.png
+  description: "Installiert Gotenberg – einen zustandslosen API-Dienst zur Konvertierung von Office-Dokumenten, HTML und Markdown in PDF (Chromium- & LibreOffice-Engines)."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: gotenberg_domain
+      label: "Gotenberg Domain (bei Traefik)"
+      type: domain
+      placeholder: "gotenberg.local"
+      required: false
+    - name: gotenberg_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "3000"
+      required: false
+
+- file: create-stack-adminer.yml
+  name: "Adminer"
+  vendor_urls:
+    - "https://www.adminer.org"
+  icon: adminer.svg
+  description: "Installiert Adminer – einen leichtgewichtigen Web-Datenbankclient zur Verwaltung von PostgreSQL, MariaDB/MySQL und SQLite über den Browser."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: adminer_domain
+      label: "Adminer Domain (bei Traefik)"
+      type: domain
+      placeholder: "adminer.local"
+      required: false
+    - name: adminer_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8083"
+      required: false
+
+- file: create-stack-cyberchef.yml
+  name: "CyberChef"
+  vendor_urls:
+    - "https://github.com/gchq/CyberChef"
+  icon: cyberchef.svg
+  description: "Installiert CyberChef – das webbasierte 'Cyber-Schweizer-Taschenmesser' für De-/Codierung, Hashing, Kryptografie und Datenanalyse, vollständig im Browser."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+  variables:
+    - name: cyberchef_domain
+      label: "CyberChef Domain (bei Traefik)"
+      type: domain
+      placeholder: "cyberchef.local"
+      required: false
+    - name: cyberchef_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8000"
+      required: false
+
+- file: create-stack-linkstack.yml
+  name: "LinkStack"
+  vendor_urls:
+    - "https://linkstack.org"
+  icon: linkstack.svg
+  description: "Installiert LinkStack – ein selbstgehostetes Bio-Link-Portal (Link-in-Bio) mit Web-Verwaltung und persistenter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: linkstack_domain
+      label: "LinkStack Domain (bei Traefik)"
+      type: domain
+      placeholder: "links.local"
+      required: false
+    - name: linkstack_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8084"
+      required: false
+
+# --- Playbook Roadmap (Free) – Batch 2 ---
+
+- file: create-stack-actualbudget.yml
+  name: "Actual Budget"
+  vendor_urls:
+    - "https://actualbudget.org"
+  icon: actual-budget.svg
+  description: "Installiert Actual Budget – eine schnelle, lokale Finanz-/Haushaltsbuch-Anwendung (Zero-Based Budgeting) mit eigenem Sync-Server und persistenten Daten."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: actualbudget_domain
+      label: "Actual Budget Domain (bei Traefik)"
+      type: domain
+      placeholder: "budget.local"
+      required: false
+    - name: actualbudget_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "5006"
+      required: false
+
+- file: create-stack-superproductivity.yml
+  name: "Super Productivity"
+  vendor_urls:
+    - "https://super-productivity.com"
+  icon: super-productivity.png
+  description: "Installiert Super Productivity – eine To-Do-, Zeiterfassungs- und Fokus-App als statische Web-Anwendung (Daten im Browser bzw. eigenem Sync-Backend)."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: superproductivity_domain
+      label: "Super Productivity Domain (bei Traefik)"
+      type: domain
+      placeholder: "todo.local"
+      required: false
+    - name: superproductivity_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8091"
+      required: false
+
+- file: create-stack-grocy.yml
+  name: "Grocy"
+  vendor_urls:
+    - "https://grocy.info"
+  icon: grocy.svg
+  description: "Installiert Grocy – ein Haushalts-/Vorrats-Management (ERP für den Kühlschrank): Einkaufslisten, Bestände, Rezepte und Aufgaben mit persistenter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: grocy_domain
+      label: "Grocy Domain (bei Traefik)"
+      type: domain
+      placeholder: "grocy.local"
+      required: false
+    - name: grocy_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8088"
+      required: false
+
+- file: create-stack-vikunja.yml
+  name: "Vikunja"
+  vendor_urls:
+    - "https://vikunja.io"
+  icon: vikunja.svg
+  description: "Installiert Vikunja – eine selbstgehostete To-Do-/Projektverwaltung (Listen, Kanban, Gantt) als All-in-One-Container mit SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: vikunja_domain
+      label: "Vikunja Domain (bei Traefik)"
+      type: domain
+      placeholder: "vikunja.local"
+      required: false
+    - name: vikunja_publicurl
+      label: "Öffentliche URL (für korrekte Links, optional)"
+      type: string
+      placeholder: "https://vikunja.local"
+      required: false
+    - name: vikunja_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "3456"
+      required: false
+
+- file: create-stack-babybuddy.yml
+  name: "Baby Buddy"
+  vendor_urls:
+    - "https://github.com/babybuddy/babybuddy"
+  icon: babybuddy.png
+  description: "Installiert Baby Buddy – einen Tracker für Schlaf, Mahlzeiten, Windeln und Wachstum von Kleinkindern mit Web-Oberfläche und persistenter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: babybuddy_domain
+      label: "Baby Buddy Domain (bei Traefik)"
+      type: domain
+      placeholder: "baby.local"
+      required: false
+    - name: babybuddy_csrf
+      label: "CSRF Trusted Origin (z. B. https://baby.local)"
+      type: string
+      placeholder: "https://baby.local"
+      required: false
+    - name: babybuddy_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8089"
+      required: false
+
+- file: create-stack-navidrome.yml
+  name: "Navidrome"
+  vendor_urls:
+    - "https://www.navidrome.org"
+  icon: navidrome.png
+  description: "Installiert Navidrome – einen schlanken Musik-Streaming-Server (Subsonic/OpenSubsonic-kompatibel). Die Musikbibliothek wird read-only eingebunden."
+  requires:
+    - install-docker.yml
+  category: "Multimedia"
+  variables:
+    - name: navidrome_domain
+      label: "Navidrome Domain (bei Traefik)"
+      type: domain
+      placeholder: "music.local"
+      required: false
+    - name: navidrome_music_dir
+      label: "Musik-Verzeichnis auf dem Host (read-only)"
+      type: string
+      placeholder: "/srv/music"
+      required: false
+    - name: navidrome_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "4533"
+      required: false
+
+# --- Playbook Roadmap (Free) – Batch 3 ---
+
+- file: create-stack-code-server.yml
+  name: "code-server"
+  vendor_urls:
+    - "https://github.com/coder/code-server"
+  icon: code-server.png
+  description: "Installiert code-server – VS Code im Browser für Remote-Entwicklung. Hinweis: faktisch eine Remote-Shell, daher unbedingt mit Passwort und (bei Traefik) TLS betreiben."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: code_server_domain
+      label: "code-server Domain (bei Traefik)"
+      type: domain
+      placeholder: "code.local"
+      required: false
+    - name: code_server_password
+      label: "Login-Passwort"
+      type: secret
+      required: false
+    - name: code_server_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8093"
+      required: false
+
+- file: create-stack-portainer.yml
+  name: "Portainer CE"
+  vendor_urls:
+    - "https://www.portainer.io"
+  icon: portainer.svg
+  description: "Installiert Portainer CE – eine Web-Oberfläche zur Verwaltung von Docker (Container, Images, Volumes, Netzwerke). Bindet den Docker-Socket read-only ein."
+  requires:
+    - install-docker.yml
+  category: "System"
+  variables:
+    - name: portainer_domain
+      label: "Portainer Domain (bei Traefik)"
+      type: domain
+      placeholder: "portainer.local"
+      required: false
+    - name: portainer_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "9000"
+      required: false
+
+- file: create-stack-photoprism.yml
+  name: "PhotoPrism"
+  vendor_urls:
+    - "https://www.photoprism.app"
+  icon: photoprism-light.svg
+  description: "Installiert PhotoPrism – eine KI-gestützte Foto-Verwaltung mit Web-Oberfläche und eingebettetem SQLite-Index. Die Originalfotos werden read-only eingebunden (Index-Modus; Upload über die UI ist dann deaktiviert)."
+  requires:
+    - install-docker.yml
+  category: "Multimedia"
+  variables:
+    - name: photoprism_domain
+      label: "PhotoPrism Domain (bei Traefik)"
+      type: domain
+      placeholder: "photos.local"
+      required: false
+    - name: photoprism_admin_password
+      label: "Admin-Passwort"
+      type: secret
+      required: false
+    - name: photoprism_originals
+      label: "Foto-Verzeichnis auf dem Host (read-only)"
+      type: string
+      placeholder: "/srv/photos"
+      required: false
+    - name: photoprism_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "2342"
+      required: false
+
+- file: create-stack-speedtest-tracker.yml
+  name: "Speedtest Tracker"
+  vendor_urls:
+    - "https://docs.speedtest-tracker.dev"
+  icon: speedtest-tracker.png
+  description: "Installiert Speedtest Tracker – zeichnet die Internet-Bandbreite (Ping/Download/Upload) per Scheduler auf und visualisiert sie. Benötigt einen APP_KEY."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+  variables:
+    - name: speedtest_tracker_domain
+      label: "Speedtest Tracker Domain (bei Traefik)"
+      type: domain
+      placeholder: "speedtest.local"
+      required: false
+    - name: speedtest_tracker_app_key
+      label: "APP_KEY (optional, leer = automatisch generiert)"
+      type: secret
+      required: false
+    - name: speedtest_tracker_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8094"
+      required: false
+
+- file: create-stack-syncthing.yml
+  name: "Syncthing"
+  vendor_urls:
+    - "https://syncthing.net"
+  icon: syncthing.svg
+  description: "Installiert Syncthing – kontinuierliche, dezentrale Dateisynchronisation zwischen Geräten. GUI auf 8384; Sync-/Discovery-Ports (22000/21027) werden immer veröffentlicht."
+  requires:
+    - install-docker.yml
+  category: "Dateiverwaltung"
+  variables:
+    - name: syncthing_domain
+      label: "Syncthing GUI Domain (bei Traefik)"
+      type: domain
+      placeholder: "syncthing.local"
+      required: false
+    - name: syncthing_port
+      label: "GUI-Port (ohne Traefik)"
+      type: port
+      default: "8384"
+      required: false
+
+- file: create-stack-n8n.yml
+  name: "n8n"
+  vendor_urls:
+    - "https://n8n.io"
+  icon: n8n.svg
+  description: "Installiert n8n – eine Workflow-Automatisierungsplattform (Low-Code) mit Web-Editor und eingebetteter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: n8n_domain
+      label: "n8n Domain (bei Traefik)"
+      type: domain
+      placeholder: "n8n.local"
+      required: false
+    - name: n8n_encryption_key
+      label: "Encryption-Key (optional, leer = auto)"
+      type: secret
+      required: false
+    - name: n8n_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "5678"
+      required: false
+
+# --- Playbook Roadmap (Free) – Batch 4 ---
+
+- file: create-stack-jellyfin.yml
+  name: "Jellyfin"
+  vendor_urls:
+    - "https://jellyfin.org"
+  icon: jellyfin.svg
+  description: "Installiert Jellyfin – einen freien Media-Server für Filme, Serien und Musik mit Web-Oberfläche. Die Medienbibliothek wird read-only eingebunden."
+  requires:
+    - install-docker.yml
+  category: "Multimedia"
+  variables:
+    - name: jellyfin_domain
+      label: "Jellyfin Domain (bei Traefik)"
+      type: domain
+      placeholder: "media.local"
+      required: false
+    - name: jellyfin_media
+      label: "Medien-Verzeichnis auf dem Host (read-only)"
+      type: string
+      placeholder: "/srv/media"
+      required: false
+    - name: jellyfin_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8096"
+      required: false
+
+- file: create-stack-gitea.yml
+  name: "Gitea"
+  vendor_urls:
+    - "https://about.gitea.com"
+  icon: gitea.svg
+  description: "Installiert Gitea – einen schlanken, selbstgehosteten Git-Dienst mit Web-Oberfläche und eingebetteter SQLite-Datenbank. Git-SSH wird über einen eigenen Port veröffentlicht."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: gitea_domain
+      label: "Gitea Domain (bei Traefik)"
+      type: domain
+      placeholder: "git.local"
+      required: false
+    - name: gitea_ssh_port
+      label: "Git-SSH-Port (Host)"
+      type: port
+      default: "2222"
+      required: false
+    - name: gitea_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "3030"
+      required: false
+
+- file: create-stack-netdata.yml
+  name: "Netdata"
+  vendor_urls:
+    - "https://www.netdata.cloud"
+  icon: netdata.svg
+  description: "Installiert Netdata – Echtzeit-Monitoring für System- und Container-Metriken mit eigener Zeitreihen-DB. Bindet /proc, /sys und den Docker-Socket read-only ein."
+  requires:
+    - install-docker.yml
+  category: "System"
+  variables:
+    - name: netdata_domain
+      label: "Netdata Domain (bei Traefik)"
+      type: domain
+      placeholder: "netdata.local"
+      required: false
+    - name: netdata_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "19999"
+      required: false
+
+- file: create-stack-excalidraw.yml
+  name: "Excalidraw"
+  vendor_urls:
+    - "https://excalidraw.com"
+  icon: excalidraw.svg
+  description: "Installiert Excalidraw – ein kollaboratives Whiteboard für Skizzen und Diagramme im handgezeichneten Look (statische Web-App, Daten lokal im Browser)."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: excalidraw_domain
+      label: "Excalidraw Domain (bei Traefik)"
+      type: domain
+      placeholder: "draw.local"
+      required: false
+    - name: excalidraw_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8095"
+      required: false
+
+- file: create-stack-yaade.yml
+  name: "Yaade"
+  vendor_urls:
+    - "https://github.com/EsperoTech/yaade"
+  icon: yaade.png
+  description: "Installiert Yaade – einen selbstgehosteten, mehrbenutzerfähigen API-Testclient (Postman-Alternative) mit persistenter Datenbank und verschlüsselten Secrets."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: yaade_domain
+      label: "Yaade Domain (bei Traefik)"
+      type: domain
+      placeholder: "yaade.local"
+      required: false
+    - name: yaade_admin_username
+      label: "Admin-Benutzername"
+      type: string
+      default: "admin"
+      required: false
+    - name: yaade_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "9339"
+      required: false
+
+- file: create-stack-convertx.yml
+  name: "ConvertX"
+  vendor_urls:
+    - "https://github.com/C4illin/ConvertX"
+  icon: convertx.png
+  description: "Installiert ConvertX – ein selbstgehostetes Tool zur Konvertierung zahlreicher Dateiformate über eine Web-Oberfläche, mit eingebetteter SQLite-Datenbank."
+  requires:
+    - install-docker.yml
+  category: "Dateiverwaltung"
+  variables:
+    - name: convertx_domain
+      label: "ConvertX Domain (bei Traefik)"
+      type: domain
+      placeholder: "convert.local"
+      required: false
+    - name: convertx_jwt_secret
+      label: "JWT-Secret (optional, leer = automatisch generiert)"
+      type: secret
+      required: false
+    - name: convertx_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "3032"
+      required: false
+
+
+
+
+- file: create-stack-stirling-pdf.yml
+  name: "Stirling-PDF"
+  vendor_urls:
+    - "https://www.stirlingpdf.com"
+  icon: stirling-pdf.svg
+  description: "Installiert Stirling-PDF – ein umfangreiches PDF-Toolkit (Zusammenführen, Teilen, OCR, Konvertieren) als Einzelcontainer."
+  requires:
+    - install-docker.yml
+  category: "Dateiverwaltung"
+  variables:
+    - name: stirling_domain
+      label: "Stirling-PDF Domain (bei Traefik)"
+      type: domain
+      placeholder: "pdf.local"
+      required: false
+    - name: stirling_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8090"
+      required: false
+
+- file: create-stack-nginx-proxy-manager.yml
+  name: "Nginx Proxy Manager"
+  vendor_urls:
+    - "https://nginxproxymanager.com"
+  icon: nginx-proxy-manager.svg
+  description: "Installiert Nginx Proxy Manager – einen Reverse-Proxy mit Web-UI und Let's-Encrypt-Verwaltung (SQLite). Achtung: belegt die Ports 80/443/81 direkt, daher kein Traefik."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+  variables:
+    - name: npm_admin_email
+      label: "Initial-Admin E-Mail"
+      type: string
+      default: "admin@example.com"
+      required: false
+    - name: npm_admin_password
+      label: "Initial-Admin Passwort (leer = automatisch generiert)"
+      type: secret
+      required: false
+    - name: npm_admin_port
+      label: "Admin-UI-Port"
+      type: port
+      default: "81"
+      required: false
+
+- file: create-stack-ctfd.yml
+  name: "CTFd"
+  vendor_urls:
+    - "https://ctfd.io"
+  icon: "flag"
+  description: "Installiert CTFd – eine Capture-The-Flag-Plattform (Einzelcontainer mit SQLite). Der Admin wird beim ersten Aufruf über den Setup-Assistenten unter /setup angelegt."
+  requires:
+    - install-docker.yml
+  category: "Netzwerk Sicherheit"
+  variables:
+    - name: ctfd_domain
+      label: "CTFd Domain (bei Traefik)"
+      type: domain
+      placeholder: "ctf.local"
+      required: false
+    - name: ctfd_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8106"
+      required: false
+
+- file: create-stack-planka.yml
+  name: "Planka"
+  vendor_urls:
+    - "https://planka.app"
+  icon: planka.svg
+  description: "Installiert Planka – ein Trello-ähnliches Kanban-Board mit PostgreSQL. Initial-Admin, SECRET_KEY und DB-Passwort werden automatisch generiert und persistiert."
+  requires:
+    - install-docker.yml
+  category: "Produktivität"
+  variables:
+    - name: planka_domain
+      label: "Planka Domain (bei Traefik)"
+      type: domain
+      placeholder: "planka.local"
+      required: false
+    - name: planka_url
+      label: "Öffentliche URL (Pflicht bei Remote-Zugriff ohne Traefik)"
+      type: string
+      placeholder: "http://planka.example.com"
+      required: false
+    - name: planka_admin_email
+      label: "Initial-Admin E-Mail"
+      type: string
+      default: "admin@planka.local"
+      required: false
+    - name: planka_admin_password
+      label: "Initial-Admin Passwort (leer = automatisch generiert)"
+      type: secret
+      required: false
+    - name: planka_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8104"
+      required: false
+
+- file: create-stack-hoppscotch.yml
+  name: "Hoppscotch"
+  vendor_urls:
+    - "https://hoppscotch.io"
+  icon: hoppscotch.svg
+  description: "Installiert Hoppscotch (Community / All-in-One) – einen API-Entwicklungsclient mit PostgreSQL. Auth-Provider werden nach dem Deploy im Admin-Dashboard (/admin) konfiguriert; der erste Nutzer wird Admin."
+  requires:
+    - install-docker.yml
+  category: "Entwicklung"
+  variables:
+    - name: hoppscotch_domain
+      label: "Hoppscotch Domain (bei Traefik)"
+      type: domain
+      placeholder: "hoppscotch.local"
+      required: false
+    - name: hoppscotch_url
+      label: "Öffentliche URL (Pflicht bei Remote-Zugriff ohne Traefik)"
+      type: string
+      placeholder: "http://hoppscotch.example.com"
+      required: false
+    - name: hoppscotch_port
+      label: "HTTP-Port (ohne Traefik)"
+      type: port
+      default: "8105"
+      required: false
+
+- file: install-java-runtime.yml
+  name: "Java Runtime (OpenJDK JRE)"
+  vendor_urls:
+    - "https://openjdk.org/"
+  icon: "java.svg"
+  description: "Installiert die OpenJDK Java-Laufzeitumgebung (JRE) zum Ausführen von Java-Anwendungen."
+  category: "Laufzeitumgebung"
+
+- file: install-java-sdk.yml
+  name: "Java SDK"
+  vendor_urls:
+    - "https://openjdk.org"
+  icon: "java.svg"
+  description: "Installiert das OpenJDK Java Development Kit (JDK) zum Entwickeln und Ausführen von Java-Anwendungen über die Debian/Ubuntu-Paketquellen."
+  category: "Laufzeitumgebung"
+
+- file: install-gearlever.yml
+  name: "Gearlever"
+  vendor_urls:
+    - "https://mijorus.it/projects/gearlever/"
+  icon: "deployed_code"
+  description: "Installiert Gearlever, einen grafischen Verwalter zum Integrieren, Aktualisieren und Entfernen von AppImage-Anwendungen unter Linux."
+  requires:
+    - install-flatpak.yml
+  category: "System"
+
+- file: install-miniconda.yml
+  name: "Miniconda"
+  vendor_urls:
+    - "https://docs.anaconda.com/miniconda/"
+  icon: "anaconda.svg"
+  description: "Installiert Miniconda, die minimale Anaconda-Distribution mit dem Conda-Paketmanager und Python, über das offizielle Anaconda-Installer-Skript."
+  category: "Laufzeitumgebung"
+
+- file: install-uv.yml
+  name: "uv (Python-Paketmanager)"
+  vendor_urls:
+    - "https://docs.astral.sh/uv/"
+  icon: "astral.svg"
+  description: "Installiert uv, den extrem schnellen Python-Paket-, Projekt- und venv-Manager von Astral (Ersatz für pip, virtualenv und pyenv)."
+  category: "Entwicklung"
+
+- file: install-python.yml
+  name: "Python (mit PIP)"
+  vendor_urls:
+    - "https://www.python.org"
+  icon: "python.svg"
+  description: "Installiert die Python-3-Laufzeitumgebung samt Paketmanager PIP aus den Debian/Ubuntu-Paketquellen."
+  category: "Laufzeitumgebung"
+
+- file: install-python-ohne-pip.yml
+  name: "Python (ohne PIP)"
+  vendor_urls:
+    - "https://www.python.org"
+  icon: "python.svg"
+  description: "Installiert die Python-3-Laufzeitumgebung aus den Debian/Ubuntu-Repositories ohne den Paketmanager PIP."
+  category: "Laufzeitumgebung"
+
+- file: install-dotnet-sdk.yml
+  name: ".NET SDK"
+  vendor_urls:
+    - "https://dotnet.microsoft.com/"
+  icon: "dotnet.svg"
+  description: "Installiert das .NET SDK (Version 8.0 LTS) mit Compiler, Laufzeit und CLI-Werkzeugen zum Entwickeln und Ausführen von .NET-Anwendungen."
+  category: "Laufzeitumgebung"
+
+- file: install-dotnet-runtime.yml
+  name: "Dotnet Runtime"
+  vendor_urls:
+    - "https://dotnet.microsoft.com/"
+  icon: "dotnet.svg"
+  description: "Installiert die .NET-Laufzeitumgebung (Version 8.0 LTS) zum Ausführen von .NET-Anwendungen."
+  category: "Laufzeitumgebung"
+
+- file: install-lact.yml
+  name: "LACT"
+  vendor_urls:
+    - "https://github.com/ilya-zlobintsev/LACT"
+  icon: "lact.svg"
+  description: "Installiert LACT (Linux AMDGPU Control), eine grafische Anwendung zum Konfigurieren und Überwachen von AMD-, Nvidia- und Intel-Grafikkarten unter Linux."
+  requires:
+    - install-flatpak.yml
+  category: "System"
+
+- file: install-steam.yml
+  name: "Steam"
+  vendor_urls:
+    - "https://store.steampowered.com"
+  icon: "steam.svg"
+  description: "Installiert die Steam-Gaming-Plattform von Valve zum Kaufen, Verwalten und Spielen von PC-Spielen."
+  requires:
+    - install-flatpak.yml
+  category: "Gaming"
+
+- file: install-lutris.yml
+  name: "Lutris"
+  vendor_urls:
+    - "https://lutris.net"
+  icon: "sports_esports"
+  description: "Installiert die Open-Source-Spieleplattform Lutris zum Verwalten und Starten von Spielen aus verschiedenen Quellen."
+  requires:
+    - install-flatpak.yml
+  category: "Gaming"
+
+- file: install-teamspeak.yml
+  name: "TeamSpeak"
+  vendor_urls:
+    - "https://www.teamspeak.com"
+  icon: "teamspeak.svg"
+  description: "Installiert den TeamSpeak-Client, eine Sprachkommunikations-App (VoIP) für Sprach-Chat in Gaming- und Team-Communitys, per Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-discord.yml
+  name: "Discord"
+  vendor_urls:
+    - "https://discord.com"
+  icon: "discord.svg"
+  description: "Installiert Discord, die proprietäre Chat- und Sprachkommunikations-App, als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-signal-desktop.yml
+  name: "Signal Desktop"
+  vendor_urls:
+    - "https://signal.org"
+  icon: "signal.svg"
+  description: "Installiert den Signal-Desktop-Messenger für verschlüsselte Nachrichten- und Anrufkommunikation."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-element.yml
+  name: "Element"
+  vendor_urls:
+    - "https://element.io"
+  icon: "element.svg"
+  description: "Installiert den Element-Desktop-Client, eine sichere Kommunikations-App fuer das Matrix-Protokoll."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-rustdesk.yml
+  name: "RustDesk"
+  vendor_urls:
+    - "https://rustdesk.com"
+  icon: "rustdesk.svg"
+  description: "Installiert RustDesk, eine quelloffene Fernwartungs- und Remote-Desktop-Anwendung als Alternative zu TeamViewer."
+  requires:
+    - install-flatpak.yml
+  category: "Netzwerk"
+
+- file: install-filezilla.yml
+  name: "FileZilla"
+  vendor_urls:
+    - "https://filezilla-project.org"
+  icon: "filezilla.svg"
+  description: "Installiert FileZilla, einen freien FTP-/SFTP-Client zum Übertragen von Dateien zwischen lokalem Rechner und Servern."
+  category: "Netzwerk"
+
+- file: install-thunderbird.yml
+  name: "Thunderbird"
+  vendor_urls:
+    - "https://www.thunderbird.net"
+  icon: "thunderbird.svg"
+  description: "Installiert den Mozilla-Thunderbird-E-Mail-Client als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-firefox.yml
+  name: "Firefox"
+  vendor_urls:
+    - "https://www.mozilla.org/firefox/"
+  icon: "firefox.svg"
+  description: "Installiert den Firefox-Webbrowser von Mozilla als aktuelle Flatpak-Version von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Browser"
+
+- file: install-chrome.yml
+  name: "Google Chrome"
+  vendor_urls:
+    - "https://www.google.com/chrome/"
+  icon: "google-chrome.svg"
+  description: "Installiert den Google-Chrome-Webbrowser als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Browser"
+
+- file: install-vnc-server.yml
+  name: "VNC Server (TigerVNC)"
+  vendor_urls:
+    - "https://tigervnc.org"
+  icon: "desktop_windows"
+  description: "Installiert den TigerVNC-Standalone-Server, um den Desktop des Hosts per VNC für Fernzugriff bereitzustellen."
+  category: "System"
+
+- file: install-vs-code.yml
+  name: "VS Code"
+  vendor_urls:
+    - "https://code.visualstudio.com"
+  icon: "visual-studio-code.svg"
+  description: "Installiert den quelloffenen Code-Editor Visual Studio Code von Microsoft als Desktop-Anwendung."
+  requires:
+    - install-flatpak.yml
+  category: "Entwicklung"
+
+- file: install-sublime-text.yml
+  name: "Sublime Text"
+  vendor_urls:
+    - "https://www.sublimetext.com"
+  icon: "code"
+  description: "Installiert den proprietären Text- und Quellcode-Editor Sublime Text als Flatpak."
+  requires:
+    - install-flatpak.yml
+  category: "Entwicklung"
+
+- file: install-gimp.yml
+  name: "GIMP"
+  vendor_urls:
+    - "https://www.gimp.org"
+  icon: "gimp.svg"
+  description: "Installiert GIMP, das freie Bildbearbeitungs- und Grafikprogramm, als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Grafik"
+
+- file: install-inkscape.yml
+  name: "Inkscape"
+  vendor_urls:
+    - "https://inkscape.org"
+  icon: "brush"
+  description: "Installiert Inkscape, einen professionellen Open-Source-Editor für skalierbare Vektorgrafiken (SVG)."
+  requires:
+    - install-flatpak.yml
+  category: "Grafik"
+
+- file: install-blender.yml
+  name: "Blender"
+  vendor_urls:
+    - "https://www.blender.org"
+  icon: "blender.svg"
+  description: "Installiert Blender, die freie 3D-Software für Modellierung, Animation, Rendering und Videobearbeitung, als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Grafik"
+
+- file: install-vlc.yml
+  name: "VLC"
+  vendor_urls:
+    - "https://www.videolan.org"
+  icon: "movie"
+  description: "Installiert den VLC Media Player, einen quelloffenen Multimedia-Player für nahezu alle Audio- und Videoformate."
+  requires:
+    - install-flatpak.yml
+  category: "Multimedia"
+
+- file: install-spotify.yml
+  name: "Spotify"
+  vendor_urls:
+    - "https://www.spotify.com"
+  icon: "spotify.svg"
+  description: "Installiert den proprietären Musik-Streaming-Client Spotify als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Multimedia"
+
+- file: install-audacity.yml
+  name: "Audacity"
+  vendor_urls:
+    - "https://www.audacityteam.org"
+  icon: "audacity.svg"
+  description: "Installiert den freien, plattformübergreifenden Audio-Editor Audacity zum Aufnehmen und Bearbeiten von Tonspuren."
+  requires:
+    - install-flatpak.yml
+  category: "Multimedia"
+
+- file: install-handbrake.yml
+  name: "HandBrake"
+  vendor_urls:
+    - "https://handbrake.fr/"
+  icon: "handbrake.svg"
+  description: "Installiert HandBrake, ein quelloffenes Werkzeug zum Konvertieren und Transkodieren von Video-Dateien in gängige Formate."
+  requires:
+    - install-flatpak.yml
+  category: "Multimedia"
+
+- file: install-zoom.yml
+  name: "Zoom"
+  vendor_urls:
+    - "https://zoom.us"
+  icon: "zoom.svg"
+  description: "Installiert den Zoom-Client für Videokonferenzen, Meetings und Online-Chat als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-pidgin.yml
+  name: "Pidgin"
+  vendor_urls:
+    - "https://pidgin.im"
+  icon: "chat"
+  description: "Installiert den Multi-Protokoll-Chat-Client Pidgin als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Kommunikation"
+
+- file: install-opera.yml
+  name: "Opera"
+  vendor_urls:
+    - "https://www.opera.com"
+  icon: "opera.svg"
+  description: "Installiert den proprietären Opera-Webbrowser als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Browser"
+
+- file: install-brave.yml
+  name: "Brave"
+  vendor_urls:
+    - "https://brave.com"
+  icon: "brave.svg"
+  description: "Installiert den datenschutzorientierten Brave-Webbrowser als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Browser"
+
+- file: install-libreoffice.yml
+  name: "LibreOffice"
+  vendor_urls:
+    - "https://www.libreoffice.org"
+  icon: "libreoffice.svg"
+  description: "Installiert die freie Office-Suite LibreOffice mit Textverarbeitung, Tabellenkalkulation und Präsentationen als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Produktivität"
+
+- file: install-qbittorrent.yml
+  name: "qBittorrent"
+  vendor_urls:
+    - "https://www.qbittorrent.org"
+  icon: "qbittorrent.svg"
+  description: "Installiert den freien BitTorrent-Client qBittorrent als Desktop-Anwendung."
+  requires:
+    - install-flatpak.yml
+  category: "Netzwerk"
+
+- file: install-keepassxc.yml
+  name: "KeePassXC"
+  vendor_urls:
+    - "https://keepassxc.org"
+  icon: "keepassxc.svg"
+  description: "Installiert den plattformübergreifenden Passwort-Manager KeePassXC als Flatpak von Flathub."
+  requires:
+    - install-flatpak.yml
+  category: "Produktivität"
+
+- file: install-dropbox.yml
+  name: "Dropbox"
+  vendor_urls:
+    - "https://www.dropbox.com"
+  icon: "dropbox.svg"
+  description: "Installiert den Dropbox-Desktop-Client zum Synchronisieren und Verwalten von Dateien in der Dropbox-Cloud."
+  requires:
+    - install-flatpak.yml
+  category: "Dateiverwaltung"
+
+- file: install-peazip.yml
+  name: "PeaZip"
+  vendor_urls:
+    - "https://peazip.github.io"
+  icon: "folder_zip"
+  description: "Installiert PeaZip, einen quelloffenen grafischen Archivmanager zum Packen und Entpacken zahlreicher Archivformate."
+  requires:
+    - install-flatpak.yml
+  category: "Dateiverwaltung"
+
+- file: create-stack-abiotic-factor.yml
+  name: "Abiotic Factor Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Pleut/abiotic-factor-linux-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Abiotic-Factor-Spielserver (Windows-Server via Wine unter Linux), konfigurierbar über Servername, Spieleranzahl, Ports und Passwort."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-soulmask.yml
+  name: "Soulmask Dedicated Server"
+  vendor_urls:
+    - "https://github.com/jsknnr/soulmask-dedicated-server"
+  icon: "sports_esports"
+  description: "Dedizierter Soulmask-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Survival-Welt für Freunde und Community."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-astroneer.yml
+  name: "Astroneer Dedicated Server"
+  vendor_urls:
+    - "https://github.com/barumel/docker-astroneer-server"
+  icon: "sports_esports"
+  description: "Dedizierter Astroneer-Server, der die Windows-Serverbinary per GE-Proton/Wine unter Linux ausfuehrt und ueber Umgebungsvariablen (Servername, Besitzer, Passwort, Port) konfiguriert wird."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-eco.yml
+  name: "Eco Dedicated Server"
+  vendor_urls:
+    - "https://hub.docker.com/r/strangeloopgames/eco-game-server"
+  icon: "eco"
+  description: "Dedizierter Server für das Ökologie-Aufbauspiel Eco, betrieben mit dem offiziellen Strange-Loop-Games-Image (Spielport 3000/UDP, Web-Interface 3001/TCP)."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-empyrion.yml
+  name: "Empyrion Dedicated Server"
+  vendor_urls:
+    - "https://github.com/antimodes201/empyrion-server"
+  icon: "sports_esports"
+  description: "Dedizierter Spielserver für Empyrion – Galactic Survival (WINE-basiert, per SteamCMD aktualisiert) zum Hosten eigener Koop- und Multiplayer-Welten."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-icarus.yml
+  name: "Icarus Dedicated Server"
+  vendor_urls:
+    - "https://github.com/mornedhels/icarus-server"
+  icon: "sports_esports"
+  description: "Dedizierter Spielserver für Icarus auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-mordhau.yml
+  name: "Mordhau Dedicated Server"
+  vendor_urls:
+    - "https://github.com/CM2Walki/Mordhau"
+  icon: "sports_esports"
+  description: "Ein dedizierter Mordhau-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/mordhau, der beim Start automatisch das Spiel aktualisiert und komplett per Umgebungsvariablen konfigurierbar ist."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-euro-truck-simulator-2.yml
+  name: "Euro Truck Simulator 2 Dedicated Server"
+  vendor_urls:
+    - "https://github.com/LsHallo/ets2-dedicated-convoy-server"
+  icon: "local_shipping"
+  description: "Dedizierter Convoy-Multiplayer-Server für Euro Truck Simulator 2, per SteamCMD dockerisiert und vollständig über Umgebungsvariablen konfigurierbar."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+# --- Playbook Roadmap (Free) – Game Server Batch (-) ---
+
+- file: create-stack-minecraft.yml
+  name: "Minecraft Dedicated Server"
+  vendor_urls:
+    - "https://github.com/itzg/docker-minecraft-server"
+  icon: "sports_esports"
+  description: "Dedizierter Minecraft-Java-Spielserver auf Basis des De-facto-Standard-Images itzg/minecraft-server, konfigurierbar über Servertyp, Version, Arbeitsspeicher, Schwierigkeit, Spielmodus und Operatoren."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-rust.yml
+  name: "Rust Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Didstopia/rust-server"
+  icon: "sports_esports"
+  description: "Dedizierter Rust-Spielserver mit Web-RCON-Verwaltung als Docker-Stack."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-ark-survival-evolved.yml
+  name: "ARK: Survival Evolved Dedicated Server"
+  vendor_urls:
+    - "https://github.com/ich777/docker-steamcmd-server/tree/arkse"
+  icon: "sports_esports"
+  description: "Dedizierter ARK: Survival Evolved-Spielserver auf Basis des ich777-SteamCMD-Images, der das Spiel beim Start automatisch installiert und aktualisiert und über Umgebungsvariablen wie Karte, Servername, Passwort, Admin-Passwort und Spielerlimit konfigurierbar ist."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-counter-strike-2.yml
+  name: "Counter-Strike 2 Dedicated Server"
+  vendor_urls:
+    - "https://github.com/joedwards32/CS2"
+  icon: "sports_esports"
+  description: "Dedizierter Counter-Strike-2-Spielserver auf Basis von SteamCMD, konfigurierbar über Servername, Spielmodus, Startmap, Spieleranzahl, RCON-Passwort und optionalen Steam-GSLT-Token für die öffentliche Serverliste."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-valheim.yml
+  name: "Valheim Dedicated Server"
+  vendor_urls:
+    - "https://github.com/lloesche/valheim-server-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Valheim-Koop-Spielserver auf Basis des lloesche-Images mit automatischen Server-Updates und World-Backups, konfigurierbar über Servername, Weltname, Passwort und Ports."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-dayz.yml
+  name: "DayZ Dedicated Server"
+  vendor_urls:
+    - "https://github.com/ich777/docker-steamcmd-server"
+  icon: "sports_esports"
+  description: "Dedizierter DayZ-Survival-Server auf Basis von SteamCMD (experimenteller Linux-Build) zum Hosten einer eigenen Chernarus- oder Livonia-Welt für Freunde und Community."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-7-days-to-die.yml
+  name: "7 Days to Die Dedicated Server"
+  vendor_urls:
+    - "https://github.com/vinanrra/Docker-7DaysToDie"
+  icon: "sports_esports"
+  description: "Dedizierter 7 Days to Die-Spielserver auf Basis von LinuxGSM mit automatischen SteamCMD-Updates, Mod-Unterstützung und Backups."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-enshrouded.yml
+  name: "Enshrouded Dedicated Server"
+  vendor_urls:
+    - "https://github.com/jsknnr/enshrouded-server"
+  icon: "sports_esports"
+  description: "Dedizierter Enshrouded-Koop-Spielserver auf Basis des SteamCMD-Images sknnr/enshrouded-dedicated-server, der unter Linux via Wine läuft und vollständig über Umgebungsvariablen konfigurierbar ist."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-palworld.yml
+  name: "Palworld Dedicated Server"
+  vendor_urls:
+    - "https://github.com/thijsvanloef/palworld-server-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Palworld-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Koop-Welt, konfigurierbar über Servername, Spieleranzahl, Ports und Passwörter."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-conan-exiles.yml
+  name: "Conan Exiles Dedicated Server"
+  vendor_urls:
+    - "https://github.com/melle2/conanexiles-ds"
+  icon: "sports_esports"
+  description: "Dedizierter Conan-Exiles-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Instanz-/Servername, Beitrittspasswort, Mods und Auto-Update) konfiguriert wird."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-garrys-mod.yml
+  name: "Garry's Mod Dedicated Server"
+  vendor_urls:
+    - "https://github.com/ceifa/garrysmod-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Garry's-Mod-Spielserver auf Basis von SteamCMD zum Hosten eigener Sandbox- oder Gamemode-Welten, konfigurierbar über Servername, Spielerzahl, Gamemode, Startkarte und Steam-Workshop-Collection."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-fivem.yml
+  name: "FiveM Dedicated Server"
+  vendor_urls:
+    - "https://github.com/spritsail/fivem"
+  icon: "sports_esports"
+  description: "Dedizierter FiveM-Server für GTA-V-Multiplayer und Roleplay auf Basis des spritsail/fivem-Images, konfigurierbar über FiveM-License-Key, RCON-Passwort und Serverport (30120) mit optionalem txAdmin-Web-Interface (40120)."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-factorio.yml
+  name: "Factorio Dedicated Server"
+  vendor_urls:
+    - "https://github.com/factoriotools/factorio-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Factorio-Spielserver auf Basis des offiziellen factoriotools-Images, konfigurierbar über Spielport (34197/UDP), RCON-Fernsteuerung und Spielstand-Verwaltung."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-satisfactory.yml
+  name: "Satisfactory Dedicated Server"
+  vendor_urls:
+    - "https://github.com/wolveix/satisfactory-server"
+  icon: "sports_esports"
+  description: "Dedizierter Satisfactory-Spielserver auf Basis des gepflegten wolveix-Images (nativer Linux-Server), konfigurierbar über Spieleranzahl, Ports und automatische Speicherstände."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-terraria.yml
+  name: "Terraria Dedicated Server"
+  vendor_urls:
+    - "https://github.com/ryansheehan/terraria"
+  icon: "sports_esports"
+  description: "Dedizierter Terraria-Spielserver auf Basis von TShock zum Hosten einer eigenen Sandbox-Welt, konfigurierbar über Weltdatei, Ports (Spielport 7777, REST-API 7878) und Konfigurationsdatei."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-team-fortress-2.yml
+  name: "Team Fortress 2 Dedicated Server"
+  vendor_urls:
+    - "https://github.com/CM2Walki/TF2"
+  icon: "sports_esports"
+  description: "Ein dedizierter Team-Fortress-2-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/tf2, der beim Start automatisch das Spiel aktualisiert und per Umgebungsvariablen (Servername, Startkarte, Spielerlimit, GSLT-Token, Ports) konfigurierbar ist."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-v-rising.yml
+  name: "V Rising Dedicated Server"
+  vendor_urls:
+    - "https://github.com/TrueOsiris/docker-vrising"
+  icon: "sports_esports"
+  description: "Dedizierter V-Rising-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Servername, Weltname, Ports, Passwort) konfiguriert wird."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-the-forest.yml
+  name: "The Forest Dedicated Server"
+  vendor_urls:
+    - "https://github.com/jammsen/docker-the-forest-dedicated-server"
+  icon: "sports_esports"
+  description: "Dedizierter The-Forest-Spielserver (Windows-Server via Wine unter Linux), per SteamCMD automatisch aktualisiert und konfigurierbar über Servername, Admin-Passwort, Beitrittspasswort und Ports."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-unturned.yml
+  name: "Unturned Dedicated Server"
+  vendor_urls:
+    - "https://github.com/ImperialPlugins/unturned-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Unturned-Spielserver auf Basis von SteamCMD, betrieben mit dem Community-Image imperialplugins/unturned und optional per RocketMod (rm4/rm5) erweiterbar."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-space-engineers.yml
+  name: "Space Engineers Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Devidian/docker-spaceengineers"
+  icon: "sports_esports"
+  description: "Dedizierter Space-Engineers-Spielserver, der via Wine auf Linux läuft, zum Hosten einer eigenen Sandbox-Welt für Freunde und Community."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-project-zomboid.yml
+  name: "Project Zomboid Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Renegade-Master/zomboid-dedicated-server"
+  icon: "sports_esports"
+  description: "Dedizierter Project-Zomboid-Spielserver auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-sons-of-the-forest.yml
+  name: "Sons of the Forest Dedicated Server"
+  vendor_urls:
+    - "https://github.com/jammsen/docker-sons-of-the-forest-dedicated-server"
+  icon: "sports_esports"
+  description: "Dedizierter Sons-of-the-Forest-Spielserver (Windows-Server via Wine unter Linux) mit automatischer SteamCMD-Aktualisierung, dessen Servername, Passwort und Spieleranzahl über die Konfigurationsdatei im Spielstand-Volume gesetzt werden."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-left-4-dead-2.yml
+  name: "Left 4 Dead 2 Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Left4DevOps/l4d2-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Left-4-Dead-2-Koop-Server auf Basis von SteamCMD, der beim Start automatisch aktualisiert und per Umgebungsvariablen über Servername, Startkarte, Spielmodus und Port konfiguriert wird."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-dont-starve-together.yml
+  name: "Don't Starve Together Dedicated Server"
+  vendor_urls:
+    - "https://github.com/Jamesits/docker-dst-server"
+  icon: "sports_esports"
+  description: "Dedizierter Don't-Starve-Together-Spielserver (Master- und Caves-Shard) auf Basis von SteamCMD, der zum Betrieb einen Klei-Cluster-Token benötigt."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-vintage-story.yml
+  name: "Vintage Story Dedicated Server"
+  vendor_urls:
+    - "https://github.com/jsknnr/vintage-story-server"
+  icon: "sports_esports"
+  description: "Dedizierter Vintage-Story-Spielserver (Sandbox-/Survival-Spiel als Minecraft-Alternative), betrieben mit dem community-gepflegten Image von jsknnr; konfigurierbar über Servername, Beitritts-Passwort, Spieleranzahl und Port (42420 TCP/UDP)."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-core-keeper.yml
+  name: "Core Keeper Dedicated Server"
+  vendor_urls:
+    - "https://github.com/escapingnetwork/core-keeper-dedicated"
+  icon: "sports_esports"
+  description: "Dedizierter Core-Keeper-Spielserver auf Basis von SteamCMD zum gemeinsamen Erkunden und Ausbauen einer persistenten Untergrund-Welt mit Freunden und Community."
+  category: "Gaming"
+  requires:
+    - install-docker.yml
+
+- file: create-stack-barotrauma.yml
+  name: "Barotrauma Dedicated Server"
+  vendor_urls:
+    - "https://github.com/thijsvanloef/barotrauma-server-docker"
+  icon: "sports_esports"
+  description: "Dedizierter Barotrauma-Spielserver auf Basis von SteamCMD zum Hosten kooperativer U-Boot-Missionen für Freunde und Community."
+  category: "Gaming"
+  requires:
+    - install-docker.yml

@@ -1,0 +1,108 @@
+- name: create compose for gitea
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "gitea"
+    image: "gitea/gitea:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}/data' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/data"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - USER_UID=1000
+              - USER_GID=1000
+              - TZ={{timezone | default('Europe/Berlin')}}
+              - GITEA__database__DB_TYPE=sqlite3
+              # SSH-Port fuer korrekte Klon-URLs (entspricht dem veroeffentlichten Host-Port).
+              - GITEA__server__SSH_PORT={{gitea_ssh_port | default('2222')}}
+        {% if gitea_domain | default('') %}
+              - GITEA__server__ROOT_URL=http://{{gitea_domain}}/
+              - GITEA__server__SSH_DOMAIN={{gitea_domain}}
+        {% endif %}
+            volumes:
+              # Repos, app.ini, LFS und SQLite-DB unter /data
+              - {{base_dir}}/docker/{{stack}}/data:/data
+            # Git-SSH wird immer direkt veroeffentlicht (laeuft nicht ueber Traefik/HTTP)
+            ports:
+              - "{{gitea_ssh_port | default('2222')}}:22"
+        {% if not (use_traefik | default(false) | bool) %}
+              - "{{gitea_port | default('3030')}}:3000"
+        {% endif %}
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Entwicklung
+              - homepage.name=Gitea
+              - homepage.icon=gitea.svg
+              - homepage.href=http://{{gitea_domain}}
+              - homepage.description=Git Hosting
+              - "traefik.http.routers.gitea_http.rule=Host(`{{gitea_domain}}`)"
+              - traefik.http.routers.gitea_http.entrypoints=web
+              - traefik.http.services.gitea.loadbalancer.server.port=3000
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

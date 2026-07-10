@@ -1,0 +1,169 @@
+- name: create compose for planka
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "planka"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating Planka db directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/db"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "generate + persist DB + admin passwords"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -base64 24 | tr -d "=+/" | cut -c1-28 > "{{base_dir}}/docker/{{stack}}/{{item}}"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/{{item}}"
+    loop:
+      - db_password
+      - admin_password
+#---------------------------------------------------------------------------------------------
+  - name: "generate + persist SECRET_KEY (128 hex)"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -hex 64 > "{{base_dir}}/docker/{{stack}}/secret_key"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/secret_key"
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted secrets"
+    become: true
+    become_method: sudo
+    no_log: true
+    slurp:
+      src: "{{item}}"
+    loop:
+      - "{{base_dir}}/docker/{{stack}}/db_password"
+      - "{{base_dir}}/docker/{{stack}}/admin_password"
+      - "{{base_dir}}/docker/{{stack}}/secret_key"
+    register: _pl
+#---------------------------------------------------------------------------------------------
+  - name: "set effective values"
+    no_log: true
+    set_fact:
+      pl_db_pw: "{{ _pl.results[0].content | b64decode | trim }}"
+      pl_admin_pw: "{{ planka_admin_password if (planka_admin_password | default('')) else (_pl.results[1].content | b64decode | trim) }}"
+      pl_secret: "{{ planka_secret_key if (planka_secret_key | default('')) else (_pl.results[2].content | b64decode | trim) }}"
+      pl_trust_proxy: "{{ 'true' if (use_traefik | default(false) | bool) else 'false' }}"
+      pl_base_url: >-
+        {{ planka_url if (planka_url | default(''))
+           else ('http://' + planka_domain if ((use_traefik | default(false) | bool) and (planka_domain | default('')))
+           else 'http://localhost:' + (planka_port | default('8104') | string)) }}
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    no_log: true
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}-db:
+            restart: unless-stopped
+            container_name: {{stack}}-db
+            image: postgres:16-alpine
+            environment:
+              - POSTGRES_DB=planka
+              - POSTGRES_USER=planka
+              - POSTGRES_PASSWORD={{pl_db_pw}}
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/db:/var/lib/postgresql/data
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U planka -d planka"]
+              interval: 10s
+              timeout: 5s
+              retries: 12
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+        {% endif %}
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: ghcr.io/plankanban/planka:2.1.1
+            depends_on:
+              {{stack}}-db:
+                condition: service_healthy
+            environment:
+              - BASE_URL={{pl_base_url}}
+              - DATABASE_URL=postgresql://planka:{{pl_db_pw}}@{{stack}}-db/planka
+              - SECRET_KEY={{pl_secret}}
+              - TRUST_PROXY={{pl_trust_proxy}}
+              - DEFAULT_ADMIN_EMAIL={{planka_admin_email | default('admin@planka.local')}}
+              - DEFAULT_ADMIN_PASSWORD={{pl_admin_pw}}
+              - DEFAULT_ADMIN_NAME={{planka_admin_name | default('Administrator')}}
+              - DEFAULT_ADMIN_USERNAME={{planka_admin_username | default('admin')}}
+            volumes:
+              - planka_data:/app/data
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Produktivität
+              - homepage.name=Planka
+              - homepage.icon=planka.svg
+              - homepage.href=http://{{planka_domain}}
+              - homepage.description=Kanban Board
+              - "traefik.http.routers.planka_http.rule=Host(`{{planka_domain}}`)"
+              - traefik.http.routers.planka_http.entrypoints=web
+              - traefik.http.services.planka.loadbalancer.server.port=1337
+        {% else %}
+            ports:
+              - "{{planka_port | default('8104')}}:1337"
+        {% endif %}
+        volumes:
+          planka_data:
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

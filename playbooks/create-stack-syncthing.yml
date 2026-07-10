@@ -1,0 +1,108 @@
+- name: create compose for syncthing
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "syncthing"
+    image: "syncthing/syncthing:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ={{timezone | default('Europe/Berlin')}}
+            volumes:
+              # Config + Synchronisationsdaten unter /var/syncthing
+              - {{base_dir}}/docker/{{stack}}:/var/syncthing
+            # Sync-/Discovery-Ports sind Peer-to-Peer und muessen IMMER veroeffentlicht
+            # werden (laufen NICHT ueber Traefik/HTTP).
+            ports:
+              - "22000:22000/tcp"
+              - "22000:22000/udp"
+              - "21027:21027/udp"
+        {% if not (use_traefik | default(false) | bool) %}
+              - "{{syncthing_port | default('8384')}}:8384"
+        {% endif %}
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Dateiverwaltung
+              - homepage.name=Syncthing
+              - homepage.icon=syncthing.svg
+              - homepage.href=http://{{syncthing_domain}}
+              - homepage.description=File Synchronization
+              - "traefik.http.routers.syncthing_http.rule=Host(`{{syncthing_domain}}`)"
+              - traefik.http.routers.syncthing_http.entrypoints=web
+              - traefik.http.services.syncthing.loadbalancer.server.port=8384
+              # Syncthings Anti-DNS-Rebinding-Host-Check lehnt fremde Host-Header (403) ab.
+              # passHostHeader=false laesst Traefik die Backend-Adresse als Host senden.
+              # Hinweis: bei Bedarf zusaetzlich gui.insecureSkipHostcheck in der Syncthing-Config setzen.
+              - traefik.http.services.syncthing.loadbalancer.passHostHeader=false
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

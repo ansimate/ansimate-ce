@@ -1,0 +1,127 @@
+- name: create compose for prometheus
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "prometheus"
+    image: "prom/prometheus:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}/config' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/config"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}/config/prometheus.yml' if it does not exist"
+    become: true
+    become_method: sudo
+    copy:
+      content: |
+        global:
+          scrape_interval: 10s
+        scrape_configs:
+          - job_name: localhost
+            static_configs:
+              - targets:
+                - 172.17.0.1:9090
+      dest: "{{base_dir}}/docker/{{stack}}/config/prometheus.yml"
+      force: no
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}: 
+            restart: unless-stopped
+            container_name: {{stack}}
+            hostname: "prometheus.local"
+            image: {{image}}
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/config:/etc/prometheus
+              - {{base_dir}}/docker/{{stack}}:/prometheus
+            command:
+              - '--config.file=/etc/prometheus/prometheus.yml'
+              - '--storage.tsdb.path=/prometheus'
+              - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+              - '--web.console.templates=/usr/share/prometheus/consoles'
+              - '--web.external-url=/prometheus/'
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            ports:
+              - 172.17.0.1:9090:9090
+            labels:
+              - homepage.group=Backend
+              - homepage.name=Prometheus
+              - homepage.icon=prometheus.png
+              - homepage.href=http://{{prometheus_domain}}
+              - homepage.description=Database for Metrics
+              - traefik.http.routers.prometheus_http.rule=Host(`{{prometheus_domain}}`)
+              - traefik.http.routers.prometheus_http.entrypoints=web
+              - traefik.http.routers.prometheus_http.middlewares=bauth
+        {% else %}
+            ports:
+              - "{{prometheus_port | default('9090')}}:9090"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

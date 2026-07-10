@@ -1,0 +1,77 @@
+- name: create compose for dockman
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "dockman"
+    image: "ghcr.io/ra341/dockman:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - DOCKMAN_COMPOSE_ROOT={{base_dir}}/compose
+            volumes:
+              - /var/run/docker.sock:/var/run/docker.sock
+              - {{base_dir}}/compose:{{base_dir}}/compose
+              # never mount this dir in your stacks
+              - {{base_dir}}/docker/{{stack}}/config:/config
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - traefik.http.routers.dockman.rule=Host(`{{dockman_domain}}`)
+              - traefik.http.services.dockman.loadbalancer.server.port=8866
+              - traefik.http.routers.dockman.entrypoints=web
+        {% else %}
+            ports:
+              - "{{dockman_port | default('8866')}}:8866"
+        {% endif %}
+            restart: unless-stopped
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

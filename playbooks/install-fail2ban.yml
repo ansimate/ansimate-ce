@@ -1,0 +1,85 @@
+- name: setup fail2ban
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: ensure 'fail2ban' is at the latest version
+    become: true
+    become_method: sudo
+    apt:
+      name: fail2ban
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure 'mosquitto-clients' is at the latest version
+    become: true
+    become_method: sudo
+    apt:
+      name: mosquitto-clients
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: copy mqtt.conf
+    become: true
+    become_method: sudo
+    copy:
+      src: ./fail2ban/mqtt.conf
+      dest: /etc/fail2ban/action.d/mqtt.conf
+#---------------------------------------------------------------------------------------------
+  - name: convert mqtt.conf to unix format
+    become: true
+    become_method: sudo
+    command: "dos2unix /etc/fail2ban/action.d/mqtt.conf"
+#---------------------------------------------------------------------------------------------
+  - name: copy mqtt.sh
+    become: true
+    become_method: sudo
+    copy:
+      src: ./fail2ban/mqtt.sh
+      dest: /etc/fail2ban/action.d/mqtt.sh
+#---------------------------------------------------------------------------------------------
+  - name: convert mqtt.sh to unix format
+    become: true
+    become_method: sudo
+    command: "dos2unix /etc/fail2ban/action.d/mqtt.sh"
+#---------------------------------------------------------------------------------------------
+  - name: make mqtt.sh executable
+    become: true
+    become_method: sudo
+    command: "chmod +x /etc/fail2ban/action.d/mqtt.sh"
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/config' directory
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/config"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: copy fail2ban.env to config directory
+    become: true
+    become_method: sudo
+    copy:
+      src: ./fail2ban/.env
+      dest: "{{base_dir}}/config/fail2ban.env"
+#---------------------------------------------------------------------------------------------
+  - name: patch data directories in fail2ban.env
+    become: true
+    become_method: sudo
+    command: "sed -i 's%__BASE_DIR__%{{base_dir}}%g' /etc/fail2ban/action.d/mqtt.sh"
+#---------------------------------------------------------------------------------------------
+  - name: copy jail.mqtt.local
+    become: true
+    become_method: sudo
+    copy:
+      src: ./fail2ban/jail.mqtt.local
+      dest: /etc/fail2ban/jail.local
+#---------------------------------------------------------------------------------------------
+  - name: enable fail2ban service
+    become: true
+    become_method: sudo
+    command: "systemctl enable fail2ban.service"
+#---------------------------------------------------------------------------------------------
+  - name: start fail2ban service
+    become: true
+    become_method: sudo
+    command: "systemctl start fail2ban.service"

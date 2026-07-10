@@ -1,0 +1,139 @@
+- name: create compose for ctfd
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "ctfd"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  # CTFd-Container laeuft als uid 1001 -> Daten-Verzeichnisse muessen ihm gehoeren.
+  - name: "creating CTFd uploads + logs + db directories (owned by container uid 1001)"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/{{item}}"
+      state: directory
+      owner: "1001"
+      group: "1001"
+    loop:
+      - uploads
+      - logs
+      - db
+#---------------------------------------------------------------------------------------------
+  # SECRET_KEY MUSS stabil bleiben, sonst werden bei jedem Neustart alle Sessions/Logins
+  # ungueltig. Einmalig generieren + persistieren; Nutzerwert hat Vorrang.
+  - name: "generate + persist SECRET_KEY (nur wenn keiner angegeben)"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -hex 32 > "{{base_dir}}/docker/{{stack}}/secret_key"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/secret_key"
+    when: not (ctfd_secret_key | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted SECRET_KEY (falls generiert)"
+    become: true
+    become_method: sudo
+    no_log: true
+    slurp:
+      src: "{{base_dir}}/docker/{{stack}}/secret_key"
+    register: _ctfd_secret
+    when: not (ctfd_secret_key | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "set effective SECRET_KEY"
+    no_log: true
+    set_fact:
+      ctfd_secret: "{{ ctfd_secret_key if (ctfd_secret_key | default('')) else (_ctfd_secret.content | b64decode | trim) }}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  # Single-Container mit SQLite (WORKERS=1). Initial-Admin wird NICHT per Env angelegt,
+  # sondern ueber den Web-Setup-Assistenten unter /setup beim ersten Aufruf.
+  - name: add component to compose.yml
+    no_log: true
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: ctfd/ctfd:3.8.5
+            environment:
+              - SECRET_KEY={{ctfd_secret}}
+              - UPLOAD_FOLDER=/var/uploads
+              - LOG_FOLDER=/var/log/CTFd
+              - DATABASE_URL=sqlite:////data/ctfd.db
+              - WORKERS=1
+        {% if use_traefik | default(false) | bool %}
+              - REVERSE_PROXY=true
+        {% endif %}
+              - ACCESS_LOG=-
+              - ERROR_LOG=-
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/uploads:/var/uploads
+              - {{base_dir}}/docker/{{stack}}/logs:/var/log/CTFd
+              - {{base_dir}}/docker/{{stack}}/db:/data
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Netzwerk Sicherheit
+              - homepage.name=CTFd
+              - homepage.icon=ctfd.svg
+              - homepage.href=http://{{ctfd_domain}}
+              - homepage.description=Capture The Flag Platform
+              - "traefik.http.routers.ctfd_http.rule=Host(`{{ctfd_domain}}`)"
+              - traefik.http.routers.ctfd_http.entrypoints=web
+              - traefik.http.services.ctfd.loadbalancer.server.port=8000
+        {% else %}
+            ports:
+              - "{{ctfd_port | default('8106')}}:8000"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

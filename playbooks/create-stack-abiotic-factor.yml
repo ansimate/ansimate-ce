@@ -1,0 +1,63 @@
+- name: deploy Abiotic Factor Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "abiotic-factor"
+    image: "ghcr.io/pleut/abiotic-factor-linux-docker:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          abiotic-factor:
+            restart: unless-stopped
+            container_name: abiotic-factor
+            image: ghcr.io/pleut/abiotic-factor-linux-docker:latest
+            ports:
+              - "7777:7777/udp"
+              - "27015:27015/udp"
+            environment:
+              - SteamServerName=Abiotic Factor Server
+              - MaxServerPlayers=6
+              - Port=7777
+              - QueryPort=27015
+              - ServerPassword=changeme
+              - WorldSaveName=Cascade
+              - UsePerfThreads=true
+              - NoAsyncLoadingThread=true
+              - AutoUpdate=true
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/server/AbioticFactor/Saved"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

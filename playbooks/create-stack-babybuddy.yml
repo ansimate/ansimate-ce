@@ -1,0 +1,100 @@
+- name: create compose for babybuddy
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "babybuddy"
+    image: "lscr.io/linuxserver/babybuddy:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ={{timezone | default('Europe/Berlin')}}
+              # Noetig fuer Formular-POSTs hinter Proxy/Domain (z.B. https://baby.example.com).
+              - CSRF_TRUSTED_ORIGINS={{babybuddy_csrf | default('')}}
+            volumes:
+              # Baby Buddy speichert SQLite-DB und Konfiguration unter /config
+              - {{base_dir}}/docker/{{stack}}:/config
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Produktivität
+              - homepage.name=Baby Buddy
+              - homepage.icon=baby-buddy.svg
+              - homepage.href=http://{{babybuddy_domain}}
+              - homepage.description=Baby Tracking
+              - "traefik.http.routers.babybuddy_http.rule=Host(`{{babybuddy_domain}}`)"
+              - traefik.http.routers.babybuddy_http.entrypoints=web
+              - traefik.http.services.babybuddy.loadbalancer.server.port=8000
+        {% else %}
+            ports:
+              - "{{babybuddy_port | default('8089')}}:8000"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

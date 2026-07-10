@@ -1,0 +1,67 @@
+- name: deploy Soulmask Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "soulmask"
+    image: "sknnr/soulmask-dedicated-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          soulmask:
+            restart: unless-stopped
+            container_name: soulmask
+            image: sknnr/soulmask-dedicated-server:latest
+            ports:
+              - "27050:27050/udp"
+              - "27051:27051/udp"
+              - "19000:19000/tcp"
+            environment:
+              - SERVER_NAME=Soulmask Server
+              - GAME_MODE=pve
+              - SERVER_SLOTS=50
+              - SERVER_LEVEL=Level01_Main
+              - ADMIN_PASSWORD=AdminPleaseChangeMe
+              - SERVER_PASSWORD=
+              - GAME_PORT=27050
+              - QUERY_PORT=27051
+              - RCON_PORT=19000
+              - RCON_PASSWORD=
+              - BACKUP=900
+              - SAVING=600
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/soulmask"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

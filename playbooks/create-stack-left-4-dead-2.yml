@@ -1,0 +1,63 @@
+- name: deploy Left 4 Dead 2 Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "left-4-dead-2"
+    image: "left4devops/l4d2:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          left-4-dead-2:
+            restart: unless-stopped
+            container_name: left-4-dead-2
+            image: left4devops/l4d2:latest
+            ports:
+              - "27015:27015/tcp"
+              - "27015:27015/udp"
+            environment:
+              - HOSTNAME=Left 4 Dead 2 Server
+              - DEFAULT_MAP=c1m1_hotel
+              - DEFAULT_MODE=coop
+              - PORT=27015
+              - REGION=255
+              - MOTD=0
+              - STEAM_GROUP=0
+              - RCON_PASSWORD=changeme
+              - EXTRA_ARGS=+sv_maxplayers 8
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/cfg"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

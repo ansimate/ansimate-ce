@@ -1,0 +1,12 @@
+- name: install TeamSpeak (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install TeamSpeak (com.teamspeak.TeamSpeak) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub com.teamspeak.TeamSpeak"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

@@ -1,0 +1,70 @@
+- name: deploy 7 Days to Die Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "7-days-to-die"
+    image: "vinanrra/7dtd-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          7-days-to-die:
+            restart: unless-stopped
+            container_name: 7-days-to-die
+            image: vinanrra/7dtd-server:latest
+            ports:
+              - "26900:26900/tcp"
+              - "26900:26900/udp"
+              - "26901:26901/udp"
+              - "26902:26902/udp"
+              - "8080:8080/tcp"
+              - "8081:8081/tcp"
+            environment:
+              - START_MODE=1
+              - VERSION=stable
+              - PUID=1000
+              - PGID=1000
+              - TimeZone=Europe/Berlin
+              - TEST_ALERT=NO
+              - BACKUP=NO
+              - MONITOR=NO
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}/serverfiles:/home/sdtdserver/serverfiles"
+              - "{{base_dir}}/docker/{{stack}}/7DaysToDie:/home/sdtdserver/.local/share/7DaysToDie"
+              - "{{base_dir}}/docker/{{stack}}/lgsm-config:/home/sdtdserver/lgsm/config-lgsm/sdtdserver"
+              - "{{base_dir}}/docker/{{stack}}/backup:/home/sdtdserver/lgsm/backup"
+              - "{{base_dir}}/docker/{{stack}}/log:/home/sdtdserver/log"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

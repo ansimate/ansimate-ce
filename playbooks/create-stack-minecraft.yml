@@ -1,0 +1,69 @@
+- name: deploy Minecraft Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "minecraft"
+    image: "itzg/minecraft-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          minecraft:
+            restart: unless-stopped
+            container_name: minecraft
+            image: itzg/minecraft-server:latest
+            ports:
+              - "25565:25565/tcp"
+              - "25575:25575/tcp"
+            environment:
+              - EULA=TRUE
+              - TYPE=VANILLA
+              - VERSION=LATEST
+              - MEMORY=2G
+              - MOTD=Ansimate Minecraft Server
+              - SERVER_NAME=Minecraft Server
+              - DIFFICULTY=normal
+              - MODE=survival
+              - MAX_PLAYERS=20
+              - OPS=
+              - SERVER_PORT=25565
+              - ONLINE_MODE=true
+              - ENABLE_RCON=true
+              - RCON_PORT=25575
+              - RCON_PASSWORD=changeme
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/data"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

@@ -1,0 +1,112 @@
+- name: create compose for nginx-proxy-manager
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "nginx-proxy-manager"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating NPM data + letsencrypt directories"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/{{item}}"
+      state: directory
+      owner: "{{ssh_user}}"
+    loop:
+      - data
+      - letsencrypt
+#---------------------------------------------------------------------------------------------
+  # Initiales Admin-Passwort einmalig generieren+persistieren (sonst Default admin@example.com/
+  # changeme). Vom Nutzer angegebener Wert hat Vorrang.
+  - name: "generate + persist admin password (nur wenn keiner angegeben)"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -base64 24 | tr -d "=+/" | cut -c1-28 > "{{base_dir}}/docker/{{stack}}/admin_password"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/admin_password"
+    when: not (npm_admin_password | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted admin password (falls generiert)"
+    become: true
+    become_method: sudo
+    no_log: true
+    slurp:
+      src: "{{base_dir}}/docker/{{stack}}/admin_password"
+    register: _npm_admin
+    when: not (npm_admin_password | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "set effective admin password"
+    no_log: true
+    set_fact:
+      npm_admin_pw: "{{ npm_admin_password if (npm_admin_password | default('')) else (_npm_admin.content | b64decode | trim) }}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  # Nginx Proxy Manager IST selbst der Reverse-Proxy -> KEIN use_traefik/Traefik-Labels.
+  # Ports 80/443/81 werden direkt veroeffentlicht (muessen auf dem Zielhost frei sein).
+  - name: add component to compose.yml
+    no_log: true
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: jc21/nginx-proxy-manager:2.15.1
+            ports:
+              - "{{npm_http_port | default('80')}}:80"
+              - "{{npm_https_port | default('443')}}:443"
+              - "{{npm_admin_port | default('81')}}:81"
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+              - DISABLE_IPV6={{npm_disable_ipv6 | default('true')}}
+              - INITIAL_ADMIN_EMAIL={{ (npm_admin_email | default('admin@example.com')) | lower }}
+              - INITIAL_ADMIN_PASSWORD={{npm_admin_pw}}
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/data:/data
+              - {{base_dir}}/docker/{{stack}}/letsencrypt:/etc/letsencrypt
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

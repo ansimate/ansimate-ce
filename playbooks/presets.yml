@@ -1,0 +1,81 @@
+- name: Homelab
+  icon: homelab.png
+  description: "Komplette Homelab-Infrastruktur mit Docker, ZeroTier, Fail2ban und verschiedenen Stack-Diensten."
+  variables:
+    dashboard_domain:     "central.home"
+    dockman_domain:       "dockman.home"
+    filebrowser_domain:   "filebrowser.home"
+    nodered_domain:       "nodered.home"
+    pihole_domain:        "pihole.home"
+    prometheus_domain:    "prometheus.home"
+    searxng_domain:       "search.home"
+    traefik_domain:       "traefik.home"
+    jd2_domain:           "jd2.home"
+    jd2_vnc_passwd:       ""
+  playbooks:
+    - install-docker.yml
+    - install-zerotier.yml
+    - install-fail2ban.yml
+    - install-git.yml
+    - create-stack-dashboard.yml
+    - create-stack-dockman.yml
+    - create-stack-filebrowser.yml
+    - create-stack-jdownloader2.yml
+    - create-stack-mqtt.yml
+    - create-stack-nodered.yml
+    - create-stack-pihole.yml
+    - create-stack-prometheus.yml
+    - create-stack-searxng.yml
+    - create-stack-traefik.yml
+
+# : Kombinierte Presets fuer Zielgruppen-Verbuende. Fehlende Dienste aus dem
+# Issue wurden auf vorhandene, naechstliegende Playbooks gemappt:
+#   Forgejo->Gitea, Forgejo Runner->Woodpecker CI, Crater->Invoice Ninja,
+#   CapRover/Coolify->Portainer, AdGuard Home->Pi-hole.
+- name: Developer Stack
+  icon: gitea.svg
+  description: "Komplette Entwickler-Umgebung: Git-Server (Gitea), CI (Woodpecker), private Docker-Registry und API-Client (Yaade). (Forgejo/Forgejo Runner -> Gitea/Woodpecker.)"
+  playbooks:
+    - install-docker.yml
+    - create-stack-gitea.yml
+    - create-stack-woodpecker.yml
+    - create-stack-registry.yml
+    - create-stack-yaade.yml
+
+- name: Finance & Invoicing Stack
+  icon: firefly-iii.svg
+  description: "Finanzverwaltung und Rechnungsstellung: Firefly III (Haushaltsbuch), Ghostfolio (Vermoegens-Tracker) und Invoice Ninja (Rechnungen). (Crater -> Invoice Ninja.)"
+  playbooks:
+    - install-docker.yml
+    - create-stack-fireflyiii.yml
+    - create-stack-ghostfolio.yml
+    - create-stack-invoiceninja.yml
+
+- name: Business & Office Stack
+  icon: nextcloud.svg
+  description: "Buero- und Zusammenarbeits-Suite: Nextcloud (Collaboration), DocuSeal (Dokumenten-Signatur), Vikunja (Aufgabenverwaltung) und FreeScout (Helpdesk)."
+  playbooks:
+    - install-docker.yml
+    - create-stack-nextcloud.yml
+    - create-stack-docuseal.yml
+    - create-stack-vikunja.yml
+    - create-stack-freescout.yml
+
+- name: Security & Pentest Stack
+  icon: spiderfoot.png
+  description: "Security- und Pentest-Werkzeuge: GoPhish (Phishing-Simulation), DefectDojo (Schwachstellen-Management) und Spiderfoot (OSINT)."
+  playbooks:
+    - install-docker.yml
+    - create-stack-gophish.yml
+    - create-stack-defectdojo.yml
+    - create-stack-spiderfoot.yml
+
+- name: Self-Hosted Cloud / PaaS Stack
+  icon: portainer-alt.svg
+  description: "Self-Hosting-Plattform: Portainer (Container-Management), Nginx Proxy Manager (Reverse Proxy), Uptime Kuma (Monitoring) und Pi-hole (DNS/Ad-Blocking). (CapRover/Coolify -> Portainer, AdGuard -> Pi-hole.)"
+  playbooks:
+    - install-docker.yml
+    - create-stack-portainer.yml
+    - create-stack-nginx-proxy-manager.yml
+    - create-stack-uptime-kuma.yml
+    - create-stack-pihole.yml

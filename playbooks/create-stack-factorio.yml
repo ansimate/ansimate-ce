@@ -1,0 +1,63 @@
+- name: deploy Factorio Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "factorio"
+    image: "factoriotools/factorio:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          factorio:
+            restart: unless-stopped
+            container_name: factorio
+            image: factoriotools/factorio:latest
+            ports:
+              - "34197:34197/udp"
+              - "27015:27015/tcp"
+            environment:
+              - PORT=34197
+              - RCON_PORT=27015
+              - SAVE_NAME=_autosave1
+              - GENERATE_NEW_SAVE=true
+              - LOAD_LATEST_SAVE=true
+              - UPDATE_MODS_ON_START=false
+              - DLC_SPACE_AGE=true
+              - TOKEN=
+              - USERNAME=
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/factorio"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

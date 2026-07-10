@@ -1,0 +1,64 @@
+- name: deploy Core Keeper Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "core-keeper"
+    image: "escaping/core-keeper-dedicated:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          core-keeper:
+            restart: unless-stopped
+            container_name: core-keeper
+            image: escaping/core-keeper-dedicated:latest
+            ports:
+              - "27015:27015/udp"
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - WORLD_INDEX=0
+              - WORLD_NAME=Core Keeper Server
+              - WORLD_SEED=
+              - WORLD_MODE=0
+              - MAX_PLAYERS=10
+              - GAME_ID=
+              - SERVER_IP=
+              - SERVER_PORT=27015
+              - PASSWORD=changeme
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/core-keeper-data"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

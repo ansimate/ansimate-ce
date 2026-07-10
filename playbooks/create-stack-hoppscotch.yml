@@ -1,0 +1,201 @@
+- name: create compose for hoppscotch
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "hoppscotch"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating Hoppscotch db directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/db"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "generate + persist DB password"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -base64 24 | tr -d "=+/" | cut -c1-28 > "{{base_dir}}/docker/{{stack}}/db_password"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/db_password"
+#---------------------------------------------------------------------------------------------
+  # DATA_ENCRYPTION_KEY MUSS exakt 32 Zeichen sein (openssl rand -hex 16) und darf sich nie
+  # aendern (sonst sind in der DB verschluesselte Werte nicht mehr lesbar).
+  - name: "generate + persist DATA_ENCRYPTION_KEY (exakt 32 Zeichen)"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -hex 16 > "{{base_dir}}/docker/{{stack}}/data_encryption_key"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/data_encryption_key"
+#---------------------------------------------------------------------------------------------
+  - name: "generate + persist JWT + Session Secrets"
+    become: true
+    become_method: sudo
+    no_log: true
+    shell: 'umask 077; openssl rand -hex 32 > "{{base_dir}}/docker/{{stack}}/{{item}}"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/{{item}}"
+    loop:
+      - jwt_secret
+      - session_secret
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted secrets"
+    become: true
+    become_method: sudo
+    no_log: true
+    slurp:
+      src: "{{item}}"
+    loop:
+      - "{{base_dir}}/docker/{{stack}}/db_password"
+      - "{{base_dir}}/docker/{{stack}}/data_encryption_key"
+      - "{{base_dir}}/docker/{{stack}}/jwt_secret"
+      - "{{base_dir}}/docker/{{stack}}/session_secret"
+    register: _hopp
+#---------------------------------------------------------------------------------------------
+  - name: "set effective values"
+    no_log: true
+    set_fact:
+      hopp_db_pw: "{{ _hopp.results[0].content | b64decode | trim }}"
+      hopp_enc_key: "{{ _hopp.results[1].content | b64decode | trim }}"
+      hopp_jwt: "{{ _hopp.results[2].content | b64decode | trim }}"
+      hopp_session: "{{ _hopp.results[3].content | b64decode | trim }}"
+      hopp_trust_proxy: "{{ 'true' if (use_traefik | default(false) | bool) else 'false' }}"
+      hopp_base_url: >-
+        {{ hoppscotch_url if (hoppscotch_url | default(''))
+           else ('http://' + hoppscotch_domain if ((use_traefik | default(false) | bool) and (hoppscotch_domain | default('')))
+           else 'http://localhost:' + (hoppscotch_port | default('8105') | string)) }}
+#---------------------------------------------------------------------------------------------
+  - name: "derive websocket base url"
+    no_log: true
+    set_fact:
+      hopp_ws_url: "{{ hopp_base_url | regex_replace('^http', 'ws') }}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  # All-in-One-Image (Frontend+Admin+Backend+Caddy) im Subpath-Modus = EIN Port (80).
+  # Migrationen laufen NICHT automatisch -> per command-Override vor dem Start ausfuehren.
+  # Auth-Provider (OAuth/SMTP) werden NACH dem Deploy im Admin-Dashboard (/admin) konfiguriert;
+  # der erste angemeldete Nutzer wird Admin.
+  - name: add component to compose.yml
+    no_log: true
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}-db:
+            restart: unless-stopped
+            container_name: {{stack}}-db
+            image: postgres:15
+            environment:
+              - POSTGRES_DB=hoppscotch
+              - POSTGRES_USER=hoppscotch
+              - POSTGRES_PASSWORD={{hopp_db_pw}}
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/db:/var/lib/postgresql/data
+            healthcheck:
+              test: ["CMD-SHELL", "pg_isready -U hoppscotch -d hoppscotch"]
+              interval: 10s
+              timeout: 5s
+              retries: 12
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+        {% endif %}
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            #: Version gepinnt (statt :latest) fuer reproduzierbare Deployments.
+            # Verifiziert: JWT_SECRET/SESSION_SECRET/REDIRECT_URL werden vom AIO-Image
+            # weiterhin honoriert (JWT/SESSION werden sonst bei jedem Neustart neu
+            # generiert -> explizit setzen ist Pflicht; REDIRECT_URL/WHITELISTED_ORIGINS
+            # steuern die App-Domain-Config). Tag bei Updates anheben.
+            image: hoppscotch/hoppscotch:2026.5.0
+            depends_on:
+              {{stack}}-db:
+                condition: service_healthy
+            command:
+              - sh
+              - -c
+              - "pnpm exec prisma migrate deploy && node /usr/src/app/aio_run.mjs"
+            environment:
+              - DATABASE_URL=postgresql://hoppscotch:{{hopp_db_pw}}@{{stack}}-db:5432/hoppscotch
+              - DATA_ENCRYPTION_KEY={{hopp_enc_key}}
+              - JWT_SECRET={{hopp_jwt}}
+              - SESSION_SECRET={{hopp_session}}
+              - REDIRECT_URL={{hopp_base_url}}
+              - WHITELISTED_ORIGINS={{hopp_base_url}},app://hoppscotch,app://localhost_3200
+              - VITE_BASE_URL={{hopp_base_url}}
+              - VITE_SHORTCODE_BASE_URL={{hopp_base_url}}
+              - VITE_ADMIN_URL={{hopp_base_url}}/admin
+              - VITE_BACKEND_GQL_URL={{hopp_base_url}}/backend/graphql
+              - VITE_BACKEND_WS_URL={{hopp_ws_url}}/backend/graphql
+              - VITE_BACKEND_API_URL={{hopp_base_url}}/backend/v1
+              - ENABLE_SUBPATH_BASED_ACCESS=true
+              - TRUST_PROXY={{hopp_trust_proxy}}
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Entwicklung
+              - homepage.name=Hoppscotch
+              - homepage.icon=hoppscotch.svg
+              - homepage.href=http://{{hoppscotch_domain}}
+              - homepage.description=API Development Client
+              - "traefik.http.routers.hoppscotch_http.rule=Host(`{{hoppscotch_domain}}`)"
+              - traefik.http.routers.hoppscotch_http.entrypoints=web
+              - traefik.http.services.hoppscotch.loadbalancer.server.port=80
+        {% else %}
+            ports:
+              - "{{hoppscotch_port | default('8105')}}:80"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

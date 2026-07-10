@@ -1,0 +1,165 @@
+- name: setup docker with compose and buildx plugin
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+  - name: refresh apt package cache
+    become: true
+    become_method: sudo
+    apt:
+      update_cache: yes
+      cache_valid_time: 30
+#---------------------------------------------------------------------------------------------
+  - name: ensure 'ca-certificates' is at the latest version
+    become: true
+    become_method: sudo
+    apt:
+      name: ca-certificates
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure 'curl' is at the latest version
+    become: true
+    become_method: sudo
+    apt:
+      name: curl
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: "install /etc/apt/keyrings"
+    become: true
+    become_method: sudo
+    command: install -m 0755 -d /etc/apt/keyrings
+#---------------------------------------------------------------------------------------------
+  - name: check if device is raspberry
+    stat:
+      path: /home/pi
+    register: is_raspberry
+#---------------------------------------------------------------------------------------------
+  - name: "downloading docker gpg key to '/etc/apt/keyrings/docker.asc' (amd64)"
+    become: true
+    become_method: sudo
+    command: curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    when: not is_raspberry.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "downloading docker gpg key to '/etc/apt/keyrings/docker.asc' (rpi)"
+    become: true
+    become_method: sudo
+    command: curl -fsSL https://download.docker.com/linux/raspbian/gpg -o /etc/apt/keyrings/docker.asc
+    when: is_raspberry.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "setting permission '/etc/apt/keyrings/docker.asc'"
+    become: true
+    become_method: sudo
+    command: chmod a+r /etc/apt/keyrings/docker.asc
+#---------------------------------------------------------------------------------------------
+  - name: create stub script to retrieve os codename
+    copy:
+      dest: "{{base_dir}}/get_os_codename.sh"
+      content: |
+        #!/bin/bash
+        lsb_release -ac 2>/dev/null | grep -i codename | cut -s -f2
+#---------------------------------------------------------------------------------------------
+  - name: making stub executable
+    become: true
+    become_method: sudo
+    command: "chmod +x get_os_codename.sh"
+    args:
+      chdir: "{{base_dir}}/"
+#---------------------------------------------------------------------------------------------
+  - name: retrieve codename for os release
+    become: true
+    become_method: sudo
+    command: "/bin/bash get_os_codename.sh"
+    args:
+      chdir: "{{base_dir}}/"
+    register: codename
+#---------------------------------------------------------------------------------------------
+  - name: validate detected OS codename
+    assert:
+      that:
+        - codename.stdout | regex_search('^[a-z]+$')
+      fail_msg: "Unerwarteter OS-Codename: '{{ codename.stdout }}'"
+#---------------------------------------------------------------------------------------------
+  - name: setup docker repository (rpi)
+    become: true
+    become_method: sudo
+    copy: content="deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian   {{codename.stdout}} stable" dest=/etc/apt/sources.list.d/docker.list
+    when: is_raspberry.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: setup docker repository (amd64)
+    become: true
+    become_method: sudo
+    copy: content="deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu   {{codename.stdout}} stable" dest=/etc/apt/sources.list.d/docker.list
+    when: not is_raspberry.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: remove stub script
+    become: true
+    become_method: sudo
+    command: "rm -f get_os_codename.sh"
+    args:
+      chdir: "{{base_dir}}/"
+#---------------------------------------------------------------------------------------------
+  - name: update package repository
+    become: true
+    become_method: sudo
+    apt:
+      update_cache: yes
+#---------------------------------------------------------------------------------------------
+  - name: ensure docker-ce is at the latest version
+    become: true
+    become_method: sudo
+    ansible.builtin.apt:
+      name: docker-ce
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure docker-ce-cli is at the latest version
+    become: true
+    become_method: sudo
+    ansible.builtin.apt:
+      name: docker-ce-cli
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure containerd.io is at the latest version
+    become: true
+    become_method: sudo
+    ansible.builtin.apt:
+      name: containerd.io
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure docker-buildx-plugin is at the latest version
+    become: true
+    become_method: sudo
+    ansible.builtin.apt:
+      name: docker-buildx-plugin
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: ensure docker-compose-plugin is at the latest version
+    become: true
+    become_method: sudo
+    ansible.builtin.apt:
+      name: docker-compose-plugin
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: "add docker group"
+    become: true
+    become_method: sudo
+    command: "groupadd docker"
+    ignore_errors: True
+#---------------------------------------------------------------------------------------------
+  - name: "add current user to docker group"
+    become: true
+    become_method: sudo
+    command: "usermod -aG docker {{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "add default network"
+    become: true
+    become_method: sudo
+    command: "docker network create local"
+    ignore_errors: True
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"

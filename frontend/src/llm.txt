@@ -1,0 +1,268 @@
+# Ansimate Agent Instructions (llm.txt)
+
+Diese Datei beschreibt die Interaktionsmuster und Pflichtparameter der Ansimate-API,
+damit KI-Agenten / LLMs die Plattform fehlerfrei bedienen können. Sie ist bewusst in
+Markdown gehalten (auch wenn die Endung `.txt` lautet), weil Agenten damit am besten
+arbeiten. Diese Datei ist unter `/llm.txt` direkt abrufbar.
+
+> Diese Anleitung beschreibt den tatsächlichen API-Stand. Die maschinenlesbare
+> OpenAPI-Referenz liegt unter `/openapi.json` (interaktiv: `/docs`). Bei Abweichungen
+> zwischen Beispiel und Server gilt immer die OpenAPI-Spezifikation.
+
+---
+
+## 0. Authentifizierung (ZUERST LESEN)
+
+Alle API-Aufrufe eines Agenten erfolgen über einen **API-Token** im HTTP-Header:
+
+```
+Authorization: Bearer asm_tok_<...>
+```
+
+### Token beschaffen
+Der Benutzer erzeugt den Token selbst in der Weboberfläche: **Profil → API-Token**
+(intern `POST /api/profile/tokens`). Ein Token kann nach der Erstellung **nicht erneut
+angezeigt** werden — der Benutzer muss ihn dem Agenten einmalig übergeben.
+
+### Scopes
+Beim Erstellen wählt der Benutzer die Berechtigungen (Scopes). Ein Token darf **ausschließlich**
+die zu seinen Scopes gehörenden Endpunkte nutzen — jeder andere Aufruf liefert
+`403 "API-Token hat keinen Zugriff auf diesen Endpunkt."`
+
+| Scope | Erlaubte Endpunkte | Zweck |
+|-------|--------------------|-------|
+| `run_playbook` | `POST /api/run` | Playbooks/Presets/Szenarien ausführen |
+| `read_logs` | `GET /api/jobs*` | Jobs auflisten, Status/Live-Logs lesen |
+| `manage_devices` | `/api/devices*`, `/api/profile/device-groups*`, `/api/profile/devices-unified*` | Geräte + Gerätegruppen verwalten |
+| `manage_scenarios` | `/api/profile/scenarios*`, `/api/profile/presets*`, `GET /api/playbooks` | Presets + Szenarien verwalten, Katalog lesen |
+
+Für einen Agenten, der **den vollen Ablauf** abdeckt (Geräte anlegen → Preset/Szenario bauen →
+ausführen → Logs lesen), werden i. d. R. **alle vier** Scopes benötigt. Der Token gilt mit den
+Rechten seines Besitzers (nicht-Gast, aktives Abo; Preset-/Szenario-Erstellung ist Premium).
+
+> **Nicht per Token möglich (bewusst):** Teamverwaltung (`/api/profile/guests*`), Token-Verwaltung,
+> Datenexport, Konto-/Passwortänderung. Diese Aktionen erfordern eine **angemeldete Sitzung**
+> (Session-Cookie), nicht einen API-Token. Ein Agent, der solche Schritte braucht, muss den
+> Benutzer bitten, sie in der Weboberfläche auszuführen (siehe Abschnitt 5).
+
+### Proaktive Rückfrage (Parameter-Gating)
+Fehlt der Token, fragt der Agent zuerst:
+> „Bitte hinterlege einen Ansimate-API-Token (Profil → API-Token). Welche Scopes soll er
+> haben — Ausführen (`run_playbook`), Logs (`read_logs`), Geräte (`manage_devices`) und/oder
+> Szenarien (`manage_scenarios`)?"
+
+---
+
+## 1. Geräteverwaltung (Device Management)
+
+Ein „Gerät" ist ein SSH-Ziel mit hinterlegten Zugangsdaten. *(Token-Scope: `manage_devices`.)*
+
+### Vorgänge & API-Routen
+* Geräte auflisten: `GET /api/devices`
+* Gerät hinzufügen: `POST /api/devices`
+* Gerät bearbeiten: `PUT /api/devices/<id>`
+* Gerät löschen: `DELETE /api/devices/<id>`
+
+### Felder von `POST /api/devices`
+| Feld | Pflicht | Beschreibung |
+|------|---------|--------------|
+| `name` | ja | Anzeigename, z. B. `Webserver-Prod` |
+| `host` | ja | IP/Hostname, z. B. `10.0.0.5` |
+| `username` | nein | SSH-Benutzer, z. B. `root` (nur `[A-Za-z0-9._-]`) |
+| `port` | nein | SSH-Port, Standard `22` |
+| `credential` | nein | Passwort **oder** privater SSH-Key (Klartext; wird serverseitig verschlüsselt) |
+| `credential_type` | bedingt | `"password"` oder `"key"` — Pflicht, sobald `credential` gesetzt ist |
+
+Antwort enthält `id` und `has_credential` (das Klartext-Credential wird nie zurückgegeben).
+Beim Bearbeiten: `credential: ""` löscht die Zugangsdaten, Weglassen lässt sie unverändert.
+
+### Proaktive Rückfragen (Parameter-Gating)
+Beim Anlegen eines Geräts klärt der Agent:
+1. IP-Adresse / Hostname (z. B. `192.168.1.100`)
+2. SSH-Benutzername (z. B. `ubuntu` oder `root`)
+3. Authentifizierung: Passwort **oder** SSH-Key (→ `credential_type`)
+4. Anzeigename (optional)
+
+### Interaktionsbeispiel
+* **User:** „Füge den Host 'db-server' mit der IP '10.0.0.5' hinzu."
+* **Agent:** „Gerne! Ich brauche noch den SSH-Benutzernamen (z. B. 'root') und ob ich ein
+  Passwort oder einen SSH-Key für den Login verwenden soll."
+* **User:** „Benutzer ist 'admin', nimm dieses Passwort: hunter2."
+* **Agent:** führt aus:
+  ```
+  POST /api/devices
+  { "name": "db-server", "host": "10.0.0.5",
+    "username": "admin", "credential": "hunter2", "credential_type": "password" }
+  ```
+  und bestätigt die Erstellung.
+
+---
+
+## 2. Playbook-Katalog & direkte Ausführung
+
+### Vorgänge & API-Routen
+* Katalog auflisten: `GET /api/playbooks` (liefert IDs, Namen, Kategorien, Variablen-Metadaten)
+* Ausführen: `POST /api/run`  *(benötigt Scope `run_playbook`)*
+
+### `POST /api/run` — Zielauswahl
+`playbooks` ist **immer Pflicht** (Liste von Playbook-IDs). Zusätzlich genau **eine**
+Zielangabe:
+
+| Variante | Felder |
+|----------|--------|
+| Gespeichertes Gerät | `device_id` |
+| Gerätegruppe | `device_group_id` |
+| Gespeichertes Preset | `custom_preset_id` (löst Playbooks + Variablen + Gerät auf) |
+| Gespeichertes Szenario | `scenario_id` (siehe Abschnitt 3) |
+| Ad-hoc (nicht gespeichert) | `target_host` + `username` + (`password` **oder** `ssh_key`) |
+
+Optional: `variables` (Objekt mit Playbook-Variablen), `session_id` (frei wählbare ID, um
+die Live-Logs dieses Laufs zuzuordnen). Antwort enthält die `job_id`.
+
+> Achtung: Es gibt **keine** Route `POST /api/scenarios/<id>/run`. Szenarien werden immer
+> über `POST /api/run` mit `scenario_id` gestartet.
+
+### Anwendungsspezifische Variablen (Beispiele)
+* **Minecraft:** `minecraft_port` (Standard 25565), Weltname.
+* **Rust:** `rust_port` (Standard 28015), Serverpasswort.
+* **Satisfactory:** `satisfactory_port` (Standard 7777).
+* **Gemeinsam:** immer ein Ziel (Gerät/Gruppe/Ad-hoc).
+
+### Interaktionsbeispiel
+* **User:** „Starte das Minecraft-Server-Playbook."
+* **Agent:** „Auf welchem deiner Geräte soll ich installieren, und nutzen wir den
+  Standard-Port 25565?"
+* **User:** „Auf 'db-server', Port passt."
+* **Agent:** führt aus:
+  ```
+  POST /api/run
+  { "playbooks": ["minecraft_server"], "device_id": "<db-server-id>",
+    "variables": { "minecraft_port": "25565" }, "session_id": "agent-run-1" }
+  ```
+
+---
+
+## 3. Szenarien-Wizard (Scenario Configuration)
+
+Ein **Szenario** bündelt ein **Preset** (Playbooks + Variablen) fest mit einem **Zielgerät
+bzw. einer Gerätegruppe** und macht so einen Ablauf 1-klick-wiederholbar. Presets und
+Szenarien sind Premium-Funktionen (Admins ausgenommen). *(Token-Scope: `manage_scenarios`;
+für das Anlegen/Auswählen der Gerätegruppe zusätzlich `manage_devices`.)*
+
+### Wichtig: Gerät ≠ Gerätegruppe
+Szenarien und Presets referenzieren eine **Gerätegruppe** (`device_group_id`), nicht die
+flachen Geräte aus Abschnitt 1. Der typische Ablauf ist daher dreistufig.
+
+### Vorgänge & API-Routen
+* Gerätegruppen: `GET/POST /api/profile/device-groups`, `POST /api/profile/device-groups/<id>` (Update), `DELETE /api/profile/device-groups/<id>`
+* Presets: `GET/POST /api/profile/presets`, `POST /api/profile/presets/<id>` (Update), `DELETE /api/profile/presets/<id>`
+* Szenarien: `GET/POST /api/profile/scenarios`, `POST /api/profile/scenarios/<id>` (Update), `DELETE /api/profile/scenarios/<id>`
+* Szenario ausführen: `POST /api/run` mit `{ "scenario_id": "<id>" }`
+
+### Felder
+* Preset (`POST /api/profile/presets`): `name`, `playbook_ids` (Liste), `variables` (Objekt), optional `device_group_id`, optional `shares`.
+* Szenario (`POST /api/profile/scenarios`): `name`, `preset_id` (Pflicht), optional `device_group_id` (weglassen = „Gerät beim Ausführen festlegen"), optional `shares`.
+
+### Proaktive Rückfragen (Parameter-Gating)
+1. Verwendetes Playbook (zuerst ein Preset anlegen, falls noch keins existiert)
+2. Ziel-Gerät bzw. Gerätegruppe (oder bewusst gerätelos → Ad-hoc beim Ausführen)
+3. Variablen/Konfiguration (Ports, Pfade, Passwörter …)
+4. Name des Szenarios
+
+### Interaktionsbeispiel
+* **User:** „Erstelle mir ein Szenario zum Deployment von Stirling-PDF."
+* **Agent:** „Auf welchen Geräten soll das laufen, und nutzen wir Port 8080 oder einen
+  eigenen?"
+* **User:** „Auf der Gruppe 'web-servers', Port 8085, nenn es 'PDF-Tool'."
+* **Agent:** legt Preset und Szenario an:
+  ```
+  POST /api/profile/presets
+  { "name": "PDF-Tool", "playbook_ids": ["stirling_pdf"],
+    "variables": { "stirling_port": "8085" } }
+
+  POST /api/profile/scenarios
+  { "name": "PDF-Tool", "preset_id": "<preset-id>",
+    "device_group_id": "<web-servers-id>" }
+  ```
+  Ausführen später via `POST /api/run { "scenario_id": "<id>" }`.
+
+---
+
+## 4. Job-Überwachung & Live-Logs
+
+### Vorgänge & API-Routen  *(alle benötigen Scope `read_logs`)*
+* Jobs auflisten (Historie + laufende): `GET /api/jobs`
+* Status eines Jobs: `GET /api/jobs/<id>`
+* Live-Logs streamen: `GET /api/jobs/<id>/logs` (fortlaufender Text-Stream; optional `?session_id=<id>` für anonyme/zugeordnete Läufe)
+* Job abbrechen: `POST /api/jobs/<id>/cancel`
+
+> Achtung: Es gibt **keine** Routen `GET /api/jobs/active` oder `/api/jobs/<id>/log-stream`.
+> Laufende Jobs werden über `GET /api/jobs` gefunden (Status `pending`/`running`), Logs über
+> `GET /api/jobs/<id>/logs`.
+
+### Proaktive Rückfrage (Parameter-Gating)
+Laufen mehrere Jobs, fragt der Agent, welcher überwacht oder abgebrochen werden soll.
+
+### Interaktionsbeispiel
+* **User:** „Zeige mir die Logs der aktuellen Installation."
+* **Agent:** ruft `GET /api/jobs` auf, findet zwei laufende Jobs und fragt: „Es laufen
+  aktuell zwei Ausführungen: #12 (Minecraft) und #13 (System-Update). Welche Logs?"
+* **User:** „Minecraft."
+* **Agent:** verbindet sich mit `GET /api/jobs/12/logs` und gibt die Zeilen fortlaufend aus.
+
+---
+
+## 5. Teamverwaltung & Freigaben (Collaboration)
+
+Team-/Freigabe-Funktionen sind **editionsabhängig**: In Cloud/On-Premise verfügbar, in
+der Community-Edition eingeschränkt. „Teammitglieder" werden intern als Gast-Konten geführt.
+
+> **Nur mit Sitzung, NICHT per API-Token:** Die `/api/profile/guests*`-Endpunkte sind für
+> API-Tokens gesperrt (403). Teamverwaltung erfordert eine im Browser angemeldete Sitzung.
+> Ein Agent kann sie daher nicht per Token ausführen — er bittet den Benutzer, das Mitglied
+> in der Weboberfläche (Bereich „Teams") anzulegen. Die Freigabe *einzelner* Presets/Szenarien
+> läuft dagegen über deren `shares`-Feld (Abschnitt 3) und ist mit `manage_scenarios` möglich.
+
+### Vorgänge & API-Routen (Sitzung erforderlich)
+* Teammitglieder auflisten: `GET /api/profile/guests`
+* Teammitglied anlegen: `POST /api/profile/guests` (`{ "username", "email", "password" }`)
+* Teammitglied bearbeiten/entfernen: `POST /api/profile/guests/<id>`, `DELETE /api/profile/guests/<id>`
+* Geräte-Freigaben steuern: `POST /api/profile/guests/<id>/device-shares`
+* Einzelne Playbooks entziehen: `POST /api/profile/guests/<id>/revoked-playbooks`
+
+Zusätzlich werden Presets/Szenarien/Gerätegruppen über deren `shares`-Feld (Werte
+`strict`/`flexible` pro Mitglied) freigegeben (siehe Abschnitt 3).
+
+> Achtung: Es gibt **keine** Routen `GET /api/teams`, `POST /api/teams/invite` oder
+> `POST /api/permissions`. Verwende die `/api/profile/guests*`-Endpunkte.
+
+### Proaktive Rückfragen (Parameter-Gating)
+1. Benutzername, E-Mail-Adresse und ein Initialpasswort für das neue Mitglied.
+2. Freigabe-Umfang: Welche Geräte/Szenarien darf das Mitglied sehen/ausführen?
+
+### Interaktionsbeispiel
+* **User:** „Lade Max Mustermann in mein Team ein."
+* **Agent:** „Dafür brauche ich einen Benutzernamen, seine E-Mail und ein Initialpasswort.
+  Auf welche Geräte oder Szenarien soll Max Zugriff bekommen?"
+* **User:** „max / max@example.com / StartPass1, Zugriff nur auf 'web-servers'."
+* **Agent:** legt das Mitglied an (`POST /api/profile/guests`) und setzt die Freigabe
+  (`POST /api/profile/guests/<id>/device-shares`).
+
+---
+
+## 6. Clarification-Prompts (proaktives Erfragen fehlender Werte)
+
+Grundregel: **Niemals raten.** Fehlt ein Pflicht- oder sicherheitsrelevanter Wert (Ziel,
+Zugangsdaten, Ports, Freigabe-Umfang), fragt der Agent **vor** dem Schreib-/Ausführungs-
+aufruf gezielt nach — kurz, konkret, mit sinnvollem Standardwert als Vorschlag.
+
+Checkliste vor kritischen Aufrufen:
+* **Vor `POST /api/devices`:** Host, SSH-User, Auth-Art (Passwort/Key) vollständig?
+* **Vor `POST /api/run`:** genau eine Zielangabe vorhanden (`device_id` / `device_group_id`
+  / `custom_preset_id` / `scenario_id` / Ad-hoc)? Alle Pflicht-Variablen des Playbooks gesetzt?
+* **Vor Freigaben:** Umfang (welche Ressource, welches Mitglied, `strict`/`flexible`) geklärt?
+* **Bei mehreren Kandidaten** (mehrere Jobs/Geräte gleichen Namens): Auswahl erfragen statt annehmen.
+
+Beispiel-Formulierung:
+> „Bevor ich das Playbook starte: Auf welchem Gerät soll es laufen, und soll ich den
+> Standard-Port 25565 verwenden oder einen anderen?"

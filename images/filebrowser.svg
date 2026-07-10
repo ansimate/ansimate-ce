@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="100%" height="100%" fill="none"/>
+  <!-- Folder Back -->
+  <path d="M10,32 L48,32 L58,46 L118,46 A6,6 0 0 1 124,52 L124,110 A6,6 0 0 1 118,116 L10,116 A6,6 0 0 1 4,110 L4,38 A6,6 0 0 1 10,32 Z" fill="#005B94" />
+  <!-- Document inside -->
+  <rect x="24" y="20" width="80" height="70" rx="4" fill="#FFFFFF" opacity="0.9"/>
+  <line x1="36" y1="36" x2="92" y2="36" stroke="#B0BEC5" stroke-width="4" stroke-linecap="round"/>
+  <line x1="36" y1="48" x2="76" y2="48" stroke="#B0BEC5" stroke-width="4" stroke-linecap="round"/>
+  <line x1="36" y1="60" x2="84" y2="60" stroke="#B0BEC5" stroke-width="4" stroke-linecap="round"/>
+  <!-- Folder Front -->
+  <path d="M4,52 L124,52 L124,110 A6,6 0 0 1 118,116 L10,116 A6,6 0 0 1 4,110 Z" fill="#0073BC" />
+  <!-- Folder Tab detail -->
+  <path d="M4,52 L54,52 L62,64 L124,64 L124,110 A6,6 0 0 1 118,116 L10,116 A6,6 0 0 1 4,110 Z" fill="#29B6F6" opacity="0.85"/>
+  <!-- Globe / Network lines on Folder Front to represent Web Filebrowser -->
+  <circle cx="64" cy="84" r="18" fill="none" stroke="#FFFFFF" stroke-width="3.5"/>
+  <path d="M46,84 L82,84" stroke="#FFFFFF" stroke-width="3.5"/>
+  <path d="M64,66 L64,102" stroke="#FFFFFF" stroke-width="3.5"/>
+  <path d="M50,75 C58,78 70,78 78,75" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.7"/>
+  <path d="M50,93 C58,90 70,90 78,93" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.7"/>
+</svg>

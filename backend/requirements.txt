@@ -1,0 +1,13 @@
+fastapi>=0.100.0
+# CVE-2026-54283 (HIGH): starlette<1.3.1 ignoriert die request.form()-Limits fuer
+# application/x-www-form-urlencoded -> DoS. starlette kommt transitiv ueber fastapi; hier
+# explizit auf den Fix gepinnt.
+starlette>=1.3.1
+uvicorn>=0.22.0
+pydantic>=2.0
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
+bcrypt>=4.0
+cryptography>=41.0
+python-multipart
+

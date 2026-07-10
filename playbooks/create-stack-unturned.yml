@@ -1,0 +1,61 @@
+- name: deploy Unturned Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "unturned"
+    image: "imperialplugins/unturned:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          unturned:
+            restart: unless-stopped
+            container_name: unturned
+            image: imperialplugins/unturned:latest
+            ports:
+              - "27015:27015/udp"
+              - "27016:27016/udp"
+            environment:
+              - SERVER_NAME=unturned
+              - GAME_ID=1110390
+              - SERVER_TYPE=
+              - STEAM_USERNAME=anonymous
+              - STEAM_PASSWORD=
+              - STEAM_GUARD_TOKEN=
+              - STEAM_CMD_ARGS=
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/Unturned"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

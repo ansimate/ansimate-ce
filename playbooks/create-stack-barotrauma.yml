@@ -1,0 +1,63 @@
+- name: deploy Barotrauma Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "barotrauma"
+    image: "thijsvanloef/barotrauma-server-docker:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          barotrauma:
+            restart: unless-stopped
+            container_name: barotrauma
+            image: thijsvanloef/barotrauma-server-docker:latest
+            ports:
+              - "27015:27015/udp"
+              - "27016:27016/udp"
+            environment:
+              - SERVERNAME=Barotrauma Server
+              - PASSWORD=changeme
+              - OWNER_STEAMNAME=
+              - OWNER_STEAMID=
+              - MAX_PLAYERS=16
+              - PORT=27015
+              - QUERYPORT=27016
+              - PUBLICITY=false
+              - INSTALL_LUA=false
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/barotrauma"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

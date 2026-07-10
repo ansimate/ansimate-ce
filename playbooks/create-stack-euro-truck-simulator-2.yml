@@ -1,0 +1,63 @@
+- name: deploy Euro Truck Simulator 2 Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "euro-truck-simulator-2"
+    image: "lshallo/ets2-convoy-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          euro-truck-simulator-2:
+            restart: unless-stopped
+            container_name: euro-truck-simulator-2
+            image: lshallo/ets2-convoy-server:latest
+            ports:
+              - "27015:27015/udp"
+              - "27015:27015/tcp"
+              - "27016:27016/udp"
+              - "27016:27016/tcp"
+            environment:
+              - ETS_SERVER_NAME=Euro Truck Simulator 2 Docker Server
+              - ETS_SERVER_MAX_PLAYERS=8
+              - ETS_SERVER_PORT=27015
+              - ETS_SERVER_QUERY_PORT=27016
+              - ETS_SERVER_PASSWORD=
+              - ETS_SERVER_UPDATE_ON_START=true
+              - ETS_SERVER_LOGON_TOKEN=
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/.local/share/Euro Truck Simulator 2"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

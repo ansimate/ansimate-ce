@@ -1,0 +1,240 @@
+- name: create compose for mqtt
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "mqtt"
+    image: "eclipse-mosquitto"
+    #: konfigurierbar via Web-UI. Defaults erhalten das bisherige Verhalten
+    # (Auth aktiv, Port 1883, Benutzer = SSH-User) exakt.
+    mqtt_auth: "{{ (mqtt_enable_auth | default(true)) | bool }}"
+    mqtt_listen_port: "{{ mqtt_port | default('1883') }}"
+    mqtt_user: "{{ mqtt_username | default(ssh_user) }}"
+    mqtt_pass: "{{ mqtt_password | default(ansible_password) }}"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/mosquitto.conf' exists
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/mosquitto.conf"
+    register: is_config_present
+#---------------------------------------------------------------------------------------------
+  - name: "create {{base_dir}}/compose/{{stack}}/mosquitto.conf"
+    command: "touch {{base_dir}}/compose/{{stack}}/mosquitto.conf"
+    when: not is_config_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: write mosquitto default config
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/mosquitto.conf"
+      marker: "#<!-- mosquitto default -->"
+      content: |
+        # following two lines required for > v2.0
+        allow_anonymous true
+        listener {{ mqtt_listen_port }}
+        persistence true
+        persistence_location /mosquitto/data/
+        log_dest file /mosquitto/log/mosquitto.log
+    when: not is_config_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    become: true
+    become_method: sudo
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        networks:
+          local:
+            external: true
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            volumes:
+              - {{base_dir}}/compose/{{stack}}:/mosquitto/config
+              - {{base_dir}}/docker/{{stack}}:/mosquitto/data
+            ports:
+              - {{ mqtt_listen_port }}:{{ mqtt_listen_port }}
+            logging:
+              driver: "json-file"
+              options:
+                max-size: "1m"
+                max-file: "1"
+            labels:
+              - homepage.group=Backend
+              - homepage.name=Mosquitto
+              - homepage.icon=mqtt.png
+              - homepage.description=MQTT Broker
+              - traefik.enable=false
+            networks:
+              - local
+            environment:
+              - TZ={{timezone}}
+#---------------------------------------------------------------------------------------------
+  - name: "checking if '{{base_dir}}/compose/{{stack}}/passwd' is present"
+    become: true
+    become_method: sudo
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/passwd"
+    register: is_passwd_present
+    when: mqtt_auth | bool
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/passwd'"
+    become: true
+    become_method: sudo
+    command: "touch {{base_dir}}/compose/{{stack}}/passwd"
+    when: (mqtt_auth | bool) and not is_passwd_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: add mqtt user to passwd file
+    become: true
+    become_method: sudo
+    copy: content="{{mqtt_user}}:{{mqtt_pass}}" dest={{base_dir}}/compose/{{stack}}/passwd
+    when: (mqtt_auth | bool) and not is_passwd_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "setting permission on '{{base_dir}}/compose/{{stack}}/passwd'"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/compose/{{stack}}/passwd"
+      state: file
+      owner: "root"
+      mode: '0700'
+    when: (mqtt_auth | bool) and not is_passwd_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: run temporary mqtt docker
+    become: true
+    become_method: sudo
+    command: "docker run -d --rm --name mqtt_ansible_tmp -v {{base_dir}}/docker/{{stack}}/data:/mosquitto/data -v {{base_dir}}/compose/{{stack}}:/mosquitto/config eclipse-mosquitto"
+    when: mqtt_auth | bool
+#---------------------------------------------------------------------------------------------
+  - name: change owner of mqtt passwd file
+    become: true
+    become_method: sudo
+    command: "docker exec mqtt_ansible_tmp chown root:root /mosquitto/config/passwd"
+    ignore_errors: True
+    when: (mqtt_auth | bool) and not is_passwd_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: encrypting credentials with docker container
+    become: true
+    become_method: sudo
+    command: "docker exec mqtt_ansible_tmp mosquitto_passwd -U /mosquitto/config/passwd"
+    #ignore_errors: True
+    when: (mqtt_auth | bool) and not is_passwd_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: kill temporary mqtt docker
+    become: true
+    become_method: sudo
+    command: "docker kill mqtt_ansible_tmp"
+    when: mqtt_auth | bool
+#---------------------------------------------------------------------------------------------
+  - name: "checking if '{{base_dir}}/compose/{{stack}}/mosquitto.acl' is present"
+    become: true
+    become_method: sudo
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/mosquitto.acl"
+    register: is_acl_present
+    when: mqtt_auth | bool
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/mosquitto.acl'"
+    become: true
+    become_method: sudo
+    command: "touch {{base_dir}}/compose/{{stack}}/mosquitto.acl"
+    when: (mqtt_auth | bool) and not is_acl_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: add mqtt user to acl file
+    become: true
+    become_method: sudo
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/mosquitto.acl"
+      marker: "#<!-- {{mqtt_user}} -->"
+      content: |
+        user {{mqtt_user}}
+        topic readwrite #
+    when: (mqtt_auth | bool) and not is_acl_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "removing '{{base_dir}}/compose/{{stack}}/mosquitto.conf'"
+    become: true
+    become_method: sudo
+    command: "rm {{base_dir}}/compose/{{stack}}/mosquitto.conf"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/mosquitto.conf'"
+    become: true
+    become_method: sudo
+    command: "touch {{base_dir}}/compose/{{stack}}/mosquitto.conf"
+#---------------------------------------------------------------------------------------------
+  - name: write mosquitto-secure default config
+    become: true
+    become_method: sudo
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/mosquitto.conf"
+      marker: "#<!-- mosquitto default -->"
+      content: |
+        # following two lines required for > v2.0
+        password_file /mosquitto/config/passwd
+        allow_anonymous false
+        listener {{ mqtt_listen_port }}
+        persistence true
+        persistence_location /mosquitto/data/
+        log_dest file /mosquitto/log/mosquitto.log
+        acl_file /mosquitto/config/mosquitto.acl
+    when: mqtt_auth | bool
+#---------------------------------------------------------------------------------------------
+  - name: write mosquitto-anonymous config (Auth deaktiviert)
+    become: true
+    become_method: sudo
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/mosquitto.conf"
+      marker: "#<!-- mosquitto default -->"
+      content: |
+        # following two lines required for > v2.0
+        allow_anonymous true
+        listener {{ mqtt_listen_port }}
+        persistence true
+        persistence_location /mosquitto/data/
+        log_dest file /mosquitto/log/mosquitto.log
+    when: not (mqtt_auth | bool)
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

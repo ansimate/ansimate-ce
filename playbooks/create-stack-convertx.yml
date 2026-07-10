@@ -1,0 +1,123 @@
+- name: create compose for convertx
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "convertx"
+    image: "ghcr.io/c4illin/convertx:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  # ConvertX nutzt JWT_SECRET ?? randomUUID() (Nullish-Coalescing): ein LEERER String wuerde
+  # als Secret uebernommen (fälschbare Tokens / Login-Fehler) und NICHT auto-generiert. Daher:
+  # angegebenen Wert nutzen, sonst einmalig einen stabilen Wert generieren und persistieren.
+  - name: "generate + persist a stable JWT_SECRET (nur wenn keiner angegeben wurde)"
+    become: true
+    become_method: sudo
+    shell: 'umask 077; openssl rand -hex 32 > "{{base_dir}}/docker/{{stack}}/jwt_secret"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/jwt_secret"
+    when: not (convertx_jwt_secret | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted JWT_SECRET"
+    become: true
+    become_method: sudo
+    slurp:
+      src: "{{base_dir}}/docker/{{stack}}/jwt_secret"
+    register: _cvx_jwt
+    when: not (convertx_jwt_secret | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "set effective JWT_SECRET"
+    set_fact:
+      convertx_effective_jwt: "{{ convertx_jwt_secret if (convertx_jwt_secret | default('')) else (_cvx_jwt.content | b64decode | trim) }}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+              # Login ueber HTTP erlauben (Stacks laufen ueber den HTTP-Entrypoint, kein TLS).
+              - HTTP_ALLOWED=true
+              # Stabiles JWT-Secret: vom Nutzer angegeben ODER einmalig generiert+persistiert (s.o.).
+              - JWT_SECRET={{ convertx_effective_jwt }}
+            volumes:
+              # SQLite-DB + Konfiguration unter /app/data
+              - {{base_dir}}/docker/{{stack}}:/app/data
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Dateiverwaltung
+              - homepage.name=ConvertX
+              - homepage.icon=convertx.svg
+              - homepage.href=http://{{convertx_domain}}
+              - homepage.description=File Conversion
+              - "traefik.http.routers.convertx_http.rule=Host(`{{convertx_domain}}`)"
+              - traefik.http.routers.convertx_http.entrypoints=web
+              - traefik.http.services.convertx.loadbalancer.server.port=3000
+        {% else %}
+            ports:
+              - "{{convertx_port | default('3032')}}:3000"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

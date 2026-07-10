@@ -1,0 +1,62 @@
+- name: deploy V Rising Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "v-rising"
+    image: "trueosiris/vrising:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          v-rising:
+            restart: unless-stopped
+            container_name: v-rising
+            image: trueosiris/vrising:latest
+            ports:
+              - "9876:9876/udp"
+              - "9877:9877/udp"
+            environment:
+              - TZ=Europe/Berlin
+              - SERVERNAME=V Rising Server
+              - WORLDNAME=world1
+              - GAMEPORT=9876
+              - QUERYPORT=9877
+              - HOST_SETTINGS_Description=V Rising Server
+              - HOST_SETTINGS_Password=
+              - GAME_SETTINGS_GameModeType=PvE
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/mnt/vrising/persistentdata"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

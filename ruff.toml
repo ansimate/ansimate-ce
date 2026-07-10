@@ -1,0 +1,19 @@
+# : Ruff-Konfiguration fuer die CI-Lint-Stage.
+# Bewusst auf ECHTE Fehler beschraenkt (Fail-Fast), damit der Bestandscode nicht an reinen
+# Stilregeln scheitert: Syntaxfehler, undefinierte Namen, ungueltige Vergleiche etc.
+# Stil-/Import-Regeln koennen spaeter schrittweise aktiviert werden (dann als Warnung in der
+# Pipeline behandeln, nicht blockierend).
+target-version = "py311"
+line-length = 200
+
+[lint]
+# E9  = Syntaxfehler (IndentationError etc.)
+# F63 = ungueltige Vergleiche/Assertions
+# F7  = Syntax-naher Logikfehler (break/continue ausserhalb Schleife ...)
+# F82 = undefinierter Name in __all__
+# F821 = undefinierter Name (echter Bug)
+# F811 = Redefinition einer ungenutzten Funktion/Variable
+select = ["E9", "F63", "F7", "F82", "F821", "F811"]
+
+[lint.per-file-ignores]
+# Wegwerf-/Migrationsskripte hier ggf. ausnehmen.

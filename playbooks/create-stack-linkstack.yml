@@ -1,0 +1,86 @@
+- name: create compose for linkstack
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "linkstack"
+    image: "linkstackorg/linkstack:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        volumes:
+          linkstack_data:
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+            volumes:
+              # LinkStack laeuft als non-root 'apache' und backt die App beim Build nach
+              # /htdocs ein (/htdocs ist KEIN VOLUME im Image). Ein leeres Bind-Mount wuerde
+              # diesen Inhalt ueberdecken und die falschen Rechte setzen -> stattdessen ein
+              # Named Volume (Upstream-Empfehlung): Docker kopiert beim ersten Start den
+              # Image-Inhalt samt apache-Ownership in das Volume und persistiert DB/Uploads.
+              - linkstack_data:/htdocs
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Produktivität
+              - homepage.name=LinkStack
+              - homepage.icon=linkstack.svg
+              - homepage.href=http://{{linkstack_domain}}
+              - homepage.description=Bio-Link Portal
+              - "traefik.http.routers.linkstack_http.rule=Host(`{{linkstack_domain}}`)"
+              - traefik.http.routers.linkstack_http.entrypoints=web
+              - traefik.http.services.linkstack.loadbalancer.server.port=80
+        {% else %}
+            ports:
+              - "{{linkstack_port | default('8084')}}:80"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

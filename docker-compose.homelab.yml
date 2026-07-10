@@ -1,0 +1,172 @@
+# ============================================================================================
+# Ansimate – "Homelab"-Deployment-Variante
+# ============================================================================================
+# Fuer Nutzer mit BEREITS vorhandenem Reverse-Proxy (z. B. Traefik) in einem externen Docker-
+# Netz. Im Gegensatz zur "Full"-Variante (docker-compose.yml):
+#   - nutzt FERTIGE Public-Images (ansimate/ce-*) – baut NICHTS aus Source
+#   - bringt KEINEN eigenen Traefik / kein ACME mit – TLS macht dein bestehender Proxy
+#   - db / backend / docker-proxy haengen in einem INTERNEN (nicht nach aussen erreichbaren) Netz
+#   - nur das frontend haengt zusaetzlich im externen Proxy-Netz und wird dort per Labels publiziert
+#
+# Start:   docker compose -f docker-compose.homelab.yml up -d
+# Update:  docker compose -f docker-compose.homelab.yml pull && docker compose -f docker-compose.homelab.yml up -d
+#
+# .env (aus .env.example abgeleitet) – zusaetzlich zu den ueblichen Pflichtwerten relevant:
+#   PROXY_NETWORK       Name deines bestehenden externen Reverse-Proxy-Netzes (MUSS existieren).
+#   APP_DOMAIN          Host, unter dem dein Proxy die App veroeffentlicht (z. B. ansimate.home).
+#   TRAEFIK_ENTRYPOINT  Traefik-Entrypoint deines Proxys: "web" (HTTP) oder "websecure" (HTTPS).
+#   ANSIMATE_TAG        Image-Tag (Default "latest"; fuer Reproduzierbarkeit z. B. auf v0.1.0 pinnen).
+#   COOKIE_SECURE       Bei NUR-HTTP (kein TLS am Proxy) auf "false" setzen, sonst klappt das Login
+#                       nicht (Browser sendet den Secure-Session-Cookie nur ueber HTTPS).
+#
+# Playbooks: Die Standard-Free-Tier-Playbooks sind ins Image gebacken und auch OHNE Mount im
+# Katalog sichtbar. Der ./playbooks-Mount + HOST_PLAYBOOKS_DIR sind daher AUSKOMMENTIERT -> nur
+# einkommentieren, wenn du eigene Playbooks ablegen oder Playbooks ausfuehren willst.
+#
+# Hinweis: Das `backend`-Netz braucht AUSGEHENDEN Netzzugang (Egress) – die Ausfuehrungs-Sandbox
+# muss die Ziel-Systeme der Playbooks erreichen (SSH), und SMTP/Passwort-Reset-Mails gehen
+# ebenfalls nach draussen. Daher KEIN `internal: true`. Eingehend ist nichts exponiert
+# (db/backend/docker-proxy haben keine veroeffentlichten Ports; erreichbar nur intern + ueber den Proxy).
+# ============================================================================================
+
+networks:
+  # Dein bestehendes externes Reverse-Proxy-Netz (z. B. das Traefik-Netz). MUSS bereits existieren.
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK:-proxy}
+  # Internes Stack-Netz fuer db/backend/docker-proxy (kein veroeffentlichter Port -> von aussen
+  # nicht erreichbar). KEIN `internal: true`: das Backend/die Sandbox brauchen Egress zu den
+  # Ziel-Systemen (SSH) und fuer SMTP.
+  backend:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ansimate_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ansimate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+      POSTGRES_DB: ${POSTGRES_DB:-ansimate}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ansimate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+
+  # : Docker-Socket-Proxy fuer den Sandbox-Start des Backends. Gibt nur Containers
+  # (create/start/wait/remove/kill) + Images (inspect) frei; alles andere -> 403. Host-Socket
+  # ist read-only gemountet, kein Port-Mapping zum Host (nur intern erreichbar).
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.1.1
+    container_name: ansimate_docker_proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - POST=1
+      - VERSION=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - backend
+
+  backend:
+    image: ansimate/ce-backend:${ANSIMATE_TAG:-latest}
+    container_name: ansimate_backend
+    restart: unless-stopped
+    volumes:
+      # OPTIONAL: Die Free-Tier-Playbooks sind bereits ins Image gebacken und erscheinen auch
+      # OHNE diesen Mount im Katalog. Nur wenn du EIGENE Playbooks ablegen oder Playbooks
+      # AUSFUEHREN willst (gehaertete Sandbox), den Mount + HOST_PLAYBOOKS_DIR (unten) aktivieren
+      # und ein beschreibbares Host-Verzeichnis bereitstellen:
+      # - ./playbooks:/playbooks
+      - ./logs:/logs
+    depends_on:
+      db:
+        condition: service_healthy
+      docker-proxy:
+        condition: service_started
+    environment:
+      #: Host-Key-Pruefung aktiv (TOFU); ANSIBLE_HOST_KEY_CHECKING=True verhindert, dass
+      # ansible StrictHostKeyChecking=no injiziert.
+      - ANSIBLE_HOST_KEY_CHECKING=True
+      - LOG_HISTORY=true
+      - TZ=${TZ:-Europe/Berlin}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ansimate}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ansimate}
+      # B7: fail-closed ohne Key – Verschluesselung der gespeicherten Geraete-Credentials.
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY muss in .env gesetzt sein}
+      - SECRET_KEY=${SECRET_KEY:-}
+      # B2: ABSOLUTER Host-Pfad des ./playbooks-Ordners – NUR noetig, wenn der ./playbooks-Mount
+      # oben aktiviert ist (Playbooks ausfuehren via gehaerteter Sandbox). Dann einkommentieren
+      # UND HOST_PLAYBOOKS_DIR in der .env setzen.
+      # - HOST_PLAYBOOKS_DIR=${HOST_PLAYBOOKS_DIR:?HOST_PLAYBOOKS_DIR (absoluter Host-Pfad zu ./playbooks) muss in .env gesetzt sein}
+      - APP_BASE_URL=${APP_BASE_URL:-http://localhost}
+      # SMTP optional – im internen Netz nur nutzbar, wenn ein Relay erreichbar ist (s. Header).
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER=${SMTP_SENDER:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      - IP_BLACKLIST=${IP_BLACKLIST:-}
+      - IP_BAN_DURATION=${IP_BAN_DURATION:-86400}
+      - RATE_LIMIT_GLOBAL_IP=${RATE_LIMIT_GLOBAL_IP:-60}
+      - RATE_LIMIT_USER_IP=${RATE_LIMIT_USER_IP:-120}
+      - RATE_LIMIT_WHITELIST=${RATE_LIMIT_WHITELIST:-127.0.0.1,::1}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD muss in .env gesetzt sein}
+      # Hinweis: OTP/CAPTCHA/E-Mail-Verifikation sind in der Community-Edition ohne Funktion
+      # (keine Selbstregistrierung/2FA) und daher bewusst NICHT gesetzt.
+      # Bei NUR-HTTP (kein TLS am Proxy) in der .env auf false setzen – sonst kein Login.
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - ENABLE_API_DOCS=${ENABLE_API_DOCS:-true}
+      - ALLOW_ANONYMOUS_RUN=${ALLOW_ANONYMOUS_RUN:-true}
+      - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-2}
+      # : Sandbox spricht den Docker-Daemon ausschliesslich ueber den Socket-Proxy an.
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    healthcheck:
+      # CVE-Reduktion: Healthcheck ueber Python (curl ist nicht im Image, Python schon).
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/timezone', timeout=5)\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    labels:
+      # Backend ist NUR intern (ueber das Frontend-nginx) erreichbar – nicht am Proxy veroeffentlichen.
+      - "traefik.enable=false"
+    networks:
+      - backend
+
+  frontend:
+    image: ansimate/ce-frontend:${ANSIMATE_TAG:-latest}
+    container_name: ansimate_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      # 127.0.0.1 statt localhost (localhost -> ::1; nginx hoert nur auf IPv4:80).
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - backend
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # Pflicht bei Multi-Netz-Containern: sagt Traefik, ueber WELCHES Netz es das Frontend erreicht.
+      - "traefik.docker.network=${PROXY_NETWORK:-proxy}"
+      - "traefik.http.routers.ansimate.rule=Host(`${APP_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.ansimate.entrypoints=${TRAEFIK_ENTRYPOINT:-web}"
+      - "traefik.http.services.ansimate.loadbalancer.server.port=80"
+      # Hinweis: Das Frontend-nginx setzt bereits X-Frame-Options/nosniff/CSP. HSTS/TLS ist
+      # Aufgabe deines vorgelagerten Proxys (dort konfigurieren, falls TLS terminiert wird).
+
+volumes:
+  pgdata:

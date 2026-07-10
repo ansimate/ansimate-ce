@@ -1,0 +1,38 @@
+- name: install zerotier
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: ensure curl and gnupg are present
+    become: true
+    become_method: sudo
+    apt:
+      name:
+        - curl
+        - gnupg
+      state: present
+      update_cache: yes
+#---------------------------------------------------------------------------------------------
+  - name: import ZeroTier signing key (remote-user keyring)
+    shell: "curl -fsSL 'https://raw.githubusercontent.com/zerotier/ZeroTierOne/main/doc/contact%40zerotier.com.gpg' | gpg --import"
+    args:
+      executable: /bin/bash
+#---------------------------------------------------------------------------------------------
+  - name: download and GPG-verify ZeroTier installer
+    # 'gpg' gibt den clearsigned Installer nur bei gueltiger Signatur aus (sonst exit != 0).
+    shell: |
+      set -o pipefail
+      curl -fsSL 'https://install.zerotier.com/' | gpg > /tmp/zerotier_install.sh
+    args:
+      executable: /bin/bash
+#---------------------------------------------------------------------------------------------
+  - name: run verified ZeroTier installer
+    become: true
+    become_method: sudo
+    command: "bash /tmp/zerotier_install.sh"
+#---------------------------------------------------------------------------------------------
+  - name: remove installer
+    file:
+      path: /tmp/zerotier_install.sh
+      state: absent

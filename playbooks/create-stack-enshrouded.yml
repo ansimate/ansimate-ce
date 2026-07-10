@@ -1,0 +1,60 @@
+- name: deploy Enshrouded Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "enshrouded"
+    image: "sknnr/enshrouded-dedicated-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          enshrouded:
+            restart: unless-stopped
+            container_name: enshrouded
+            image: sknnr/enshrouded-dedicated-server:latest
+            ports:
+              - "15637:15637/udp"
+              - "27015:27015/udp"
+            environment:
+              - SERVER_NAME=Enshrouded Server
+              - SERVER_PASSWORD=AdminPleaseChangeMe
+              - SERVER_SLOTS=16
+              - PORT=15637
+              - STEAM_PORT=27015
+              - SERVER_IP=0.0.0.0
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/enshrouded/savegame"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

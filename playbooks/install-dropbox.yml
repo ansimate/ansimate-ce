@@ -1,0 +1,12 @@
+- name: install Dropbox (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install Dropbox (com.dropbox.Client) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub com.dropbox.Client"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

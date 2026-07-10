@@ -1,0 +1,114 @@
+- name: create compose for photoprism
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "photoprism"
+    image: "photoprism/photoprism:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}/storage' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/storage"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "ensuring PhotoPrism originals directory exists (owned by ssh_user)"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{photoprism_originals | default(base_dir + '/photos')}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            security_opt:
+              - seccomp:unconfined
+              - apparmor:unconfined
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+              - PHOTOPRISM_ADMIN_PASSWORD={{photoprism_admin_password | default('changeme')}}
+              - PHOTOPRISM_DATABASE_DRIVER=sqlite
+              - PHOTOPRISM_HTTP_PORT=2342
+        {% if photoprism_domain | default('') %}
+              - PHOTOPRISM_SITE_URL=http://{{photoprism_domain}}/
+        {% endif %}
+            volumes:
+              # Original-Fotos (read-only) + Index/Cache-Storage (eingebettetes SQLite)
+              - {{photoprism_originals | default(base_dir + '/photos')}}:/photoprism/originals:ro
+              - {{base_dir}}/docker/{{stack}}/storage:/photoprism/storage
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Multimedia
+              - homepage.name=PhotoPrism
+              - homepage.icon=photoprism.svg
+              - homepage.href=http://{{photoprism_domain}}
+              - homepage.description=Photo Management
+              - "traefik.http.routers.photoprism_http.rule=Host(`{{photoprism_domain}}`)"
+              - traefik.http.routers.photoprism_http.entrypoints=web
+              - traefik.http.services.photoprism.loadbalancer.server.port=2342
+        {% else %}
+            ports:
+              - "{{photoprism_port | default('2342')}}:2342"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

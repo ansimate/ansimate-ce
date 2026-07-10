@@ -1,0 +1,60 @@
+- name: deploy Sons of the Forest Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "sons-of-the-forest"
+    image: "jammsen/sons-of-the-forest-dedicated-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          sons-of-the-forest:
+            restart: unless-stopped
+            container_name: sons-of-the-forest
+            image: jammsen/sons-of-the-forest-dedicated-server:latest
+            ports:
+              - "8766:8766/udp"
+              - "27016:27016/udp"
+              - "9700:9700/udp"
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - ALWAYS_UPDATE_ON_START=true
+              - SKIP_NETWORK_ACCESSIBILITY_TEST=true
+              - FILTER_SHADER_AND_MESH_AND_WINE_DEBUG=true
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/sonsoftheforest"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

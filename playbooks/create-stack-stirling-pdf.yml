@@ -1,0 +1,103 @@
+- name: create compose for stirling-pdf
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "stirling-pdf"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating Stirling-PDF configs + logs directories"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/{{item}}"
+      state: directory
+      owner: "{{ssh_user}}"
+    loop:
+      - configs
+      - logs
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: stirlingtools/stirling-pdf:latest
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+              # Login standardmaessig AUS; auf 'true' setzen erzeugt Initial-Admin admin/stirling
+              # (Passwort beim ersten Login aendern). /configs persistiert die Nutzer-DB.
+              - SECURITY_ENABLELOGIN={{stirling_enable_login | default('false')}}
+              - SYSTEM_DEFAULTLOCALE={{stirling_locale | default('de-DE')}}
+              - LANGS={{stirling_langs | default('de_DE,en_GB')}}
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/configs:/configs
+              - {{base_dir}}/docker/{{stack}}/logs:/logs
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Dateiverwaltung
+              - homepage.name=Stirling-PDF
+              - homepage.icon=stirling-pdf.svg
+              - homepage.href=http://{{stirling_domain}}
+              - homepage.description=PDF Toolkit
+              - "traefik.http.routers.stirlingpdf_http.rule=Host(`{{stirling_domain}}`)"
+              - traefik.http.routers.stirlingpdf_http.entrypoints=web
+              - traefik.http.services.stirlingpdf.loadbalancer.server.port=8080
+        {% else %}
+            ports:
+              - "{{stirling_port | default('8090')}}:8080"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

@@ -1,0 +1,12 @@
+- name: install Google Chrome (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install Google Chrome (com.google.Chrome) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub com.google.Chrome"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

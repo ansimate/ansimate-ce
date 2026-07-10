@@ -1,0 +1,205 @@
+- name: create compose for dashboard
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "dashboard"
+    image: "ghcr.io/gethomepage/homepage:latest"
+    image2: "ghcr.io/tecnativa/docker-socket-proxy:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            image: {{image}}
+            container_name: {{stack}}
+            volumes:
+              - {{base_dir}}/compose/{{stack}}:/app/config # Make sure your local config directory exists
+              - /var/run/docker.sock:/var/run/docker.sock:ro # optional, for docker integrations
+            restart: unless-stopped
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            environment:
+              - HOMEPAGE_ALLOWED_HOSTS={{dashboard_domain}}
+            labels:
+              - traefik.http.routers.dash_http.rule=Host(`{{dashboard_domain}}`)
+              - traefik.http.routers.dash_http.entrypoints=web
+              - traefik.http.routers.dash_http.priority=1
+        {% else %}
+            ports:
+              - "{{dashboard_port | default('80')}}:3000"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- dockerproxy -->"
+      content: |
+        # dummy spacer
+          dockerproxy:
+            restart: unless-stopped
+            container_name: dockerproxy
+            image: {{image2}}
+            volumes:
+                - /var/run/docker.sock:/var/run/docker.sock:ro # Mounted as read-only
+            ports:
+                - 172.17.0.1:2375:2375
+            environment:
+                - CONTAINERS=1 # Allow access to viewing containers
+                - POST=0 # Disallow any POST operations (effectively read-only)
+            networks:
+              - local
+#---------------------------------------------------------------------------------------------
+#  - name: "enable ssl certificate resolver (if public domain)"
+#    command: "sed -i 's%#- traefik.http.routers.dash.tls.certresolver=%- traefik.http.routers.dash.tls.certresolver=%g' compose.yml"
+#    args:
+#      chdir: "{{base_dir}}/compose/{{stack}}"
+#    when: domain_is_public
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/settings.yaml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/settings.yaml"
+    register: is_settings_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/settings.yaml' -> '{{base_dir}}/compose/{{stack}}/settings.yaml.bak'
+    command: "mv settings.yaml settings.yaml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_settings_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/settings.yaml'
+    command: "touch {{base_dir}}/compose/{{stack}}/settings.yaml"
+#---------------------------------------------------------------------------------------------
+  - name: write to "{{base_dir}}/compose/{{stack}}/settings.yaml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/settings.yaml"
+      marker: "#<!-- ansible -->"
+      content: |
+        # For configuration options and examples, please see:
+        # https://gethomepage.dev/latest/configs/settings
+        title: Homelab Dashboard
+        theme: dark
+        layout:
+          - Main:
+              Vaultwarden:
+              Portainer:
+              nodeRED:
+              Grafana:
+          - Multimedia:
+          - Networking:
+              PiHole:
+          - Backend:
+              style: row
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/docker.yaml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/docker.yaml"
+    register: is_docker_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/docker.yaml' -> '{{base_dir}}/compose/{{stack}}/docker.yaml.bak'
+    command: "mv docker.yaml docker.yaml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_docker_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/docker.yaml'
+    command: "touch {{base_dir}}/compose/{{stack}}/docker.yaml"
+#---------------------------------------------------------------------------------------------
+  - name: write to "{{base_dir}}/compose/{{stack}}/docker.yaml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/docker.yaml"
+      marker: "#<!-- ansible -->"
+      content: |
+        # For configuration options and examples, please see:
+        # https://gethomepage.dev/configs/docker/
+         my-docker:
+           host: 172.17.0.1
+           port: 2375
+        # my-docker:
+        #   socket: /var/run/docker.sock
+
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/widgets.yaml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/widgets.yaml"
+    register: is_widgets_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/widgets.yaml' -> '{{base_dir}}/compose/{{stack}}/widgets.yaml.bak'
+    command: "mv widgets.yaml widgets.yaml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_widgets_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/widgets.yaml'
+    command: "touch {{base_dir}}/compose/{{stack}}/widgets.yaml"
+#---------------------------------------------------------------------------------------------
+  - name: write to "{{base_dir}}/compose/{{stack}}/widgets.yaml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/widgets.yaml"
+      marker: "#<!-- ansible -->"
+      content: |
+        # For configuration options and examples, please see:
+        # https://gethomepage.dev/configs/info-widgets/
+        - resources:
+            cpu: true
+            memory: true
+            disk: /
+        - search:
+            provider: custom
+            url: http://{{ searxng_domain | default('search.local') }}/search?q=
+            target: _blank
+            #suggestionUrl: https://ac.ecosia.org/autocomplete?type=list&q= # Optional
+            #showSearchSuggestions: true # Optional
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

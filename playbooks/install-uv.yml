@@ -1,0 +1,20 @@
+- name: install uv (Python package manager)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: ensure curl is installed
+    become: true
+    become_method: sudo
+    apt:
+      name: curl
+      state: present
+      update_cache: yes
+#---------------------------------------------------------------------------------------------
+  - name: install uv via the official Astral install script (system-wide)
+    become: true
+    become_method: sudo
+    shell: "curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh"
+    args:
+      creates: /usr/local/bin/uv

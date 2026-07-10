@@ -1,0 +1,160 @@
+- name: create compose for traefik
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "traefik"
+    image: "traefik:v3.6"
+    image2: "traefik/whoami"
+    #: konfigurierbar via Web-UI. Defaults erhalten das bisherige Verhalten exakt
+    # (Dashboard aktiv unter traefik_domain, Basic-Auth aktiv).
+    traefik_dashboard: "{{ (traefik_enable_dashboard | default(true)) | bool }}"
+    traefik_dash_host: "{{ traefik_dashboard_subdomain | default(traefik_domain) }}"
+    traefik_dash_auth: "{{ (traefik_dashboard_basicauth_enabled | default(true)) | bool }}"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: ensure apache2-utils is at the latest version
+    become: true
+    become_method: sudo
+    apt:
+      name: apache2-utils
+      state: latest
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/config.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/config.yml"
+    register: is_config_present
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/config.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/config.yml"
+    when: not is_config_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: generate htpasswd based on ssh credentials
+    command: "htpasswd -in {{ssh_user}}"
+    args:
+      stdin: "{{ansible_password}}"
+    register: bauth_passwd
+    no_log: true
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        networks:
+          local:
+            external: true
+        services:
+          {{stack}}:
+            image: {{image}}
+            container_name: {{stack}}
+            restart: unless-stopped
+            environment:
+              - TZ={{timezone}}
+            command:
+        {% if traefik_dashboard %}
+              - --api.insecure=true
+        {% endif %}
+              - --providers.docker
+              - --entrypoints.web.address=:80
+              - --entrypoints.websecure.address=:443
+              - --providers.file.directory=/etc/traefik/dynamic_conf
+            ports:
+              - "80:80"
+              - "443:443"
+        {% if traefik_dashboard %}
+              - "8080:8080"
+        {% endif %}
+            volumes:
+              - /var/run/docker.sock:/var/run/docker.sock
+              - {{base_dir}}/compose/{{stack}}/config.yml:/etc/traefik/dynamic_conf/conf.yml:ro
+              - {{base_dir}}/docker/{{stack}}/logs:/logs
+            logging:
+              driver: "json-file"
+              options:
+                max-size: "1m"
+                max-file: "1"
+            networks:
+              - local
+            labels:
+              - homepage.name=Traefik
+        {% if traefik_dashboard %}
+              - homepage.icon=http://{{traefik_dash_host}}/static/traefik.png
+              - homepage.href=http://{{traefik_dash_host}}
+              - traefik.http.services.proxy.loadbalancer.server.port=8080
+              - traefik.http.routers.proxy.entrypoints=web
+              - traefik.http.routers.proxy.rule=Host(`{{traefik_dash_host}}`)
+        {% if traefik_dash_auth %}
+              - traefik.http.routers.proxy.middlewares=bauth
+              - traefik.http.middlewares.bauth.basicauth.users={{ssh_user}}:{{bauth_passwd.stdout | replace('$','$$')}}
+        {% endif %}
+        {% endif %}
+              - traefik.http.middlewares.https_redirect.redirectscheme.scheme=https
+              - traefik.http.middlewares.https_redirect.redirectscheme.permanent=true
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- whoami -->"
+      content: |
+        # dummy spacer
+          whoami:
+            image: {{image2}}
+            restart: unless-stopped
+            labels:
+              - "traefik.http.routers.whoami.rule=Host(`whoami.docker.localhost`)"
+            networks:
+              - local
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

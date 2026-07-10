@@ -1,0 +1,61 @@
+- name: deploy Valheim Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "valheim"
+    image: "lloesche/valheim-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          valheim:
+            restart: unless-stopped
+            container_name: valheim
+            image: lloesche/valheim-server:latest
+            ports:
+              - "2456-2458:2456-2458/udp"
+            environment:
+              - SERVER_NAME=Valheim Server
+              - WORLD_NAME=Dedicated
+              - SERVER_PASS=changeme
+              - SERVER_PORT=2456
+              - SERVER_PUBLIC=true
+              - BACKUPS=true
+              - BACKUPS_CRON=5 * * * *
+              - TZ=Europe/Berlin
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/config"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

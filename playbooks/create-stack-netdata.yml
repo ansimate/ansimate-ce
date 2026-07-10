@@ -1,0 +1,114 @@
+- name: create compose for netdata
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "netdata"
+    image: "netdata/netdata:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating Netdata config/lib/cache directories"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/{{item}}"
+      state: directory
+      owner: "{{ssh_user}}"
+    loop:
+      - config
+      - lib
+      - cache
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            pid: host
+            cap_add:
+              - SYS_PTRACE
+            security_opt:
+              - apparmor:unconfined
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+            volumes:
+              # Persistente Konfiguration/Datenbank
+              - {{base_dir}}/docker/{{stack}}/config:/etc/netdata
+              - {{base_dir}}/docker/{{stack}}/lib:/var/lib/netdata
+              - {{base_dir}}/docker/{{stack}}/cache:/var/cache/netdata
+              # Read-only Host-Einblick fuer System-Metriken
+              - /etc/passwd:/host/etc/passwd:ro
+              - /etc/group:/host/etc/group:ro
+              - /proc:/host/proc:ro
+              - /sys:/host/sys:ro
+              - /etc/os-release:/host/etc/os-release:ro
+              - /var/run/docker.sock:/var/run/docker.sock:ro
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=System
+              - homepage.name=Netdata
+              - homepage.icon=netdata.svg
+              - homepage.href=http://{{netdata_domain}}
+              - homepage.description=System Monitoring
+              - "traefik.http.routers.netdata_http.rule=Host(`{{netdata_domain}}`)"
+              - traefik.http.routers.netdata_http.entrypoints=web
+              - traefik.http.services.netdata.loadbalancer.server.port=19999
+        {% else %}
+            ports:
+              - "{{netdata_port | default('19999')}}:19999"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

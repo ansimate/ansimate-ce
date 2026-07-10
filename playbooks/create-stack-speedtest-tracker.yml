@@ -1,0 +1,127 @@
+- name: create compose for speedtest-tracker
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "speedtest-tracker"
+    image: "lscr.io/linuxserver/speedtest-tracker:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  # APP_KEY (Laravel) verschluesselt Sessions/sensible Werte. Ein leerer Key wuerde bei jedem
+  # Neustart neu erzeugt -> Datenverlust. Daher: vom Nutzer angegebenen Key nutzen, sonst einmalig
+  # einen stabilen Key generieren und persistieren (wird bei Folgelaeufen wiederverwendet).
+  - name: "generate + persist a stable APP_KEY (nur wenn keiner angegeben wurde)"
+    become: true
+    become_method: sudo
+    shell: 'umask 077; echo "base64:$(openssl rand -base64 32)" > "{{base_dir}}/docker/{{stack}}/app_key"'
+    args:
+      creates: "{{base_dir}}/docker/{{stack}}/app_key"
+    when: not (speedtest_tracker_app_key | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "read persisted APP_KEY"
+    become: true
+    become_method: sudo
+    slurp:
+      src: "{{base_dir}}/docker/{{stack}}/app_key"
+    register: _stk_appkey
+    when: not (speedtest_tracker_app_key | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "set effective APP_KEY"
+    set_fact:
+      speedtest_effective_app_key: "{{ speedtest_tracker_app_key if (speedtest_tracker_app_key | default('')) else (_stk_appkey.content | b64decode | trim) }}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ={{timezone | default('Europe/Berlin')}}
+              - DB_CONNECTION=sqlite
+              # Stabiler APP_KEY: vom Nutzer angegeben ODER einmalig generiert+persistiert (s.o.).
+              - APP_KEY={{ speedtest_effective_app_key }}
+        {% if speedtest_tracker_domain | default('') %}
+              - APP_URL=http://{{speedtest_tracker_domain}}
+        {% endif %}
+            volumes:
+              # Konfiguration + SQLite-DB unter /config
+              - {{base_dir}}/docker/{{stack}}:/config
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Netzwerk Sicherheit
+              - homepage.name=Speedtest Tracker
+              - homepage.icon=speedtest-tracker.svg
+              - homepage.href=http://{{speedtest_tracker_domain}}
+              - homepage.description=Internet Speed Monitoring
+              - "traefik.http.routers.speedtest_tracker_http.rule=Host(`{{speedtest_tracker_domain}}`)"
+              - traefik.http.routers.speedtest_tracker_http.entrypoints=web
+              - traefik.http.services.speedtest_tracker.loadbalancer.server.port=80
+        {% else %}
+            ports:
+              - "{{speedtest_tracker_port | default('8094')}}:80"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

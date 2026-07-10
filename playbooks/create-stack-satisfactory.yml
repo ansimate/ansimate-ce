@@ -1,0 +1,63 @@
+- name: deploy Satisfactory Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "satisfactory"
+    image: "wolveix/satisfactory-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          satisfactory:
+            restart: unless-stopped
+            container_name: satisfactory
+            image: wolveix/satisfactory-server:latest
+            ports:
+              - "7777:7777/tcp"
+              - "7777:7777/udp"
+              - "8888:8888/tcp"
+            environment:
+              - MAXPLAYERS=4
+              - PGID=1000
+              - PUID=1000
+              - SERVERGAMEPORT=7777
+              - SERVERMESSAGINGPORT=8888
+              - AUTOSAVENUM=5
+              - STEAMBETA=false
+              - SKIPUPDATE=false
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/config"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

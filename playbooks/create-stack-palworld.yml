@@ -1,0 +1,70 @@
+- name: deploy Palworld Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "palworld"
+    image: "thijsvanloef/palworld-server-docker:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          palworld:
+            restart: unless-stopped
+            container_name: palworld
+            image: thijsvanloef/palworld-server-docker:latest
+            ports:
+              - "8211:8211/udp"
+              - "27015:27015/udp"
+              - "8212:8212/tcp"
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - PORT=8211
+              - PLAYERS=32
+              - MULTITHREADING=true
+              - REST_API_ENABLED=true
+              - REST_API_PORT=8212
+              - UPDATE_ON_BOOT=true
+              - BACKUP_ENABLED=true
+              - TZ=UTC
+              - SERVER_NAME=Palworld Server
+              - SERVER_DESCRIPTION=Palworld Server
+              - SERVER_PASSWORD=changeme
+              - ADMIN_PASSWORD=AdminPleaseChangeMe
+              - COMMUNITY=false
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/palworld/"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

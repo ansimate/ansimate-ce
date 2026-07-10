@@ -1,0 +1,57 @@
+# Logs and runtime jobs history
+logs/
+playbooks/logs/
+/tmp/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploaded playbooks and temp playbook runs
+playbooks/custom/
+playbooks/tmp/
+
+# Traefik ACME storage
+letsencrypt/
+
+# Graphify: lokaler Wissensgraph-Output ist ephemer und wird NICHT committet.
+# Versioniert ist nur die geteilte Baseline docs/graphify.zip (per ./graphify_rebuild.sh).
+graphify-out/
+graphify-out.bak/
+
+# GoBD/GDPdU: in backend/gdpdu/ werden zur Laufzeit Steuerexport-Testdaten erzeugt.
+# Diese duerfen NICHT versioniert werden; einzig das statische DTD-Asset bleibt getrackt.
+backend/gdpdu/*
+!backend/gdpdu/gdpdu-01-08-2002.dtd
+
+# Community-Export-/Build-Artefakte (generiert via scripts/community-export.sh) - NICHT committen.
+/build/
+
+
+
+# Lokale Secrets / Umgebung
+.env
+*.env
+!.env.example
+
+# Branding: branding/ ist die committete, funktionsfaehige Standard-Vorlage.
+# Die Standard-Assets (config.yml, Stylesheet, Logo, Favicon, Banner, Rechtstext-Vorlagen)
+# werden getrackt. Per `node apply_preset.js <preset>` oder deploymentspezifisch ergaenzte
+# Dateien (z.B. eigene favicon.ico, eigene Rechtstexte) bleiben ungetrackt.
+/branding/*
+!/branding/README.md
+!/branding/config.yml
+!/branding/config.yml.example
+!/branding/style.css
+!/branding/logo.svg
+!/branding/favicon.svg
+!/branding/banner.svg
+!/branding/impressum.txt
+!/branding/agb.txt
+!/branding/dsgvo.txt

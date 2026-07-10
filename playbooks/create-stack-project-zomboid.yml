@@ -1,0 +1,74 @@
+- name: deploy Project Zomboid Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "project-zomboid"
+    image: "renegademaster/zomboid-dedicated-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          project-zomboid:
+            restart: unless-stopped
+            container_name: project-zomboid
+            image: renegademaster/zomboid-dedicated-server:latest
+            ports:
+              - "16261:16261/udp"
+              - "16262:16262/udp"
+              - "27015:27015/tcp"
+            environment:
+              - SERVER_NAME=ZomboidServer
+              - ADMIN_USERNAME=superuser
+              - ADMIN_PASSWORD=AdminPleaseChangeMe
+              - SERVER_PASSWORD=
+              - RCON_PASSWORD=changeme
+              - RCON_PORT=27015
+              - DEFAULT_PORT=16261
+              - UDP_PORT=16262
+              - MAX_PLAYERS=32
+              - MAX_RAM=4096m
+              - MAP_NAMES=Muldraugh, KY
+              - PAUSE_ON_EMPTY=true
+              - PUBLIC_SERVER=true
+              - AUTOSAVE_INTERVAL=15
+              - GAME_VERSION=public
+              - USE_STEAM=true
+              - STEAM_VAC=true
+              - BIND_IP=0.0.0.0
+              - TZ=UTC
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/Zomboid"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

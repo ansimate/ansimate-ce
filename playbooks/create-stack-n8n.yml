@@ -1,0 +1,108 @@
+- name: create compose for n8n
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "n8n"
+    image: "docker.n8n.io/n8nio/n8n:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - GENERIC_TIMEZONE={{timezone | default('Europe/Berlin')}}
+              - TZ={{timezone | default('Europe/Berlin')}}
+              # n8n verweigert sonst den Login ueber HTTP (Default N8N_SECURE_COOKIE=true
+              # erlaubt das Auth-Cookie nur ueber HTTPS/localhost). Die Stacks laufen hier
+              # ueber den HTTP-Entrypoint -> Secure-Cookie deaktivieren, damit der Editor laedt.
+              - N8N_SECURE_COOKIE=false
+              # Persistenter Encryption-Key fuer gespeicherte Credentials. Leer lassen, dann
+              # erzeugt n8n beim ersten Start selbst einen und legt ihn im Volume ab.
+              - N8N_ENCRYPTION_KEY={{n8n_encryption_key | default('')}}
+        {% if n8n_domain | default('') %}
+              - N8N_HOST={{n8n_domain}}
+              - WEBHOOK_URL=http://{{n8n_domain}}/
+        {% endif %}
+            volumes:
+              # SQLite-DB, Encryption-Key und Workflows unter /home/node/.n8n (User 'node', uid 1000)
+              - {{base_dir}}/docker/{{stack}}:/home/node/.n8n
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Entwicklung
+              - homepage.name=n8n
+              - homepage.icon=n8n.svg
+              - homepage.href=http://{{n8n_domain}}
+              - homepage.description=Workflow Automation
+              - "traefik.http.routers.n8n_http.rule=Host(`{{n8n_domain}}`)"
+              - traefik.http.routers.n8n_http.entrypoints=web
+              - traefik.http.services.n8n.loadbalancer.server.port=5678
+        {% else %}
+            ports:
+              - "{{n8n_port | default('5678')}}:5678"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

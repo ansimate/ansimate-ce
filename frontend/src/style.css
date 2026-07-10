@@ -1,0 +1,3402 @@
+/* Material Design 3 Dark Theme Color Tokens */
+:root {
+    --md-sys-color-primary: #D0BCFF;
+    --md-sys-color-on-primary: #381E72;
+    --md-sys-color-primary-container: #4F378B;
+    --md-sys-color-on-primary-container: #EADDFF;
+    --md-sys-color-secondary-container: #4A4458;
+    --md-sys-color-on-secondary-container: #E8DEF8;
+    --md-sys-color-background: #0F0D13;
+    --md-sys-color-on-background: #E6E1E5;
+    --md-sys-color-surface: #141218;
+    --md-sys-color-on-surface: #E6E1E5;
+    --md-sys-color-surface-container-low: #1D1B20;
+    --md-sys-color-surface-container: #211F26;
+    --md-sys-color-surface-container-high: #2B2930;
+    --md-sys-color-on-surface-variant: #CAC4D0;
+    --md-sys-color-outline: #938F99;
+    --md-sys-color-outline-variant: #49454F;
+    
+    /* State colors */
+    --md-sys-color-error: #F2B8B5;
+    --md-sys-color-on-error: #601410;
+    --md-sys-color-success: #3DDC84;
+    --md-sys-color-on-success: #003914;
+    --md-sys-color-running: #78D2FF;
+    --md-sys-color-on-running: #00354B;
+    
+    /* Transitions */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-standard: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /*: Semantische Text-Stufen, die mit dem Theme umschalten. Ersetzen die zuvor
+       hartcodierten Inline-Farben `color: rgba(255,255,255,X)` (im Light-Mode unleserlich).
+       Dark-Werte = bisherige Weisstoene; Light-Werte unten in html.theme-light. */
+    --text-strong: rgba(255, 255, 255, 0.9);
+    --text-primary: rgba(255, 255, 255, 0.8);
+    --text-secondary: rgba(255, 255, 255, 0.65);
+    --text-muted: rgba(255, 255, 255, 0.45);
+
+    /* : Zustandsfarben fuer hover/active. Default aus der Primaerfarbe abgeleitet
+       (color-mix), sodass sie JEDER Theme-/Branding-Aenderung automatisch folgen. Branding
+       kann sie via theme.primary_hover / theme.primary_active (config.yml) explizit ueberschreiben. */
+    --color-primary-hover: color-mix(in srgb, var(--md-sys-color-primary) 86%, white);
+    --color-primary-active: color-mix(in srgb, var(--md-sys-color-primary) 82%, black);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    height: 100%;
+    /* Horizontale Wisch-Geste (Trackpad/Touch) soll nicht Browser-Zurueck/Vor
+       ausloesen und so durch die SPA navigieren. */
+    overscroll-behavior-x: none;
+    /*: App-Shell. Weder <html> noch <body> scrollen selbst - der Seiten-Scroll findet
+       AUSSCHLIESSLICH im Inhalts-Container (#main-workspace, overflow-y:auto) statt. Dadurch
+       existiert pro Seite genau EINE Scrollbar (die des Inhaltsbereichs). Das fruehere
+       Erscheinen/Verschwinden einer Body-Scrollbar beim asynchronen Nachladen der Playbook-
+       Kacheln - und der dadurch ausgeloeste Breiten-Reflow (Flicker) - entfaellt vollstaendig,
+       weil sich die Layout-Breite nie mehr durch eine Body-Scrollbar aendert. */
+    overflow: hidden;
+}
+
+/*: Der einzige Seiten-Scroll-Container. Fuellt die Hoehe unter der App-Bar (flex:1 im
+   Body-Flex-Column) und scrollt seinen Inhalt intern. Die id-Selektivitaet ueberschreibt
+   bewusst die overflow-/min-height-Angaben der per-Tab-.workspace-grid-Regeln; deren
+   grid-template/padding/display bleiben wirksam. Mobile (@media) und die History-Seite
+   ueberschreiben das Verhalten weiterhin per !important bzw. spezifischerer Regel. */
+#main-workspace {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    /*: Den Inhalts-Scrollbalken DAUERHAFT anzeigen (scroll statt auto). Die Spur ist
+       damit vom ersten Frame an vorhanden und kann beim spaeteren Erscheinen (z. B. nach dem
+       async Laden der Playbook-Kacheln) keine Breitenaenderung/keinen Reflow mehr ausloesen.
+       `scrollbar-gutter: stable` zusaetzlich als Absicherung. <html>/<body> scrollen nie. */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+}
+
+/* Icon-Box auf 1em fixieren: verhindert Layout-Shift, wenn der Material-Symbols-
+   Font laedt (vorher blaeht der Ligatur-Text, z.B. "history", die Breite auf). */
+.material-symbols-outlined {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+body {
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-background);
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* App Bar */
+.app-bar {
+    height: 64px;
+    background-color: var(--md-sys-color-surface-container-low);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-shrink: 0;
+    /*: dezente Elevation, damit die App-Bar in BEIDEN Modi klar vom Content abgesetzt ist. */
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo-icon {
+    color: var(--md-sys-color-primary);
+    font-size: 28px;
+}
+
+.logo-icon-img {
+    height: 36px;
+    width: auto;
+    object-fit: contain;
+}
+
+.logo-text-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.logo-area h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    line-height: 1.2;
+}
+
+.logo-subtext {
+    font-size: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.8;
+    font-weight: 400;
+    line-height: 1;
+    margin-top: 2px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    background-color: var(--md-sys-color-surface-container-high);
+    padding: 6px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--md-sys-color-error);
+    display: inline-block;
+    transition: background-color var(--transition-standard);
+}
+
+.pulse-dot.online {
+    background-color: var(--md-sys-color-success);
+    box-shadow: 0 0 8px var(--md-sys-color-success);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0.4); }
+    70% { box-shadow: 0 0 0 8px rgba(61, 220, 132, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(61, 220, 132, 0); }
+}
+
+/* Base card styling */
+.card {
+    background-color: var(--md-sys-color-surface-container);
+    border-radius: 16px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.card-header span {
+    color: var(--md-sys-color-primary);
+}
+
+.card-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* Form layout inside cards */
+.config-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    position: relative;
+    padding-bottom: 80px;
+}
+
+#run-button {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    min-width: 180px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* : My-Vault-FAB nur auf der Vault-Seite einblenden. */
+#vault-fab { display: none; }
+body.tab-vault #vault-fab { display: inline-flex; align-items: center; }
+
+/* : Teams-FAB nur auf der Teams-Seite (Benutzer-Tab) einblenden. */
+#team-fab { display: none; }
+body.tab-teams #team-fab { display: inline-flex; align-items: center; }
+/* Auf dem Aktivitäten-Tab wird der FAB ausgeblendet (nur Benutzer-Tab erstellt Mitglieder). */
+body.tab-teams.team-activity-tab #team-fab { display: none; }
+
+/* : Teammitglieder-Zeile – Name/Mail und Freigaben ab Desktop-Breite nebeneinander. */
+.team-member-row { font-size: 14px; }
+.team-member-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+@media (min-width: 900px) {
+    .team-member-meta { flex-direction: row; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+    .team-member-meta .team-member-shares { font-size: 12px; }
+}
+
+/* : Admin-FAB nur im Admin-Bereich und nur auf Tabs mit Aktion (.fab-off blendet aus). */
+#admin-fab { display: none; }
+body.tab-admin #admin-fab:not(.fab-off) { display: inline-flex; align-items: center; }
+
+
+/* Playbooks selectors */
+.playbook-selection-container {
+    display: flex;
+    flex-direction: column;
+}
+
+.selection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+/* : Katalog-Steuerleiste (Suche + Grid/Listen-Umschalter) bleibt beim Scrollen oben
+   fixiert; die Kacheln scrollen darunter durch.: etwas Abstand nach oben für ein
+   gleichmäßiges Spacing wie bei den Listen-Eingabefeldern. */
+#config-card .selection-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--md-sys-color-background);
+    padding-top: 12px;
+}
+
+.header-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.header-label span {
+    font-size: 18px;
+    color: var(--md-sys-color-primary);
+}
+
+.header-label h3 {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.view-toggle-buttons {
+    display: flex;
+    background-color: var(--md-sys-color-surface-container-high);
+    border-radius: 100px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    padding: 2px;
+}
+
+.view-toggle-buttons .btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.playbooks-list {
+    padding: 4px;
+}
+
+#playbooks-list {
+    /*: Kein eigener Scroll mehr - der Scroll liegt im Container #main-workspace, damit
+       es genau EINE Scrollbar gibt (kein Doppel-Scrollbar Body+Liste). */
+    overflow: visible;
+    padding-right: 4px;
+}
+
+/* Checkbox tiles */
+.playbook-item {
+    display: flex;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.playbook-item input[type="checkbox"] {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--md-sys-color-outline);
+    border-radius: 2px;
+    outline: none;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.playbook-item input[type="checkbox"]:checked {
+    background-color: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+}
+
+.playbook-item input[type="checkbox"]::before {
+    content: "";
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid var(--md-sys-color-on-primary);
+    border-bottom: 2px solid var(--md-sys-color-on-primary);
+    transform: rotate(-45deg) translate(1px, -1px);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.playbook-item input[type="checkbox"]:checked::before {
+    opacity: 1;
+}
+
+.playbook-item-icon {
+    color: var(--md-sys-color-primary);
+    user-select: none;
+}
+
+.playbook-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.playbook-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+}
+
+.playbook-desc {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 2px;
+}
+
+/* Playbooks GRID Mode styles */
+.playbooks-list.grid-mode {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+    gap: 12px;
+}
+
+.playbooks-list.grid-mode .playbook-item {
+    flex-direction: row;
+    align-items: flex-start;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 12px;
+    padding: 12px;
+    padding-right: 40px;
+    gap: 12px;
+    min-height: auto;
+    position: relative;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.playbooks-list.grid-mode .playbook-item:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 4%, transparent);
+    border-color: var(--md-sys-color-outline);
+}
+
+.playbooks-list.grid-mode .playbook-item:has(input[type="checkbox"]:checked) {
+    border-color: var(--md-sys-color-primary);
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+.playbooks-list.grid-mode .playbook-item input[type="checkbox"] {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+.playbooks-list.grid-mode .playbook-item-icon {
+    font-size: 24px;
+}
+
+.playbooks-list.grid-mode .playbook-desc {
+    display: block;
+    line-height: 1.4;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* Playbooks LIST Mode styles */
+.playbooks-list.list-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.playbooks-list.list-mode .playbook-item {
+    flex-direction: row;
+    align-items: center;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 8px;
+    padding: 8px 12px;
+    gap: 12px;
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.playbooks-list.list-mode .playbook-item:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 4%, transparent);
+    border-color: var(--md-sys-color-outline);
+}
+
+.playbooks-list.list-mode .playbook-item:has(input[type="checkbox"]:checked) {
+    border-color: var(--md-sys-color-primary);
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 6%, transparent);
+}
+
+/*: Premium-Playbook-Kacheln in der Theme-Akzentfarbe (secondary-container) hinterlegen.
+   Die Klasse playbook-item--premium wird vom JS nur in der Cloud-Edition gesetzt. Beim
+   Auswaehlen (:has checked) gewinnt weiterhin der Selektions-Zustand (hoehere Spezifitaet). */
+.playbooks-list.grid-mode .playbook-item--premium,
+.playbooks-list.list-mode .playbook-item--premium {
+    background-color: color-mix(in srgb, var(--md-sys-color-secondary-container) 30%, var(--md-sys-color-surface-container-high));
+    border-color: var(--md-sys-color-secondary-container);
+}
+.playbooks-list.grid-mode .playbook-item--premium:hover,
+.playbooks-list.list-mode .playbook-item--premium:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-secondary-container) 42%, var(--md-sys-color-surface-container-high));
+    border-color: var(--md-sys-color-secondary-container);
+}
+
+/* : gesperrte Premium-Kacheln (nicht eingeloggt oder ohne aktives Abo).
+   Ausgegraut + nicht selektierbar; ein Klick oeffnet den Upsell-/Abo-Flow. */
+.playbook-item--locked {
+    opacity: 0.55;
+    cursor: pointer;
+}
+.playbook-item--locked:hover {
+    opacity: 0.7;
+}
+.playbook-item--locked input[type="checkbox"] {
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* : dezenter Premium-Hinweis fuer Gast-Accounts mit aktivem Host-Abo. */
+.guest-premium-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+    color: var(--md-sys-color-on-secondary-container, #cfe9ec);
+    background-color: color-mix(in srgb, var(--md-sys-color-secondary-container) 35%, transparent);
+    border: 1px solid var(--md-sys-color-secondary-container);
+}
+.guest-premium-hint .material-symbols-outlined {
+    font-size: 18px;
+}
+
+/* ===========================================================================
+   : Preisseite /pricing — Tabs, Hochkant-Kacheln, Laufzeit-Dropdown
+   =========================================================================== */
+.pricing-tabs {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}
+.pricing-tab {
+    background: transparent;
+    border: none;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+}
+.pricing-tab.active {
+    color: var(--md-sys-color-primary, var(--md-sys-color-primary));
+    border-bottom-color: var(--md-sys-color-primary, var(--md-sys-color-primary));
+}
+.pricing-cards {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: 10px;
+}
+.pricing-card-tile {
+    flex: 0 0 280px;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--md-sys-color-surface-container-high, rgba(255,255,255,0.04));
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 16px;
+    padding: 22px 20px;
+}
+/*: Enterprise-/Custom-Karte dezent hervorheben (Akzentrahmen). */
+.pricing-card-enterprise {
+    border-color: var(--md-sys-color-primary, #4dd0c7);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary, #4dd0c7) inset;
+}
+.pricing-tile-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+}
+.pricing-tile-divider {
+    height: 3px;
+    width: 48px;
+    margin: 12px 0 14px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--md-sys-color-primary, var(--md-sys-color-primary)), var(--md-sys-color-secondary-container, #2a7d82));
+}
+.pricing-tile-desc {
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+    margin-bottom: 14px;
+}
+.pricing-tile-features {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+    flex: 1;
+}
+.pricing-tile-features li {
+    font-size: 13px;
+    color: rgba(255,255,255,0.85);
+    padding: 5px 0 5px 22px;
+    position: relative;
+}
+.pricing-tile-features li::before {
+    content: "check";
+    font-family: "Material Symbols Outlined";
+    position: absolute;
+    left: 0;
+    font-size: 16px;
+    color: var(--md-sys-color-primary, var(--md-sys-color-primary));
+}
+.pricing-tile-duration-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 4px;
+}
+.pricing-tile-duration {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 6px 8px;
+    background-color: rgba(0,0,0,0.25);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px;
+}
+.pricing-tile-price {
+    font-size: 26px;
+    font-weight: 800;
+    color: #fff;
+}
+.pricing-tile-interval {
+    font-size: 12px;
+    color: rgba(255,255,255,0.55);
+    margin-bottom: 16px;
+}
+.pricing-tile-book {
+    width: 100%;
+    justify-content: center;
+}
+
+/* : einklappbare Konfig-Variablen je Playbook im Ausfuehrungs-Dialog. */
+.modal-config-accordion {
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+.modal-config-accordion-summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-weight: 600;
+    list-style: none;
+    background-color: color-mix(in srgb, var(--md-sys-color-surface-container-high) 60%, transparent);
+}
+.modal-config-accordion-summary::-webkit-details-marker { display: none; }
+/*: Logo + Titel links im Akkordeon-Summary */
+.modal-config-accordion-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.modal-config-accordion-label img,
+.modal-config-accordion-label .material-symbols-outlined {
+    width: 22px;
+    height: 22px;
+    font-size: 20px;
+    object-fit: contain;
+    flex: 0 0 auto;
+}
+.modal-config-accordion-summary::after {
+    content: "expand_more";
+    font-family: "Material Symbols Outlined";
+    color: rgba(255, 255, 255, 0.6);
+    transition: transform 0.2s ease;
+    flex: 0 0 auto;
+}
+.modal-config-accordion[open] .modal-config-accordion-summary::after { transform: rotate(180deg); }
+.modal-config-accordion-count {
+    font-size: 12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.5);
+    margin-left: auto;
+    padding-right: 6px;
+}
+.modal-config-accordion-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 14px;
+}
+
+/* : gelber Warnhinweis fuer Dienste mit HTTPS-Zwang. */
+.modal-https-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 10px 0 6px;
+    padding: 10px 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    color: #ffd166;
+    background-color: rgba(255, 193, 7, 0.10);
+    border: 1px solid rgba(255, 193, 7, 0.45);
+}
+.modal-https-warning .material-symbols-outlined { font-size: 18px; flex: 0 0 auto; }
+
+/* : modernes, an das dunkle Design angepasstes Dropdown-Styling.
+   appearance:none entfernt den nativen Pfeil; eigener Chevron + abgerundete Ecken,
+   Hover-/Focus-Zustaende und harmonische Option-Hintergruende (aufgeklappter Zustand). */
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    border: 1px solid var(--md-sys-color-outline);
+    border-radius: 8px;
+    padding: 10px 38px 10px 12px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 18px;
+    transition: border-color var(--transition-fast, 0.15s), box-shadow var(--transition-fast, 0.15s);
+}
+select:hover { border-color: var(--md-sys-color-primary); }
+select:focus-visible,
+select:focus {
+    outline: none;
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+}
+select option,
+select optgroup {
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+}
+select option:checked,
+select option:hover {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container, #fff);
+}
+
+.playbooks-list.list-mode .playbook-item-icon {
+    font-size: 20px;
+}
+
+.playbooks-list.list-mode .playbook-desc {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
+}
+
+/* =========================================
+   DYNAMICS FOR LAYOUT TRANSITIONS
+   ========================================= */
+
+/* 1. LANDING MODE (Full Screen focused) */
+body.landing-mode .workspace-grid {
+    display: block;
+    max-width: 100%;
+    margin: 40px auto;
+    padding: 0 40px;
+    width: 100%;
+}
+
+/*: Beim Laden wechseln die Body-Klassen JS-getrieben: routePage setzt `tab-configure`,
+   `updateUI()` (History-Poll) setzt danach `landing-mode` (keine Jobs) ODER `workspace-mode`
+   (Jobs). Die Configure-Seite wuerde so je nach Job-Status unterschiedliches `.workspace-grid`-
+   Padding bekommen (landing 0 40px vs. workspace 20px) und beim verzoegerten Klassenwechsel
+   horizontal springen ("Kacheln erst schmaler, dann breiter" - bzw. umgekehrt). Es gibt KEIN
+   statisches Transient-Padding, das beide Endzustaende trifft. Loesung: Die Configure-Seite
+   bekommt modus-UNABHAENGIG immer denselben (fokussierten landing-) Look. Hoehere Spezifitaet
+   (0,3,1) ueberschreibt sowohl die landing- als auch die workspace-Regel; der reine landing-
+   Zustand (ohne tab-configure, nach Job-Poll) nutzt dieselben Werte -> nie ein Sprung. */
+body.landing-mode.tab-configure .workspace-grid,
+body.workspace-mode.tab-configure .workspace-grid {
+    display: block;
+    max-width: 100%;
+    margin: 40px auto;
+    padding: 0 40px;
+    width: 100%;
+    height: auto;
+}
+
+body.landing-mode .config-card {
+    width: 100%;
+}
+
+body.landing-mode #playbooks-list {
+    /*: keine eigene max-height/Scroll mehr - #main-workspace scrollt. */
+    max-height: none;
+}
+
+body.landing-mode .right-column {
+    display: none !important; /* Hide console workspace */
+}
+
+body.workspace-mode {
+    /* Overflow behavior handled by active tabs */
+}
+
+body.workspace-mode.tab-configure {
+    /*: <body> scrollt nie selbst (App-Shell). Der Scroll liegt in #main-workspace. */
+    overflow: hidden;
+}
+
+body.workspace-mode.tab-history {
+    overflow: hidden !important;
+    height: 100vh;
+}
+
+html:has(body.tab-history) {
+    overflow: hidden !important;
+    height: 100vh;
+}
+
+body.workspace-mode .workspace-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 100%;
+    margin: 0 auto;
+    width: 100%;
+    height: auto;
+    min-height: calc(100vh - 64px);
+}
+
+body.workspace-mode .config-card {
+    padding: 0 0 120px 0 !important;
+    height: auto;
+    overflow: visible;
+}
+
+body.workspace-mode .config-form {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.workspace-mode .playbook-selection-container {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+body.workspace-mode #playbooks-list {
+    height: auto;
+    overflow-y: visible;
+}
+
+body.workspace-mode .right-column {
+    display: flex !important;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
+
+
+/* =========================================
+   TABBED CONTAINER WORKSPACE
+   ========================================= */
+.tabbed-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    height: 100%;
+}
+
+.tabs-bar {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    padding-bottom: 0;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    height: 48px;
+    padding: 0 20px;
+    background-color: transparent;
+    border: none;
+    color: var(--md-sys-color-on-surface-variant);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+    outline: none;
+    border-radius: 8px 8px 0 0;
+}
+
+.tab-btn:hover {
+    color: var(--md-sys-color-on-surface);
+    background-color: rgba(230, 225, 229, 0.04);
+}
+
+.tab-btn.active {
+    color: var(--md-sys-color-primary);
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 4%, transparent);
+}
+
+.tab-btn.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    height: 3px;
+    background-color: var(--md-sys-color-primary);
+    border-radius: 3px 3px 0 0;
+}
+
+/* : Schließen-Symbol (X) im Host-Tab. */
+.tab-btn .tab-close {
+    font-size: 16px;
+    margin-left: 8px;
+    padding: 1px;
+    border-radius: 50%;
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.55;
+    transition: opacity var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.tab-btn .tab-close:hover {
+    opacity: 1;
+    color: var(--md-sys-color-error);
+    background-color: rgba(242, 184, 181, 0.14);
+}
+
+.tab-content-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: calc(100% - 56px);
+    max-height: calc(100% - 56px);
+    padding: 0 !important;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* Split Workspace layout inside tab */
+.tab-workspace-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    grid-template-rows: 1fr;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.host-history-sidebar {
+    background-color: var(--md-sys-color-surface-container-low);
+    border-right: 1px solid var(--md-sys-color-outline-variant);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.host-history-sidebar h3 {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--md-sys-color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.host-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* History item */
+.history-item {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    padding: 8px 12px;
+    background-color: var(--md-sys-color-surface-container);
+    border-radius: 8px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.history-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.job-progress-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: 2px;
+}
+
+.job-progress-bar {
+    flex: 1;
+    height: 6px;
+    background-color: var(--md-sys-color-surface-container-high);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.job-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.job-progress-fill.running {
+    background-color: var(--md-sys-color-running);
+}
+
+.job-progress-text {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--md-sys-color-on-surface-variant);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Console Header Progress */
+.console-job-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 8px;
+}
+
+.console-job-progress.hidden {
+    display: none;
+}
+
+.console-progress-bar {
+    width: 120px;
+    height: 8px;
+    background-color: var(--md-sys-color-surface-container-high);
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.console-progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.console-progress-fill.running {
+    background-color: var(--md-sys-color-running);
+}
+
+.console-progress-fill.success {
+    background-color: var(--md-sys-color-success);
+}
+
+.console-progress-fill.failed {
+    background-color: var(--md-sys-color-error);
+}
+
+.console-progress-fill.pending {
+    background-color: var(--md-sys-color-outline);
+}
+
+.console-progress-text {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--md-sys-color-on-surface-variant);
+    white-space: nowrap;
+}
+
+.history-item:hover {
+    background-color: rgba(230, 225, 229, 0.04);
+    border-color: var(--md-sys-color-outline);
+}
+
+.history-item.active-selection {
+    border-color: var(--md-sys-color-primary);
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 5%, transparent);
+}
+
+.history-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.history-status-indicator {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.history-status-indicator span {
+    font-size: 16px;
+}
+
+.history-status-indicator.success {
+    background-color: rgba(61, 220, 132, 0.12);
+    color: var(--md-sys-color-success);
+}
+
+.history-status-indicator.failed {
+    background-color: rgba(242, 184, 181, 0.12);
+    color: var(--md-sys-color-error);
+}
+
+.history-status-indicator.running {
+    background-color: rgba(120, 210, 255, 0.12);
+    color: var(--md-sys-color-running);
+}
+
+.history-status-indicator.pending {
+    background-color: rgba(202, 196, 208, 0.12);
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+/* : Status "abgebrochen" (amber) + Abbrechen-Buttons. */
+.history-status-indicator.canceled {
+    background-color: rgba(230, 162, 60, 0.14);
+    color: #e6a23c;
+}
+
+.console-progress-fill.canceled {
+    background-color: #e6a23c;
+}
+
+.cancel-job-btn,
+.history-cancel-btn {
+    color: var(--md-sys-color-error);
+}
+
+.cancel-job-btn:hover,
+.history-cancel-btn:hover {
+    background-color: rgba(242, 184, 181, 0.14);
+}
+
+.history-cancel-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.history-details {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.history-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.history-subtitle {
+    font-size: 11px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.history-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    font-size: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    flex-shrink: 0;
+}
+
+/* Console details */
+.host-console-area {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    /*: Die Konsole bleibt ein dunkles Code-Panel (ANSI-Ausgabe ist auf dunklen Grund
+       ausgelegt, Konvention aus). Im Light-Mode wird sie aber als klar abgesetztes Panel
+       gerahmt (Override unten), statt als reines Schwarz "fehl am Platz" zu wirken. */
+    background-color: var(--console-bg, #0A080E);
+}
+
+.console-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #2F2A38;
+    padding: 16px 20px 12px 20px;
+    flex-shrink: 0;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.job-id-badge {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+    padding: 4px 10px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.header-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.console-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
+    background-color: #050407;
+}
+
+.console-text {
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    padding: 20px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #E0E0E0;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/*: Kachel-/Flow-Chart-Ansicht der Playbooks eines Jobs. */
+.flowchart-view {
+    flex: 1;
+    min-height: 0;
+    padding: 22px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: flex-start;
+    gap: 6px 4px;
+}
+.flowchart-empty {
+    width: 100%;
+    padding: 30px 10px;
+    text-align: center;
+    color: var(--text-muted, rgba(255,255,255,0.5));
+    font-size: 14px;
+}
+.flow-tile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 130px;
+    max-width: 220px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.14);
+    background-color: rgba(255,255,255,0.04);
+    color: #E0E0E0;
+    font-size: 13px;
+}
+.flow-tile-icon { font-size: 20px; flex: 0 0 auto; }
+/*: Service-Icon (Logo/Material-Icon) des Playbooks vor dem Namen in der Flow-Kachel. */
+.flow-tile-service-icon { flex: 0 0 auto; display: inline-flex; align-items: center; }
+.flow-tile-service-icon img { display: block; width: 20px; height: 20px; object-fit: contain; }
+.flow-tile-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: capitalize;
+}
+.flow-arrow {
+    flex: 0 0 auto;
+    color: var(--text-muted, rgba(255,255,255,0.4));
+    font-size: 20px;
+}
+/* Status-Farben je Kachel */
+.flow-pending  { opacity: 0.75; }
+.flow-pending  .flow-tile-icon { color: var(--md-sys-color-on-surface-variant, #CAC4D0); }
+.flow-success  { border-color: var(--md-sys-color-success); }
+.flow-success  .flow-tile-icon { color: var(--md-sys-color-success); }
+.flow-error    { border-color: var(--md-sys-color-error); }
+.flow-error    .flow-tile-icon { color: var(--md-sys-color-error); }
+.flow-canceled { border-color: #e6a23c; }
+.flow-canceled .flow-tile-icon { color: #e6a23c; }
+.flow-executing {
+    border-color: var(--md-sys-color-running);
+    animation: flow-pulse 1.4s ease-in-out infinite;
+}
+.flow-executing .flow-tile-icon {
+    color: var(--md-sys-color-running);
+    animation: flow-spin 1.6s linear infinite;
+}
+@keyframes flow-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(120,210,255,0.35); }
+    50%      { box-shadow: 0 0 0 6px rgba(120,210,255,0.0); }
+}
+@keyframes flow-spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Inputs & textfields */
+.text-field {
+    position: relative;
+    width: 100%;
+}
+
+.text-field input {
+    width: 100%;
+    /* : kompaktere, einheitliche Feldhöhe (vorher 56) auf allen Seiten/Dialogen. */
+    height: 46px;
+    padding: 16px 12px 4px 12px;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline);
+    border-bottom: 2px solid var(--md-sys-color-outline);
+    border-radius: 4px 4px 0 0;
+    color: var(--md-sys-color-on-surface);
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border var(--transition-fast), background-color var(--transition-fast);
+}
+
+.text-field input:focus {
+    border-color: var(--md-sys-color-primary);
+    border-bottom-color: var(--md-sys-color-primary);
+    background-color: var(--md-sys-color-surface-container-low);
+}
+
+.text-field label {
+    position: absolute;
+    left: 12px;
+    top: 14px;
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface-variant);
+    pointer-events: none;
+    transition: transform var(--transition-fast), color var(--transition-fast);
+    transform-origin: left top;
+}
+
+.text-field input:focus ~ label,
+.text-field input:not(:placeholder-shown) ~ label {
+    transform: translateY(-9px) scale(0.72);
+    color: var(--md-sys-color-primary);
+}
+
+.helper-text {
+    display: block;
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 4px;
+    padding: 0 16px;
+}
+
+/*: Konfig-Parameterfelder zeigen ihren Beispielwert als grauen HTML-Placeholder im Feld.
+   Das schwebende Label würde diesen Placeholder überlagern (es sitzt bei :placeholder-shown
+   mittig im Feld) -> für .config-field-Textfelder das Label dauerhaft oben halten. */
+.text-field.config-field label {
+    transform: translateY(-9px) scale(0.72);
+    /*: dauerhaft oben -> lange Labels einzeilig halten (sonst überlappt die zweite
+       Zeile den Beispiel-Placeholder im Feld). Überlange Labels werden auf schmalen
+       Viewports sauber per Ellipse gekürzt statt im overflow:hidden-Akkordeon hart
+       abgeschnitten zu werden. */
+    white-space: nowrap;
+    right: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.text-field.config-field input:focus ~ label {
+    color: var(--md-sys-color-primary);
+}
+
+/*: Wahrheitswert-Parameter als Umschalt-Checkbox statt Freitext "true/false". */
+.config-field.bool-field {
+    display: flex;
+    align-items: center;
+    min-height: 40px;
+}
+.config-field.bool-field .bool-field-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+.config-field.bool-field .styled-checkbox {
+    margin-top: 0;
+}
+
+/* Buttons */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 24px;
+    border-radius: 100px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn-primary {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+.btn-primary:hover {
+    background-color: var(--color-primary-hover);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px color-mix(in srgb, var(--md-sys-color-primary) 15%, transparent);
+}
+
+.btn-full {
+    width: 100%;
+}
+
+.btn-icon {
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border-radius: 50%;
+    background-color: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.btn-icon:hover {
+    background-color: rgba(230, 225, 229, 0.08);
+    color: var(--md-sys-color-on-surface);
+}
+
+.btn-icon.active {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.btn-text {
+    background-color: transparent;
+    color: var(--md-sys-color-primary);
+}
+
+.btn-text:hover {
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+}
+
+.btn:disabled {
+    opacity: 0.38;
+    pointer-events: none;
+}
+
+/* Material Dialog Modal */
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    opacity: 1;
+    transition: opacity 0.2s ease;
+}
+
+.dialog-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.dialog-card {
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 28px;
+    padding: 28px;
+    width: 95%;
+    max-width: 1200px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transform: scale(1);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.dialog-overlay.hidden .dialog-card {
+    transform: scale(0.92);
+}
+
+.dialog-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.dialog-header span {
+    font-size: 28px;
+    color: var(--md-sys-color-primary);
+}
+
+.dialog-header h3 {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.dialog-description {
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface-variant);
+    margin-bottom: 8px;
+}
+
+.dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* : Szenario-Wizard-Schritte sind Flex-Items, damit die aktive Schritt-Liste
+   die verfuegbare Hoehe fuellt und NUR die Liste scrollt (Header/Name/Buttons bleiben fix). */
+.scenario-wizard-step {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Loading & Empty States */
+.loading-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 100%;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 14px;
+    padding: 24px 0;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+    border-top: 2px solid var(--md-sys-color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 13px;
+    padding: 32px 0;
+    text-align: center;
+}
+
+.empty-state span {
+    font-size: 32px;
+}
+
+/* Toast */
+.toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(0);
+    background-color: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 100;
+    transition: transform var(--transition-standard), opacity var(--transition-standard);
+    opacity: 1;
+}
+
+.toast.hidden {
+    transform: translateX(-50%) translateY(30px);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    /*: themebar (adaptiert Dark/Light); zuvor fix rgba(0,0,0,0.15). */
+    background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--md-sys-color-outline);
+    border: 2px solid var(--md-sys-color-surface-container-high);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--md-sys-color-primary);
+}
+
+/* Firefox compatibility */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--md-sys-color-outline) transparent;
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    body.workspace-mode .workspace-grid {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: auto;
+    }
+    
+    body.workspace-mode .right-column {
+        height: 600px;
+    }
+    
+    /*: Nur die History-Seite braucht die feste Hoehe + internen Spalten-Scroll.
+       Configure scrollt (wie alle anderen Seiten) ueber #main-workspace. */
+    body.tab-history .workspace-grid {
+        height: calc(100vh - 128px) !important;
+        overflow: hidden !important;
+    }
+    
+    body.tab-history #right-column {
+        height: 100% !important;
+    }
+    
+    .tab-workspace-grid {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+    
+    .host-history-sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--md-sys-color-outline-variant);
+        flex-shrink: 0;
+        max-height: 180px;
+    }
+    
+    .host-console-area {
+        flex: 1;
+        min-height: 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .playbooks-list.grid-mode {
+        grid-template-columns: 1fr;
+    }
+
+    #run-button {
+        left: 24px;
+        right: 24px;
+        width: calc(100% - 48px);
+        min-width: unset;
+    }
+
+    /*: Auf schmalen Smartphones sind Kachel- und Listenansicht identisch (1 Spalte) ->
+       der Umschalter hat keine Wirkung und wird ausgeblendet. Ab Tablet-Breite (>600px)
+       bleibt er sichtbar und funktional. */
+    .view-toggle-buttons {
+        display: none;
+    }
+}
+
+
+/* Playbook Requirements Display Styles */
+.playbook-requires {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--md-sys-color-primary);
+    margin-top: 6px;
+    opacity: 0.85;
+    font-weight: 500;
+}
+
+.playbook-requires .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.req-names {
+    color: var(--md-sys-color-on-surface-variant);
+    font-weight: 600;
+}
+
+/* : Hersteller-Info-Trigger an der Playbook-Kachel + Dialog-Linkliste */
+.playbook-vendor {
+    margin-top: 6px;
+}
+
+.playbook-vendor-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+    opacity: 0.9;
+    cursor: pointer;
+}
+
+.playbook-vendor-trigger:hover,
+.playbook-vendor-trigger:focus-visible {
+    text-decoration: underline;
+    opacity: 1;
+}
+
+.playbook-vendor-trigger .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.playbook-vendor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.playbook-vendor-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border: 1px solid var(--md-sys-color-outline, rgba(255, 255, 255, 0.12));
+    border-radius: 8px;
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+    font-size: 14px;
+    word-break: break-all;
+    transition: background 0.15s ease;
+}
+
+.playbook-vendor-link:hover,
+.playbook-vendor-link:focus-visible {
+    background: var(--md-sys-color-surface-variant, rgba(255, 255, 255, 0.06));
+    text-decoration: underline;
+}
+
+.playbook-vendor-link .material-symbols-outlined {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+/*: Premium-Badge am Playbook-Namen (nur Cloud-Edition) */
+.playbook-premium-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 8px;
+    padding: 1px 8px 1px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    border-radius: 999px;
+    color: #7a4f01;
+    background: linear-gradient(135deg, #ffe7a3, #ffcf66);
+    vertical-align: middle;
+    letter-spacing: 0.2px;
+}
+
+.playbook-premium-badge .material-symbols-outlined {
+    font-size: 14px;
+}
+
+/*: "Eigene Playbooks" – robustes Grid statt flex-wrap. Verhindert, dass der
+   "Ihre Playbooks"-Block nach dem Laden (breitere Aktionsspalte) unter das Upload-Formular
+   umbricht. Upload-Spalte fix, Liste nutzt die Restbreite; einspaltig auf schmalen Screens. */
+.custom-pb-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+.custom-pb-layout > * {
+    min-width: 0; /* erlaubt Schrumpfen statt Overflow -> kein Umbruch des Grids */
+}
+@media (max-width: 768px) {
+    .custom-pb-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Playbook Category Visual Grouping */
+.playbook-category-main {
+    margin-bottom: 24px;
+}
+
+.category-main-title {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.category-main-title span {
+    font-size: 24px;
+}
+
+.category-main-title h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+}
+
+.playbook-subcategory {
+    margin-bottom: 20px;
+}
+
+.subcategory-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--md-sys-color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    margin-top: 12px;
+}
+
+/* Scrollable Dialog Body for Parameters (nur der Credentials-Dialog mit 2 Spalten).
+   Frueher global '.dialog-body' -> hat einfache Dialoge (Login/Registrierung) in ein
+   2-Spalten-Grid gezwungen und die Felder auf halbe Breite gestaucht. */
+.dialog-body.params-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    max-height: 550px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.dialog-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .dialog-card {
+        max-width: 460px;
+    }
+    .dialog-body.params-grid {
+        grid-template-columns: 1fr;
+        max-height: 440px;
+    }
+}
+
+/* Dialog Checkbox & Domains Section */
+.dialog-checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    margin-top: 4px;
+}
+
+.dialog-checkbox-container input[type="checkbox"] {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--md-sys-color-outline);
+    border-radius: 4px;
+    outline: none;
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.dialog-checkbox-container input[type="checkbox"]:checked {
+    background-color: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+}
+
+.dialog-checkbox-container input[type="checkbox"]::before {
+    content: "";
+    width: 10px;
+    height: 6px;
+    border-left: 2px solid var(--md-sys-color-on-primary);
+    border-bottom: 2px solid var(--md-sys-color-on-primary);
+    transform: rotate(-45deg) translate(1px, -1px);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.dialog-checkbox-container input[type="checkbox"]:checked::before {
+    opacity: 1;
+}
+
+.dialog-checkbox-container label {
+    font-size: 14px;
+    color: var(--md-sys-color-on-surface);
+    cursor: pointer;
+    user-select: none;
+}
+
+.dialog-domains-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 3%, transparent);
+    border: 1px dashed var(--md-sys-color-outline-variant);
+}
+
+/*: Nach Entfernen der "Gewählte Playbooks"-Box nutzt der Einstellungsbereich die
+   volle Höhe der rechten Dialogspalte (statt nur den oberen Teil zu belegen). */
+.dialog-right-column {
+    min-height: 0;
+}
+.dialog-right-column .dialog-domains-section {
+    flex: 1 1 auto;
+}
+
+.dialog-playbooks-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+}
+
+.modal-playbooks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.modal-playbook-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--md-sys-color-on-surface);
+}
+
+.modal-playbook-item-icon {
+    font-size: 18px;
+    color: var(--md-sys-color-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-playbook-item-icon-img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+}
+
+.modal-playbook-item-name {
+    font-weight: 500;
+}
+
+.section-subtitle {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--md-sys-color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* =========================================
+   TOP-LEVEL NAVIGATION & VIEW PANEL SWITCHING
+   ========================================= */
+.main-navigation-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.nav-btn {
+    height: 40px;
+    padding: 0 20px;
+    background-color: transparent;
+    border: none;
+    color: var(--md-sys-color-on-surface-variant);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.nav-btn:hover {
+    color: var(--md-sys-color-on-surface);
+    /*: theme-aware On-Surface-State-Layer statt hartcodiertem Grau (wirkt in Dark & Light). */
+    background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 4%, transparent);
+}
+
+.nav-btn.active {
+    color: var(--md-sys-color-on-primary-container);
+    background-color: var(--md-sys-color-primary-container);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Visibility toggling between configuration tab, history tab and custom playbooks tab */
+body.tab-configure #right-column {
+    display: none !important;
+}
+
+body.tab-configure #config-card {
+    display: flex !important;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+}
+
+body.tab-configure #custom-playbooks-card {
+    display: none !important;
+}
+
+body.tab-history #config-card {
+    display: none !important;
+}
+
+body.tab-history #right-column {
+    display: flex !important;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+body.tab-history #custom-playbooks-card {
+    display: none !important;
+}
+
+body.tab-custom-playbooks #config-card {
+    display: none !important;
+}
+
+body.tab-custom-playbooks #right-column {
+    display: none !important;
+}
+
+body.tab-custom-playbooks #custom-playbooks-card {
+    display: flex !important;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+}
+
+/*: Custom-Playbooks-Seite muss die volle Breite nutzen (wie configure/admin/legal),
+   sonst staucht die 420px-Workspace-Spalte das innere 320px-1fr-Grid zusammen. */
+body.tab-custom-playbooks .workspace-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+
+body.tab-configure .workspace-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+
+/* Admin-Panel als Inline-Seite */
+body.tab-admin #config-card,
+body.tab-admin #right-column,
+body.tab-admin #custom-playbooks-card {
+    display: none !important;
+}
+
+/*  (-Feedback): Chart-Kacheln themefähig. Vorher inline rgba(255,255,255,0.03)/0.06 —
+   im Light-Theme weiß-auf-weiß (unsichtbar). Jetzt über die Material-Surface-Variablen, die in
+   beiden Themes definiert sind. */
+.admin-chart-card {
+    background: var(--md-sys-color-surface-container);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 8px;
+    padding: 14px;
+}
+
+/* : aktiver Zeitraum-Filter-Button im Admin-Dashboard. */
+.admin-range-btn.active {
+    background: var(--md-sys-color-primary) !important;
+    color: var(--md-sys-color-on-primary, #fff) !important;
+    border-color: var(--md-sys-color-primary) !important;
+}
+
+body.tab-admin #admin-card {
+    display: flex !important;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    /* : kompakterer Abstand zum Footer (.config-card reserviert sonst 88px für den
+       Run-Button, den das Admin-Panel nicht hat) -> kein toter Freiraum / vorzeitiges Scrollen. */
+    padding-bottom: 16px !important;
+}
+
+body.tab-admin .workspace-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    height: auto;
+    /* : an die echte Höhe von #main-workspace koppeln (statt calc(100vh-64px), das um
+       die Footer-Höhe überschätzte). */
+    min-height: 100%;
+    overflow: visible;
+}
+
+body.tab-history .workspace-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    padding: 20px;
+    height: calc(100vh - 64px);
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* Rechtsseiten (Impressum/AGB/Datenschutz) als Vollbreite-Inline-Seite:
+   Konsole/Historie ausblenden, einspaltiges Grid wie configure/admin. */
+body.tab-legal #config-card,
+body.tab-legal #right-column,
+body.tab-legal #custom-playbooks-card,
+body.tab-legal #admin-card {
+    display: none !important;
+}
+
+body.tab-legal .workspace-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    height: auto;
+    /*: KEINE starre Mindesthoehe. Zuvor erzwang min-height: calc(100vh - 64px) zusammen
+       mit der 64px-App-Bar eine Gesamthoehe am/ueber dem Viewport -> unnoetige Scrollbar mit
+       leerer Scrollzone bei kurzem Inhalt. Der Body-Hintergrund fuellt den Viewport ohnehin;
+       die Seite ist nun nur so hoch wie ihr Inhalt. */
+    min-height: 0;
+    overflow: visible;
+}
+
+/*: Teams-Seite (und analog die Preisseite) sind Vollbreite-Inline-Seiten. Ohne diese
+   Regeln blieb das 2-spaltige Workspace-Layout aktiv und die Job-Historie/Konsole
+   (#right-column, via body.workspace-mode standardmaessig sichtbar) belegte faelschlich
+   ein Drittel der Seite. Wie bei configure/admin/legal: Konsole ausblenden, Grid einspaltig.
+   (Die Preisseite ist nur in der Cloud-Edition erreichbar und zeigte denselben latenten
+   Bug; daher hier gleich mitbehoben.) */
+body.tab-teams #config-card,
+body.tab-teams #right-column,
+body.tab-teams #custom-playbooks-card,
+body.tab-teams #admin-card,
+body.tab-pricing #config-card,
+body.tab-pricing #right-column,
+body.tab-pricing #custom-playbooks-card,
+body.tab-pricing #admin-card,
+body.tab-devices #config-card,
+body.tab-devices #right-column,
+body.tab-devices #custom-playbooks-card,
+body.tab-devices #admin-card {
+    display: none !important;
+}
+
+body.tab-teams .workspace-grid,
+body.tab-pricing .workspace-grid,
+body.tab-devices .workspace-grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+/* -Feedback: Teams = optisch identisch zu My Vault. Padding, KEIN vertikales Margin
+   (Inhalt sitzt oben, Footer bündig unten). Konstant gesetzt -> kein Sprung beim Direktaufruf. */
+body.tab-teams .workspace-grid {
+    padding: 10px 20px 8px 20px;
+    margin: 0 auto;
+}
+
+/* : Layout-Shift auf /pricing (Teams/Geräte) beheben. Die generische
+   `body.landing-mode .workspace-grid`-Regel (display:block + margin:40px auto) wird vom
+   verzögerten History-Poll NACH dem Seitenaufbau gesetzt und verschob den bereits
+   gerenderten Inhalt. Analog zur Configure-Lösung den Look hier modus-UNABHÄNGIG
+   pinnen (höhere Spezifität 0,3,1 schlägt landing- UND workspace-Regel) -> kein Sprung. */
+body.landing-mode.tab-pricing .workspace-grid,
+body.workspace-mode.tab-pricing .workspace-grid,
+body.landing-mode.tab-devices .workspace-grid,
+body.workspace-mode.tab-devices .workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 0;
+    padding: 20px;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+/* Teams = My Vault: KEIN vertikales Margin (Inhalt oben, Footer bündig unten);
+   in beiden Modi gleich -> kein Layout-Shift. */
+body.landing-mode.tab-teams .workspace-grid,
+body.workspace-mode.tab-teams .workspace-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    margin: 0 auto;
+    padding: 10px 20px 8px 20px;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+
+/*: Sticky-Footer fuer die Vollbreite-Inline-Seiten. #main-workspace ist der
+   einzige Scroll-Container (App-Shell). Als Flex-Column fuellt die aktive Karte den
+   Platz (flex:1), der statische Footer sitzt darunter:
+   - kurzer Inhalt  -> Karte waechst, Footer klebt am Viewport-Boden (kein Scroll),
+   - langer Inhalt  -> Karte = Inhaltshoehe, #main-workspace scrollt, Footer am Inhaltsende.
+   Loest: (Footer nicht mehr "mitten im Bild"), (keine ueberschuessige Hoehe ->
+   kein unnoetiger Scroll), (Footer haengt konsistent unten). History bleibt ausgenommen
+   (eigenes festes 2-Spalten-Layout mit internem Scroll). */
+body.tab-configure #main-workspace,
+body.tab-custom-playbooks #main-workspace,
+body.tab-admin #main-workspace,
+body.tab-legal #main-workspace,
+body.tab-teams #main-workspace,
+body.tab-pricing #main-workspace,
+body.tab-devices #main-workspace {
+    display: flex;
+    flex-direction: column;
+}
+body.tab-configure #config-card,
+body.tab-custom-playbooks #custom-playbooks-card,
+body.tab-admin #admin-card,
+body.tab-legal #legal-content-card,
+body.tab-teams #teams-card,
+body.tab-pricing #pricing-card,
+body.tab-devices #devices-card {
+    flex: 1 0 auto;
+    height: auto;
+}
+/* : Admin-Karte füllt die verfügbare Höhe. 34px reservieren den sticky
+   config-footer (~30px), der sonst einen Phantom-Scroll erzwingt, obwohl der Inhalt passt. */
+body.tab-admin #admin-card {
+    min-height: calc(100% - 34px);
+}
+/*  (-Feedback): Im landing-mode (keine Jobs) hat #main-workspace height:auto +
+   margin:40px — die min-height:100% der Karte greift dann ins Leere und unter der Karte bleibt
+   ein toter Bereich (~90px). Hier denselben Voll-Höhe-Flex-Container wie im workspace-mode
+   erzwingen (ID-Spezifität schlägt die landing-/workspace-grid-Regeln), sodass die Karte per
+   flex:1 den Platz bis zum Sticky-Footer füllt — unabhängig vom Job-Status. */
+body.tab-admin #main-workspace {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 20px;
+    /*: an den DYNAMISCHEN Viewport koppeln (dvh) statt 100vh. Auf Mobilgeräten meint
+       100vh die große Layout-Höhe (URL-Leiste eingeklappt); da <body> overflow:hidden ist,
+       läge der untere Rand von #main-workspace dann unter der sichtbaren Fläche (Dead-Zone)
+       und die letzte Zeile (SMTP-Test) wäre unerreichbar. max-height deckelt den Scroll-
+       Container auf die sichtbare Höhe, sein Inhalt scrollt intern vollständig ins Bild.
+       Auf Desktop ist dvh == vh, also unverändert. */
+    min-height: calc(100dvh - 64px);
+    max-height: calc(100dvh - 64px);
+    box-sizing: border-box;
+}
+
+/* : Im Wartungsmodus (Nicht-Admin) im Footer alle Links/Trenner ausblenden -
+   nur der Marken-Text bleibt; die Anmeldung läuft über den Button der Wartungsseite. */
+body.maintenance-active .footer-link,
+body.maintenance-active .footer-sep {
+    display: none !important;
+}
+body.tab-configure .config-footer,
+body.tab-custom-playbooks .config-footer,
+body.tab-admin .config-footer,
+body.tab-legal .config-footer,
+body.tab-teams .config-footer,
+body.tab-pricing .config-footer,
+body.tab-devices .config-footer {
+    flex-shrink: 0;
+    margin-top: 0;
+}
+
+/* (Feinschliff): Inhalt der Custom-Playbooks-Seite DIREKT anzeigen - der innere
+   .dialog-body-Scroller (flex:1; overflow-y:auto) zog die Karte unter die Grid-Hoehe und
+   erzeugte eine sichtbare Hoehen-Diskrepanz. Jetzt flient der Inhalt natuerlich (kein eigener
+   Scroller), und die Karte fuellt #main-workspace wie bei admin/configure (Sticky-Footer ueber
+   die allgemeine Regel, flex:1 0 auto). Kurzer Inhalt -> Karte fuellt die Grid-Hoehe, Footer
+   unten, Kopf sichtbar; nur bei wirklich zu hohem Inhalt scrollt #main-workspace. Die innere
+   Tabelle der eigenen Playbooks behaelt ihren eigenen max-height-Scroll. */
+body.tab-custom-playbooks #custom-playbooks-card .dialog-body {
+    flex: 0 1 auto;
+    overflow: visible;
+    min-height: 0;
+}
+
+/* (Feinschliff): `body.workspace-mode .config-card { padding: 0 0 120px 0 }` reserviert
+   120px unten fuer den FIXIERTEN Run-Button der Startseite. Die Custom-Playbooks-Karte ist
+   ebenfalls eine `.config-card`, hat aber keinen Run-Button -> die 120px waren toter Leerraum
+   zwischen "Hochladen"-Button und Footer und liessen die Seite scrollen. Hier auf 0 setzen. */
+body.tab-custom-playbooks #custom-playbooks-card {
+    padding-bottom: 0 !important;
+}
+
+/* =========================================
+    (#A): "My Vault" — Tab-Container, der Eigene Playbooks + Geräte (+ Presets/Szenarios)
+   unter einer Vollbreite-Inline-Seite vereint. Verhalten gespiegelt von der bewährten
+   Custom-Playbooks-/Devices-Seite (Konsole/Home ausblenden, einspaltiges Grid, Sticky-Footer).
+   Die alten tab-custom-playbooks/tab-devices-Regeln referenzieren entfernte IDs und sind
+   damit wirkungslose No-ops; die aktive Seite ist jetzt durchgehend tab-vault/#vault-card.
+   ========================================= */
+body.tab-vault #config-card,
+body.tab-vault #right-column,
+body.tab-vault #admin-card {
+    display: none !important;
+}
+body.tab-vault #vault-card {
+    display: flex !important;
+    max-width: none;
+    margin: 0;
+    width: 100%;
+    /* : KEIN height:100% — sonst beansprucht die Karte die volle Höhe von
+       #main-workspace, und der darunterliegende Sticky-Footer (~30px) ragt zwingend über den
+       Viewport hinaus (Dauer-Scrollbar, unabhängig von der Bildschirmhöhe). Mit height:auto +
+       flex:1 0 auto wächst die Karte nur in den Restplatz neben dem Footer: bei genügend Höhe
+       kein Scroll, nur bei echt zu hohem Inhalt scrollt #main-workspace. */
+    height: auto;
+    flex: 1 0 auto;
+    padding-bottom: 0 !important;
+}
+body.tab-vault .workspace-grid {
+    grid-template-columns: 1fr;
+    /* : geringeres vertikales Padding -> weniger Leerraum um die Karte, sodass der
+       Inhalt bei genügend Platz ohne Scrollbar auskommt (statt knappem Überlauf). */
+    padding: 10px 20px 8px 20px;
+    /* -Feedback: vertikales Margin (aus der landing-mode-Regel: 40px auto) komplett
+       entfernen -> Inhalt sitzt oben, Footer bündig am Viewport-Boden. Konsistent mit Teams. */
+    margin: 0 auto;
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+}
+body.tab-vault #main-workspace {
+    display: flex;
+    flex-direction: column;
+}
+body.tab-vault .config-footer {
+    flex-shrink: 0;
+    margin-top: 0;
+}
+/* Innerer Dialog-Body der Playbooks-Panel flient direkt (kein eigener Scroller),
+   analog zur alten body.tab-custom-playbooks #custom-playbooks-card .dialog-body Regel. */
+body.tab-vault #vault-tab-playbooks .dialog-body {
+    flex: 0 1 auto;
+    overflow: visible;
+    min-height: 0;
+}
+/* : die kompakte Feldhöhe ist jetzt global in .text-field input -> kein scoped Override mehr nötig. */
+
+/* =========================================
+   CONFIG CARD & FLAT PRESETS & LOCAL ICONS
+   ========================================= */
+
+.config-card {
+    position: relative;
+    padding-bottom: 88px !important;
+    gap: 20px;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+}
+
+.grid-row-header {
+    grid-column: 1 / -1;
+}
+
+/* Playbook Item Local Icon Sizing */
+.playbook-item-icon-img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.playbooks-list.list-mode .playbook-item-icon-img {
+    width: 20px;
+    height: 20px;
+}
+
+/* Playbook Item Indeterminate Checkbox Styling */
+.playbook-item input[type="checkbox"]:indeterminate {
+    background-color: transparent;
+    border-color: var(--md-sys-color-primary);
+}
+
+.playbook-item input[type="checkbox"]:indeterminate::before {
+    content: "";
+    width: 10px;
+    height: 2px;
+    background-color: var(--md-sys-color-primary);
+    transform: none;
+    opacity: 1;
+}
+
+/* Special styling for flat preset tiles (clickable, interactive) */
+.preset-tile {
+    border-color: color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent) !important;
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 3%, transparent) !important;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.preset-tile:hover {
+    border-color: color-mix(in srgb, var(--md-sys-color-primary) 50%, transparent) !important;
+    background-color: color-mix(in srgb, var(--md-sys-color-primary) 6%, transparent) !important;
+}
+
+/* Config card footer */
+.config-footer {
+    margin-top: 32px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    font-size: 11px;
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.7;
+    font-family: inherit;
+    letter-spacing: 0.3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.footer-brand {
+    opacity: 0.8;
+}
+
+.footer-sep {
+    opacity: 0.4;
+    user-select: none;
+}
+
+.footer-link {
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.footer-link:hover {
+    opacity: 0.75;
+    text-decoration: underline;
+}
+
+/* Registration form checkbox rows */
+.register-checkbox-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.styled-checkbox {
+    width: 18px !important;
+    height: 18px;
+    min-width: 18px;
+    accent-color: var(--md-sys-color-primary);
+    cursor: pointer;
+    margin-top: 2px;
+}
+
+.checkbox-label {
+    font-size: 13px;
+    line-height: 1.5;
+    cursor: pointer;
+}
+
+.modal-link {
+    color: var(--md-sys-color-primary);
+    text-decoration: none;
+}
+
+.modal-link:hover {
+    text-decoration: underline;
+}
+
+/* Password requirements list */
+.password-requirements li {
+    transition: color 0.2s;
+}
+
+.password-requirements li.valid {
+    color: var(--md-sys-color-primary);
+}
+
+/* Password visibility toggle (eye button inside a text field) */
+.text-field.password-field input {
+    padding-right: 44px;
+}
+
+.password-toggle-btn {
+    position: absolute;
+    right: 6px;
+    top: 8px;
+    height: 40px;
+    width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--md-sys-color-on-surface-variant);
+    transition: color var(--transition-fast);
+}
+
+.password-toggle-btn:hover {
+    color: var(--md-sys-color-primary);
+}
+
+.password-toggle-btn .material-symbols-outlined {
+    font-size: 20px;
+}
+
+/* Profile modal tabs */
+.profile-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+.profile-tab-btn {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: rgba(255, 255, 255, 0.6);
+    padding: 10px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.profile-tab-btn:hover {
+    color: var(--md-sys-color-on-surface);
+}
+
+.profile-tab-btn.active {
+    color: var(--md-sys-color-primary);
+    border-bottom-color: var(--md-sys-color-primary);
+}
+
+.profile-tab-panel {
+    display: none;
+}
+
+.profile-tab-panel.active {
+    display: block;
+}
+
+/* Feste Hoehe, damit der Tab-Wechsel die Fenstergroesse nicht veraendert
+   (sonst kann das Modal aus dem sichtbaren Bereich rutschen). */
+#profile-dialog .dialog-body {
+    height: 65vh;
+    max-height: 620px;
+    overflow-y: auto;
+}
+
+.profile-h4 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    color: var(--md-sys-color-primary);
+}
+
+.session-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 13px;
+}
+
+.session-item.current {
+    border-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+}
+
+
+/* Authentication and Profile actions */
+.auth-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+.auth-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.username-display {
+    color: var(--md-sys-color-primary);
+    font-weight: 600;
+    font-size: 14px;
+    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
+
+/* Profil-Button traegt jetzt den Benutzernamen und die Farbe der frueheren Box */
+.profile-name-btn {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent) !important;
+    color: var(--md-sys-color-primary) !important;
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent) !important;
+    font-weight: 600;
+}
+
+.profile-name-btn:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent) !important;
+    border-color: color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent) !important;
+}
+
+.nav-action-btn {
+    height: 36px !important;
+    padding: 0 16px !important;
+    border-radius: 18px !important;
+    font-size: 13px !important;
+    background: rgba(255, 255, 255, 0.05);
+    color: #E0E0E0;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.dialog-card.auth-modal {
+    border-radius: 16px;
+    padding: 24px;
+    gap: 15px;
+}
+
+.dialog-card.large-modal {
+    border-radius: 16px;
+    padding: 24px;
+    gap: 15px;
+}
+
+/* Checkboxes & Settings */
+.checkbox-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #E0E0E0;
+}
+
+.checkbox-container input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    outline: none;
+    background: rgba(0,0,0,0.2);
+    display: grid;
+    place-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.checkbox-container input[type="checkbox"]:checked {
+    background: var(--md-sys-color-primary);
+    border-color: var(--md-sys-color-primary);
+}
+
+.checkbox-container input[type="checkbox"]:checked::before {
+    content: "\e5ca";
+    font-family: 'Material Symbols Outlined';
+    font-size: 14px;
+    color: #fff;
+    font-weight: bold;
+}
+
+.checkbox-container label {
+    cursor: pointer;
+    font-size: 13px;
+    user-select: none;
+}
+
+/* Device Manager Modal Styles */
+.device-item-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 6px;
+    padding: 12px 16px;
+    transition: all 0.2s ease;
+}
+
+.device-item-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: color-mix(in srgb, var(--md-sys-color-primary) 30%, transparent);
+}
+
+.device-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.device-item-label {
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+}
+
+.device-item-details {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.device-item-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.device-item-actions button {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+}
+
+.device-item-actions button:hover {
+    color: var(--md-sys-color-primary);
+}
+
+/*: Delete-Icons nutzen jetzt den allgemeinen :hover (Branding-primary) wie die
+   uebrigen Aktions-Icons -> kein Error-Rot-Override mehr. */
+
+.btn-small {
+    height: 32px !important;
+    padding: 0 12px !important;
+    font-size: 12px !important;
+    border-radius: 4px !important;
+}
+
+/*: Branding-Akzentfarbe (primary) statt hartcodiertem Pink (#FF2E93)/Error. Getoenter
+   Outline-Stil (sichtbar in Dark & Light), fuellt sich beim Hover. */
+.btn-danger {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+    color: var(--md-sys-color-primary);
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 60%, transparent);
+}
+
+.btn-danger:hover {
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+}
+
+/*: Inline-Fehlermeldung im Ausfuehren-Dialog (Dialog bleibt bei Server-Fehler offen).
+   Error-Farbe ist hier korrekt (Fehlermeldung, kein Delete-Button). */
+.modal-error {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background-color: color-mix(in srgb, var(--md-sys-color-error) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 30%, transparent);
+    color: var(--md-sys-color-error);
+    font-size: 13px;
+    line-height: 1.5;
+}
+.modal-error.hidden { display: none; }
+
+/* Cookie Consent Banner & Legal Modals */
+.cookie-banner-overlay {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    right: 24px;
+    z-index: 1000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.cookie-banner-overlay.hidden {
+    opacity: 0;
+    transform: translateY(50px);
+    pointer-events: none;
+}
+
+.cookie-banner-card {
+    max-width: 600px;
+    margin: 0 auto;
+    /*: themebar (adaptiert Dark/Light); leichte Transluzenz fuer den Blur-Effekt. */
+    background: color-mix(in srgb, var(--md-sys-color-surface-container-high) 92%, transparent);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.cookie-preferences-details {
+    transition: all 0.3s ease;
+}
+
+.cookie-preferences-details.hidden {
+    display: none !important;
+}
+
+.legal-text-content h4 {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 4px;
+    margin-top: 15px;
+    margin-bottom: 8px;
+}
+
+.legal-text-content p {
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+/* Collaboration & Automation */
+.scope-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-right: 4px;
+    display: inline-block;
+}
+.scope-badge.run {
+    background: rgba(78, 205, 196, 0.15);
+    color: #4ecdc4;
+    border: 1px solid rgba(78, 205, 196, 0.3);
+}
+.scope-badge.read {
+    background: rgba(54, 162, 235, 0.15);
+    color: #36a2eb;
+    border: 1px solid rgba(54, 162, 235, 0.3);
+}
+/*: Branding-Akzentfarbe (primary) statt hartcodiertem Pink. */
+.btn-small-danger {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 40%, transparent);
+    color: var(--md-sys-color-primary);
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.btn-small-danger:hover {
+    background: color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+    border-color: var(--md-sys-color-primary);
+}
+
+/* Global Hidden Helper (except for dialog overlay which uses transitions) */
+.hidden:not(.dialog-overlay) {
+    display: none !important;
+}
+
+/* Footer layout inside workspace grid */
+body.workspace-mode .config-footer {
+    grid-column: 1 / -1;
+}
+
+
+/* ============================================================
+   Milestone 14 - Accessibility & Theming
+   ============================================================ */
+
+/* ---: Screen-Reader-only Hilfstexte (visually hidden) --- */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ---: Tastatur-Fokus-Indikatoren (:focus-visible) ---
+   Ersetzt das destruktive `outline: none` durch sichtbare Fokus-Ringe, die nur
+   bei Tastatur-Navigation erscheinen (nicht bei Maus-Klicks). */
+:focus-visible {
+    outline: 3px solid var(--md-sys-color-primary);
+    outline-offset: 3px;
+}
+.playbook-item input[type="checkbox"]:focus-visible,
+.dialog-checkbox-container input[type="checkbox"]:focus-visible,
+.checkbox-container input[type="checkbox"]:focus-visible,
+.styled-checkbox:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 2px;
+    border-color: var(--md-sys-color-primary);
+}
+.nav-btn:focus-visible,
+.tab-btn:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: -2px;
+}
+.text-field input:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 1px;
+}
+
+/* ---: Light-Theme (Beta) ---
+   System-Standard folgt prefers-color-scheme; explizite Wahl ueber
+   html.theme-light / html.theme-dark (von app.js gesetzt). Das Terminal/die
+   Konsole bleibt bewusst dunkel (Konvention). Hinweis: Teile der UI nutzen noch
+   hartcodierte/inline Dark-Farben - der Feinschliff ist als Folge-Ticket erfasst. */
+@media (prefers-color-scheme: light) {
+    :root:not(.theme-dark) {
+        --md-sys-color-primary: #6750A4;
+        --md-sys-color-on-primary: #FFFFFF;
+        --md-sys-color-primary-container: #EADDFF;
+        --md-sys-color-on-primary-container: #21005D;
+        --md-sys-color-secondary-container: #E8DEF8;
+        --md-sys-color-on-secondary-container: #1D192B;
+        --md-sys-color-background: #FDF8FF;
+        --md-sys-color-on-background: #1C1B1F;
+        --md-sys-color-surface: #FEF7FF;
+        --md-sys-color-on-surface: #1C1B1F;
+        --md-sys-color-surface-container-low: #F7F2FA;
+        --md-sys-color-surface-container: #F3EDF7;
+        --md-sys-color-surface-container-high: #ECE6F0;
+        --md-sys-color-on-surface-variant: #49454F;
+        --md-sys-color-outline: #79747E;
+        --md-sys-color-outline-variant: #CAC4D0;
+        --md-sys-color-error: #B3261E;
+        --md-sys-color-on-error: #FFFFFF;
+        --md-sys-color-success: #146C2E;
+        --md-sys-color-on-success: #FFFFFF;
+        --md-sys-color-running: #00658F;
+        --md-sys-color-on-running: #FFFFFF;
+    }
+}
+html.theme-light {
+    --md-sys-color-primary: #6750A4;
+    --md-sys-color-on-primary: #FFFFFF;
+    --md-sys-color-primary-container: #EADDFF;
+    --md-sys-color-on-primary-container: #21005D;
+    --md-sys-color-secondary-container: #E8DEF8;
+    --md-sys-color-on-secondary-container: #1D192B;
+    --md-sys-color-background: #FDF8FF;
+    --md-sys-color-on-background: #1C1B1F;
+    --md-sys-color-surface: #FEF7FF;
+    --md-sys-color-on-surface: #1C1B1F;
+    --md-sys-color-surface-container-low: #F7F2FA;
+    --md-sys-color-surface-container: #F3EDF7;
+    --md-sys-color-surface-container-high: #ECE6F0;
+    --md-sys-color-on-surface-variant: #49454F;
+    --md-sys-color-outline: #79747E;
+    --md-sys-color-outline-variant: #CAC4D0;
+    --md-sys-color-error: #B3261E;
+    --md-sys-color-on-error: #FFFFFF;
+    --md-sys-color-success: #146C2E;
+    --md-sys-color-on-success: #FFFFFF;
+    --md-sys-color-running: #00658F;
+    --md-sys-color-on-running: #FFFFFF;
+
+    /*: Light-Werte der Text-Stufen (dunkle Tinte auf hellem Grund). */
+    --text-strong: rgba(0, 0, 0, 0.87);
+    --text-primary: rgba(0, 0, 0, 0.72);
+    --text-secondary: rgba(0, 0, 0, 0.58);
+    --text-muted: rgba(0, 0, 0, 0.45);
+}
+
+/* Kuratierte Light-Overrides fuer grosse, hartcodiert/inline gefaerbte Flaechen,
+   damit der Light-Mode lesbar bleibt (Defense gegen invisible-text). Nur im Light. */
+html.theme-light #legal-content-body {
+    color: var(--md-sys-color-on-surface) !important;
+}
+@media (prefers-color-scheme: light) {
+    :root:not(.theme-dark) #legal-content-body {
+        color: var(--md-sys-color-on-surface) !important;
+    }
+}
+
+/* : Light-Mode-Feinschliff. */
+html.theme-light .host-console-area {
+    /*: Konsole bleibt ein dunkles Code-Panel, wird aber etwas angehoben und klar umrandet,
+       damit sie im hellen Theme als bewusst abgesetzter Code-Bereich erkennbar ist. */
+    --console-bg: #1B1B23;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 8px;
+}
+html.theme-light .playbook-item--locked {
+    /*: im Light-Mode etwas weniger transparent, damit der Gesperrt-Zustand lesbar bleibt. */
+    opacity: 0.68;
+}
+
+/* ---: Mobile/Touch-Polish ---
+   Touch-Ziele auf groben Zeigern (Touchscreens) auf >= 44x44px anheben, ohne das
+   Desktop-Layout aufzublaehen; App-Bar-Padding auf schmalen Viewports reduzieren. */
+@media (pointer: coarse) {
+    .btn-small {
+        min-height: 44px !important;
+    }
+    .view-toggle-buttons .btn-icon,
+    .btn-icon {
+        min-width: 44px;
+        min-height: 44px;
+    }
+    .password-toggle-btn {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+@media (max-width: 600px) {
+    .app-bar {
+        padding: 0 12px;
+    }
+}
+
+/* ===========================================================================
+   : Mobile Responsiveness & Burger-Navigation
+   =========================================================================== */
+.burger-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    color: var(--md-sys-color-on-surface);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+}
+.burger-btn .material-symbols-outlined { font-size: 28px; }
+.burger-btn:hover { background-color: var(--md-sys-color-surface-container-high); }
+
+.mobile-drawer { position: fixed; inset: 0; z-index: 1000; }
+.mobile-drawer.hidden { display: none; }
+.mobile-drawer-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5); }
+.mobile-drawer-panel {
+    position: absolute;
+    top: 0; right: 0;
+    height: 100%;
+    width: min(86vw, 340px);
+    background-color: var(--md-sys-color-surface-container-low);
+    border-left: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    overflow-y: auto;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.4);
+    animation: drawer-slide-in 0.2s ease;
+}
+@keyframes drawer-slide-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+.mobile-drawer-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px; padding: 4px;
+}
+.mobile-drawer-title { font-weight: 700; font-size: 18px; }
+.mobile-drawer-section {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 0;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+.mobile-drawer-section:empty { display: none; }
+.mobile-drawer-item {
+    display: flex; align-items: center; gap: 12px;
+    width: 100%; text-align: left;
+    background: transparent; border: none; cursor: pointer;
+    color: var(--md-sys-color-on-surface);
+    padding: 12px 10px; min-height: 48px; border-radius: 8px;
+    font-size: 15px; font-family: inherit;
+}
+.mobile-drawer-item:hover { background-color: var(--md-sys-color-surface-container-high); }
+.mobile-drawer-item .material-symbols-outlined { font-size: 22px; color: var(--md-sys-color-primary); }
+.mobile-drawer-footer .mobile-drawer-item { font-size: 14px; }
+.mobile-drawer-footer .mobile-drawer-item .material-symbols-outlined { color: var(--md-sys-color-on-surface-variant); }
+body.drawer-open { overflow: hidden; }
+
+/*: Admin-Dashboard-Chart-Grid. minmax(0,…) + min-width:0 erlauben den Grid-Spalten,
+   unter die Mindestbreite der <canvas> zu schrumpfen — sonst pinnen die Canvas-Intrinsics
+   das Grid auf ~900px und das Dashboard läuft auf schmalen Viewports über. */
+#admin-dashboard-charts { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+#admin-dashboard-charts > *,
+.admin-chart-card { min-width: 0; }
+#admin-dashboard-charts canvas { max-width: 100%; }
+
+@media (max-width: 768px) {
+    /*: Inline-Header-Navigation, Auth-Aktionen und Footer weichen dem Burger-Menue. */
+    .main-navigation-bar,
+    .auth-bar { display: none !important; }
+    .config-footer { display: none; }
+    .burger-btn { display: inline-flex; }
+
+    /*: kompakteres Branding im Header */
+    .logo-area h1 { font-size: 16px; }
+    .logo-subtext { display: none; }
+
+    /*: Karten/Dialoge nutzen die Breite mit kleineren Abstaenden */
+    .config-card { padding: 16px !important; }
+    .dialog-card { padding: 18px !important; }
+
+    /*: Tabellen horizontal scrollbar statt Layout-Bruch (einspaltig stapelbar
+       waere mit data-labels moeglich; Scroll haelt alle Spalten lesbar). */
+    .dialog-card table,
+    .config-card table,
+    #admin-card table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /*: groessere Touch-Targets */
+    .nav-btn, .btn { min-height: 44px; }
+
+    /*: Job-Historie-Konsole mobil. Kopfzeile umbrechen statt Aktionsbuttons abzuschneiden
+       (Vorfahre .tab-content-card ist overflow:hidden), lange Job-ID ellipsieren, verbosen
+       Fortschrittstext ausblenden (der Balken bleibt), Log-Padding/Schrift verkleinern. */
+    .console-header { flex-wrap: wrap; gap: 8px; padding: 12px 12px 8px; }
+    .header-left { min-width: 0; flex-wrap: wrap; gap: 8px; }
+    .header-actions { flex-shrink: 0; }
+    .job-id-badge { max-width: 45vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .console-progress-text { display: none; }
+    .console-text { padding: 12px; font-size: 12px; }
+    /* Flow-Chart-Kacheln vertikal stapeln; Ablauf-Pfeile nach unten drehen. */
+    /*: Im Hochformat die Kacheln in EINER Spalte stapeln. Ohne flex-wrap:nowrap
+       umbrechen sie im column-Modus in zusaetzliche Spalten -> horizontale Ueberbreite,
+       die (ueber min-content) die Konsolen-/rechte Spalte aufblaeht und Inhalt abschneidet.
+       min-width:0 an Kachel + Name laesst lange Playbook-Namen ellipsieren statt zu ueberlaufen. */
+    .flowchart-view { flex-direction: column; align-items: stretch; flex-wrap: nowrap; padding: 16px 12px; }
+    .flow-tile { max-width: none; width: 100%; min-width: 0; }
+    .flow-tile-name { min-width: 0; }
+    .flow-arrow { transform: rotate(90deg); align-self: center; }
+
+    /*: Admin-Charts einspaltig (das Grid würde sonst ~900px breit bleiben); und unten
+       Platz schaffen, damit der Speichern-FAB nicht über dem SMTP-Test-Button liegt. */
+    #admin-dashboard-charts { grid-template-columns: 1fr; }
+    body.tab-admin #admin-card { padding-bottom: 88px !important; }
+}
+
+@media (max-width: 600px) {
+    /*: einspaltiger Katalog + Dialoge fast vollbreit */
+    .playbooks-list.grid-mode { grid-template-columns: 1fr; }
+    .dialog-card { max-width: 100% !important; width: 96% !important; }
+    body { font-size: 15px; }
+}
+
+/*: Vollbild-Sperrbildschirm bei geblockter IP (SecurityMiddleware). Deckt die
+   komplette App ab, da nach einem IP-Block ohnehin kein Request mehr durchkommt. */
+.ip-block-overlay {
+    position: fixed;
+    inset: 0;
+    background-color: var(--md-sys-color-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    /* ueber Dialogen (100), Toast (100), Cookie-Banner/Drawer (1000) */
+    z-index: 4000;
+}
+.ip-block-overlay.hidden { display: none; }
+.ip-block-card {
+    max-width: 480px;
+    width: 100%;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant, rgba(255, 255, 255, 0.1));
+    border-radius: 16px;
+    padding: 40px 32px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+.ip-block-icon {
+    font-size: 56px;
+    color: var(--md-sys-color-error);
+    margin-bottom: 8px;
+}
+.ip-block-card h1 {
+    font-size: 22px;
+    margin: 0 0 12px 0;
+    color: var(--md-sys-color-on-surface, var(--text-primary));
+}
+.ip-block-card p {
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0 0 12px 0;
+}
+.ip-block-reason {
+    color: var(--md-sys-color-on-surface-variant);
+    font-style: italic;
+    font-size: 13px;
+}
+.ip-block-countdown-wrap {
+    margin: 20px 0;
+    padding: 16px;
+    background-color: color-mix(in srgb, var(--md-sys-color-error) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--md-sys-color-error) 25%, transparent);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.ip-block-countdown-label {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.ip-block-countdown {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--md-sys-color-error);
+    font-variant-numeric: tabular-nums;
+}
+.ip-block-until {
+    font-size: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.ip-block-retry { margin-top: 8px; }
+.ip-block-countdown-wrap.hidden,
+.ip-block-reason.hidden,
+.ip-block-permanent.hidden { display: none; }
+
+
+
+
+
+
+
+/* : Agent Instructions (llm.txt) — Darstellung der clientseitig aus Markdown
+   gerenderten Doku in #llm-instructions-body. Werte lehnen sich an das bestehende
+   Karten-/Theme-System an (Design-Tokens statt fester Farben). */
+.llm-doc { font-size: 14px; }
+.llm-doc h1 { font-size: 22px; margin: 4px 0 12px; }
+.llm-doc h2 { font-size: 18px; margin: 26px 0 10px; padding-top: 14px; border-top: 1px solid var(--md-sys-color-outline-variant, rgba(128,128,128,0.25)); }
+.llm-doc h3 { font-size: 15px; margin: 18px 0 8px; color: var(--md-sys-color-primary); }
+.llm-doc p { margin: 8px 0; }
+.llm-doc ul, .llm-doc ol { margin: 8px 0 8px 4px; padding-left: 22px; }
+.llm-doc li { margin: 4px 0; }
+.llm-doc hr { border: none; border-top: 1px solid var(--md-sys-color-outline-variant, rgba(128,128,128,0.25)); margin: 20px 0; }
+.llm-doc code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.88em;
+    background: var(--md-sys-color-surface-container-high, rgba(128,128,128,0.14));
+    padding: 1px 5px;
+    border-radius: 4px;
+    word-break: break-word;
+}
+.llm-doc pre.llm-code {
+    background: var(--md-sys-color-surface-container-high, rgba(128,128,128,0.14));
+    border: 1px solid var(--md-sys-color-outline-variant, rgba(128,128,128,0.25));
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    margin: 10px 0;
+}
+.llm-doc pre.llm-code code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; white-space: pre; }
+.llm-doc blockquote {
+    margin: 12px 0;
+    padding: 8px 14px;
+    border-left: 3px solid var(--md-sys-color-primary);
+    background: var(--md-sys-color-surface-container, rgba(128,128,128,0.08));
+    border-radius: 0 6px 6px 0;
+}
+.llm-doc blockquote p { margin: 0; }
+.llm-doc table.llm-table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 13px; }
+.llm-doc table.llm-table th, .llm-doc table.llm-table td {
+    border: 1px solid var(--md-sys-color-outline-variant, rgba(128,128,128,0.25));
+    padding: 6px 10px;
+    text-align: left;
+    vertical-align: top;
+}
+.llm-doc table.llm-table th { background: var(--md-sys-color-surface-container-high, rgba(128,128,128,0.14)); font-weight: 600; }

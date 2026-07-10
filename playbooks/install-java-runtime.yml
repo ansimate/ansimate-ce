@@ -1,0 +1,13 @@
+- name: install Java Runtime (OpenJDK JRE)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "ensure 'default-jre' installed (latest)"
+    become: true
+    become_method: sudo
+    apt:
+      name: default-jre
+      state: latest
+      update_cache: yes

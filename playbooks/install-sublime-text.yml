@@ -1,0 +1,12 @@
+- name: install Sublime Text (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install Sublime Text (com.sublimehq.SublimeText) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub com.sublimehq.SublimeText"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

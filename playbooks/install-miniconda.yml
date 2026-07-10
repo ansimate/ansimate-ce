@@ -1,0 +1,28 @@
+- name: install Miniconda
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    miniconda_prefix: "/opt/miniconda"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: ensure curl is installed
+    become: true
+    become_method: sudo
+    apt:
+      name: curl
+      state: present
+      update_cache: yes
+#---------------------------------------------------------------------------------------------
+  - name: download the Miniconda installer
+    get_url:
+      url: "https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh"
+      dest: "/tmp/miniconda-installer.sh"
+      mode: "0755"
+#---------------------------------------------------------------------------------------------
+  - name: "install Miniconda to {{miniconda_prefix}}"
+    become: true
+    become_method: sudo
+    command: "bash /tmp/miniconda-installer.sh -b -p {{miniconda_prefix}}"
+    args:
+      creates: "{{miniconda_prefix}}"

@@ -1,0 +1,98 @@
+- name: create compose for filebrowser
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "filebrowser"
+    image: "hurlenko/filebrowser"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            image: {{image}}
+            container_name: {{stack}}
+            restart: unless-stopped
+            volumes:
+              - '{{base_dir}}:/data'
+              - '{{base_dir}}/docker/{{stack}}:/config'
+            environment:
+              - PYTHONUNBUFFERED=1
+              - TZ={{timezone}}
+              - FB_BASEURL=/
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - traefik.http.routers.fb_http.rule=Host(`{{filebrowser_domain}}`)
+              - traefik.http.routers.fb_http.entrypoints=web
+        {% else %}
+            ports:
+              - "{{filebrowser_port | default('8080')}}:8080"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+#  - name: "enable ssl certificate resolver (if public domain)"
+#    command: "sed -i 's%#- traefik.http.routers.fb.tls.certresolver=%- traefik.http.routers.fb.tls.certresolver=%g' compose.yml"
+#    args:
+#      chdir: "{{base_dir}}/compose/{{stack}}"
+#    when: domain_is_public
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

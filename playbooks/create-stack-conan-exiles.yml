@@ -1,0 +1,65 @@
+- name: deploy Conan Exiles Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "conan-exiles"
+    image: "melle2/conanexiles-ds:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          conan-exiles:
+            restart: unless-stopped
+            container_name: conan-exiles
+            image: melle2/conanexiles-ds:latest
+            ports:
+              - "7777:7777/udp"
+              - "7778:7778/udp"
+              - "27015:27015/udp"
+            environment:
+              - TZ=Etc/UTC
+              - GAME_INSTANCE_NAME=ConanServer
+              - GAME_SERVER_NAME=Conan Exiles Server
+              - GAME_SERVER_PASSWORD=changeme
+              - GAME_MOD_IDS=
+              - GAME_UPDATE=true
+              - GAME_UPDATE_MODS=false
+              - GAME_UE5=true
+              - SERVER_ADDITIONAL_PARAMETER=
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}/game:/conanexiles"
+              - "{{base_dir}}/docker/{{stack}}/config:/conanexiles_config"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

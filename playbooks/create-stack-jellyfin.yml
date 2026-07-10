@@ -1,0 +1,112 @@
+- name: create compose for jellyfin
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "jellyfin"
+    image: "jellyfin/jellyfin:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating Jellyfin config + cache directories"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/{{item}}"
+      state: directory
+      owner: "{{ssh_user}}"
+    loop:
+      - config
+      - cache
+#---------------------------------------------------------------------------------------------
+  - name: "ensuring Jellyfin media directory exists (owned by ssh_user)"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{jellyfin_media | default(base_dir + '/media')}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+        {% if jellyfin_domain | default('') %}
+              - JELLYFIN_PublishedServerUrl=http://{{jellyfin_domain}}
+        {% endif %}
+            volumes:
+              # Konfiguration + Cache; Medienbibliothek read-only eingebunden
+              - {{base_dir}}/docker/{{stack}}/config:/config
+              - {{base_dir}}/docker/{{stack}}/cache:/cache
+              - {{jellyfin_media | default(base_dir + '/media')}}:/media:ro
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Multimedia
+              - homepage.name=Jellyfin
+              - homepage.icon=jellyfin.svg
+              - homepage.href=http://{{jellyfin_domain}}
+              - homepage.description=Media Server
+              - "traefik.http.routers.jellyfin_http.rule=Host(`{{jellyfin_domain}}`)"
+              - traefik.http.routers.jellyfin_http.entrypoints=web
+              - traefik.http.services.jellyfin.loadbalancer.server.port=8096
+        {% else %}
+            ports:
+              - "{{jellyfin_port | default('8096')}}:8096"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

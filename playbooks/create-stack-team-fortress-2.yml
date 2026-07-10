@@ -1,0 +1,67 @@
+- name: deploy Team Fortress 2 Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "team-fortress-2"
+    image: "cm2network/tf2:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          team-fortress-2:
+            restart: unless-stopped
+            container_name: team-fortress-2
+            image: cm2network/tf2:latest
+            ports:
+              - "27015:27015/tcp"
+              - "27015:27015/udp"
+              - "27020:27020/udp"
+            environment:
+              - SRCDS_TOKEN=
+              - SRCDS_HOSTNAME=New TF Server
+              - SRCDS_STARTMAP=ctf_2fort
+              - SRCDS_MAXPLAYERS=24
+              - SRCDS_PORT=27015
+              - SRCDS_TV_PORT=27020
+              - SRCDS_TICKRATE=66
+              - SRCDS_FPSMAX=300
+              - SRCDS_REGION=3
+              - SRCDS_RCONPW=AdminPleaseChangeMe
+              - SRCDS_PW=changeme
+              - SRCDS_WORKSHOP_AUTHKEY=
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/tf-dedicated"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

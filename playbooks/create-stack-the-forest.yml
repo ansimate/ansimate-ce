@@ -1,0 +1,65 @@
+- name: deploy The Forest Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "the-forest"
+    image: "jammsen/the-forest-dedicated-server:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          the-forest:
+            restart: unless-stopped
+            container_name: the-forest
+            image: jammsen/the-forest-dedicated-server:latest
+            ports:
+              - "8766:8766/udp"
+              - "27015:27015/udp"
+              - "27016:27016/udp"
+            environment:
+              - PUID=1000
+              - PGID=1000
+              - TZ=Europe/Berlin
+              - SERVER_SETTINGS_MODE=auto
+              - FILTER_SHADER_AND_MESH_AND_WINE_DEBUG=true
+              - ALWAYS_UPDATE_ON_START=true
+              - SERVER_STEAM_ACCOUNT_TOKEN=
+              - SERVER_NAME=The Forest Server
+              - ADMIN_PASSWORD=AdminPleaseChangeMe
+              - SERVER_PASSWORD=changeme
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/theforest"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

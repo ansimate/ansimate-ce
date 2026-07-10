@@ -1,0 +1,182 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: ansible_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ansimate}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD muss in .env gesetzt sein}
+      POSTGRES_DB: ${POSTGRES_DB:-ansimate}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ansimate}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # : Docker-Socket-Proxy fuer das Backend (Sandbox-Start). Gibt nur die fuer
+  # den Sandbox-Lebenszyklus noetigen API-Bereiche frei: Containers (create/start/wait/
+  # remove/kill) und Images (inspect). POST=1 erlaubt schreibende Methoden NUR auf diesen
+  # freigegebenen Bereichen; alle anderen Endpunkte (z. B. /networks, /volumes, /info,
+  # /exec) liefert der Proxy mit 403. Der Host-Socket ist read-only gemountet.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.1.1
+    container_name: ansible_docker_proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - POST=1
+      - VERSION=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Kein Port-Mapping zum Host – nur intern (Compose-Netz) erreichbar.
+
+  # : Optionaler read-only Socket-Proxy fuer Traefik (Defense-in-Depth). Traefik
+  # liest ausschliesslich (Container-Discovery + Events); POST bleibt deaktiviert.
+  docker-proxy-traefik:
+    image: tecnativa/docker-socket-proxy:0.1.1
+    container_name: ansible_docker_proxy_traefik
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - EVENTS=1
+      - VERSION=1
+      - PING=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  backend:
+    build:
+      # Context = Repo-Root, damit backend/ UND der gemeinsame branding/-Ordner
+      # in das Image einbackbar sind.
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: ansible_backend
+    volumes:
+      # OPTIONAL (Community): Free-Tier-Playbooks sind ins Image gebacken und auch OHNE
+      # diesen Mount im Katalog sichtbar. Nur fuer EIGENE Playbooks / zum AUSFUEHREN
+      # (Sandbox) einkommentieren (mit HOST_PLAYBOOKS_DIR unten) + Host-Verzeichnis anlegen:
+      # - ./playbooks:/playbooks
+      - ./logs:/logs
+      # : KEIN Host-Socket-Bind mehr. Der Sandbox-Start laeuft ueber den
+      # docker-socket-proxy (DOCKER_HOST, siehe environment), der nur die noetigen
+      # Docker-API-Endpunkte (Containers/Images) freigibt.
+    depends_on:
+      db:
+        condition: service_healthy
+      docker-proxy:
+        condition: service_started
+    environment:
+      #: Host-Key-Pruefung aktiv (TOFU). Der Backend-Code setzt je Lauf
+      # StrictHostKeyChecking=accept-new + ein persistiertes known_hosts (MITM-Schutz
+      # bei Folge-Verbindungen); ANSIBLE_HOST_KEY_CHECKING=True verhindert, dass ansible
+      # selbst StrictHostKeyChecking=no injiziert.
+      - ANSIBLE_HOST_KEY_CHECKING=True
+      - LOG_HISTORY=true
+      - TZ=Europe/Berlin
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-ansimate}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-ansimate}
+      # Verschluesselung der gespeicherten Geraete-Credentials (B7: fail-closed ohne Key)
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY muss in .env gesetzt sein}
+      - SECRET_KEY=${SECRET_KEY:-}
+      # Absoluter HOST-Pfad des ./playbooks-Ordners – NUR noetig, wenn der ./playbooks-Mount oben aktiviert ist (Playbooks ausfuehren)
+      # - HOST_PLAYBOOKS_DIR=${HOST_PLAYBOOKS_DIR:?HOST_PLAYBOOKS_DIR (absoluter Host-Pfad zu ./playbooks) muss in .env gesetzt sein}
+      # Basis-URL fuer Links in E-Mails (z. B. Passwort-Reset)
+      - APP_BASE_URL=${APP_BASE_URL:-https://localhost}
+      - SMTP_HOST=${SMTP_HOST:-ssl0.ovh.net}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_SENDER=${SMTP_SENDER:-}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost,http://127.0.0.1}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      - IP_BLACKLIST=${IP_BLACKLIST:-}
+      - IP_BAN_DURATION=${IP_BAN_DURATION:-86400}
+      - RATE_LIMIT_GLOBAL_IP=${RATE_LIMIT_GLOBAL_IP:-60}
+      - RATE_LIMIT_USER_IP=${RATE_LIMIT_USER_IP:-120}
+      - RATE_LIMIT_WHITELIST=${RATE_LIMIT_WHITELIST:-127.0.0.1,::1}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:?ADMIN_PASSWORD muss in .env gesetzt sein}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      # API-Doku (/docs,/redoc,/openapi.json) ausliefern. In Prod ggf. auf false.
+      - ENABLE_API_DOCS=${ENABLE_API_DOCS:-true}
+      # : Spam-Schutz. false = nur angemeldete Nutzer duerfen Playbooks ausfuehren.
+      - ALLOW_ANONYMOUS_RUN=${ALLOW_ANONYMOUS_RUN:-true}
+      # : max. parallele Ansible-Ausfuehrungen; ueberzaehlige Laeufe warten in der Queue.
+      - MAX_CONCURRENT_RUNS=${MAX_CONCURRENT_RUNS:-2}
+      # : Sandbox-Start spricht den Docker-Daemon ausschliesslich ueber den
+      # gehaerteten Socket-Proxy an (kein Host-Socket-Bind mehr).
+      - DOCKER_HOST=tcp://docker-proxy:2375
+    # I1: KEIN Port-Mapping mehr – das Backend ist nur intern erreichbar (ueber Traefik/nginx).
+    restart: unless-stopped
+    healthcheck:
+      # CVE-Reduktion: Healthcheck ueber Python statt curl. curl wurde aus dem Backend-Image
+      # entfernt (curl/libcurl4/libssh2-1/libldap-2.5-0), das Image bringt aber Python mit.
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/timezone', timeout=5)\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  traefik:
+    image: traefik:v2.10
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      # : Container-Discovery ueber den read-only Socket-Proxy statt Host-Socket.
+      - "--providers.docker.endpoint=tcp://docker-proxy-traefik:2375"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=${ACME_EMAIL:?ACME_EMAIL muss in .env gesetzt sein}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - docker-proxy-traefik
+    volumes:
+      # : KEIN Host-Socket mehr in Traefik – Discovery laeuft ueber docker-proxy-traefik.
+      - "./letsencrypt:/letsencrypt"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: ansible_frontend
+    depends_on:
+      - backend
+    restart: unless-stopped
+    healthcheck:
+      # 127.0.0.1 statt localhost (localhost -> ::1; nginx hoert nur auf IPv4:80)
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    labels:
+      - "traefik.enable=true"
+      # I3: konkrete Domain statt Catch-All-Regex
+      - "traefik.http.routers.frontend.rule=Host(`${APP_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=myresolver"
+      - "traefik.http.services.frontend.loadbalancer.server.port=80"
+      # I5: HSTS + Security-Header an der TLS-Kante (Traefik), nicht ueber HTTP-nginx
+      - "traefik.http.middlewares.sec-headers.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.sec-headers.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.sec-headers.headers.stsPreload=true"
+      - "traefik.http.middlewares.sec-headers.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.sec-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.sec-headers.headers.browserXssFilter=false"
+      - "traefik.http.middlewares.sec-headers.headers.frameDeny=true"
+      - "traefik.http.routers.frontend.middlewares=sec-headers"
+
+volumes:
+  pgdata:

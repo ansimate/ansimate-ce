@@ -1,0 +1,103 @@
+- name: create compose for vikunja
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "vikunja"
+    image: "vikunja/vikunja:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup of existing compose.yml
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile:
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            restart: unless-stopped
+            container_name: {{stack}}
+            image: {{image}}
+            environment:
+              - TZ={{timezone | default('Europe/Berlin')}}
+              # Oeffentliche URL fuer korrekte Links/Logins (leer = gleiche Origin).
+              - VIKUNJA_SERVICE_PUBLICURL={{vikunja_publicurl | default('')}}
+              # SQLite-DB-Pfad explizit ins gemountete /db legen. Der Image-Default waere
+              # ./vikunja.db (= /app/vikunja/vikunja.db) und damit fluechtig -> Datenverlust.
+              - VIKUNJA_DATABASE_PATH=/db/vikunja.db
+            volumes:
+              # DB unter /db (via VIKUNJA_DATABASE_PATH); Anhaenge am Image-Default-Pfad
+              # /app/vikunja/files (files.basepath default ./files relativ zum WORKDIR).
+              - {{base_dir}}/docker/{{stack}}/db:/db
+              - {{base_dir}}/docker/{{stack}}/files:/app/vikunja/files
+        {% if use_traefik | default(false) | bool %}
+            networks:
+              - local
+            labels:
+              - homepage.group=Produktivität
+              - homepage.name=Vikunja
+              - homepage.icon=vikunja.svg
+              - homepage.href=http://{{vikunja_domain}}
+              - homepage.description=To-Do & Project Management
+              - "traefik.http.routers.vikunja_http.rule=Host(`{{vikunja_domain}}`)"
+              - traefik.http.routers.vikunja_http.entrypoints=web
+              - traefik.http.services.vikunja.loadbalancer.server.port=3456
+        {% else %}
+            ports:
+              - "{{vikunja_port | default('3456')}}:3456"
+        {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

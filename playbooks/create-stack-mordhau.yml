@@ -1,0 +1,63 @@
+- name: deploy Mordhau Dedicated Server
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "mordhau"
+    image: "cm2network/mordhau:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "writing '{{base_dir}}/compose/{{stack}}/compose.yml'"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      owner: "{{ssh_user}}"
+      content: |
+        services:
+          mordhau:
+            restart: unless-stopped
+            container_name: mordhau
+            image: cm2network/mordhau:latest
+            ports:
+              - "7777:7777/udp"
+              - "27015:27015/udp"
+              - "15000:15000/udp"
+            environment:
+              - SERVER_NAME=My Mordhau Server
+              - SERVER_MAXPLAYERS=32
+              - SERVER_PORT=7777
+              - SERVER_QUERYPORT=27015
+              - SERVER_BEACONPORT=15000
+              - SERVER_TICKRATE=60
+              - SERVER_ADMINPW=replacethisyoumadlad
+              - SERVER_DEFAULTMAP=ThePit/FFA_ThePit.FFA_ThePit
+            volumes:
+              - "{{base_dir}}/docker/{{stack}}:/home/steam/mordhau-dedicated"
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

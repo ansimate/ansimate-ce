@@ -1,0 +1,108 @@
+- name: create compose for searxng
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  vars:
+    stack: "searxng"
+    image: "docker.io/searxng/searxng:latest"
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose' directory"
+    file:
+      path: "{{base_dir}}/compose"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/compose/{{stack}}' directory"
+    file:
+      path: "{{base_dir}}/compose/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: "creating '{{base_dir}}/docker/{{stack}}' directory"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}"
+      state: directory
+      owner: "{{ssh_user}}"
+#---------------------------------------------------------------------------------------------
+  - name: checking if '{{base_dir}}/compose/{{stack}}/compose.yml' is present
+    stat:
+      path: "{{base_dir}}/compose/{{stack}}/compose.yml"
+    register: is_compose_present
+#---------------------------------------------------------------------------------------------
+  - name: make backup '{{base_dir}}/compose/{{stack}}/compose.yml' -> '{{base_dir}}/compose/{{stack}}/compose.yml.bak'
+    command: "mv compose.yml compose.yml.bak"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"
+    when: is_compose_present.stat.exists
+#---------------------------------------------------------------------------------------------
+  - name: creating '{{base_dir}}/compose/{{stack}}/compose.yml'
+    command: "touch {{base_dir}}/compose/{{stack}}/compose.yml"
+#---------------------------------------------------------------------------------------------
+  - name: add component to compose.yml
+    blockinfile: 
+      state: present
+      insertafter: EOF
+      dest: "{{base_dir}}/compose/{{stack}}/compose.yml"
+      marker: "#<!-- {{stack}} -->"
+      content: |
+        {% if use_traefik | default(false) | bool %}
+        networks:
+          local:
+            external: true
+        {% endif %}
+        services:
+          {{stack}}:
+            container_name: {{stack}}
+            image: {{image}}
+            restart: unless-stopped
+            volumes:
+              - {{base_dir}}/docker/{{stack}}/etc:/etc/searxng:rw
+              - {{base_dir}}/docker/{{stack}}/data:/var/cache/searxng:rw
+            logging:
+              driver: "json-file"
+              options:
+                max-size: "1m"
+                max-file: "1"
+        {% if use_traefik | default(false) | bool %}
+            environment:
+              - SEARXNG_BASE_URL=http://{{searxng_domain}}
+            networks:
+              - local
+            labels:
+              - traefik.http.routers.searxng_http.rule=Host(`{{searxng_domain}}`)
+              - traefik.http.routers.searxng_http.entrypoints=web
+              - traefik.http.services.searxng_http.loadbalancer.server.port=8080
+        {% else %}
+            ports:
+              - "{{searxng_port | default('8888')}}:8080"
+        {% endif %}
+              #- traefik.http.routers.searxng_http.middlewares=https_redirect
+              #- traefik.http.routers.searxng.rule=Host(`{{searxng_domain}}`)
+              #- traefik.http.routers.searxng.entrypoints=websecure
+              #- traefik.http.routers.searxng.tls=true
+              #- traefik.http.routers.searxng.tls.certresolver=myresolver
+              #- traefik.http.services.searxng.loadbalancer.server.port=8080
+#---------------------------------------------------------------------------------------------
+#  - name: "enable ssl certificate resolver (if public domain)"
+#    command: "sed -i 's%#- traefik.http.routers.searxng.tls.certresolver=%- traefik.http.routers.searxng.tls.certresolver=%g' compose.yml"
+#    args:
+#      chdir: "{{base_dir}}/compose/{{stack}}"
+#    when: domain_is_public
+#---------------------------------------------------------------------------------------------
+  - name: "start compose stack"
+    become: true
+    become_method: sudo
+    command: "docker compose up -d"
+    args:
+      chdir: "{{base_dir}}/compose/{{stack}}"

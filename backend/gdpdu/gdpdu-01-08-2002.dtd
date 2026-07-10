@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Beschreibungsstandard fuer die Datentraegerueberlassung (GDPdU), Version 1.0 -->
+<!-- Stand: 2002-08-01. Statisches Asset fuer den GoBD/GDPdU-Export (Audicon IDEA). -->
+
+<!ELEMENT DataSet (Version, DataSupplier?, Media+)>
+
+<!ELEMENT Version (#PCDATA)>
+
+<!ELEMENT DataSupplier (Name, Location, Comment)>
+<!ELEMENT Location (#PCDATA)>
+<!ELEMENT Comment (#PCDATA)>
+
+<!ELEMENT Media (Name, Table+)>
+
+<!ELEMENT Table (URL, Name, Description?, Validity?, (ANSI | Macintosh | OEM | UTF16 | UTF7 | UTF8)?, DecimalSymbol?, DigitGroupingSymbol?, Columns, (ForeignKey)*)>
+<!ELEMENT URL (#PCDATA | UUID)*>
+<!ELEMENT Name (#PCDATA)>
+<!ELEMENT Description (#PCDATA)>
+<!ELEMENT UUID (#PCDATA)>
+
+<!ELEMENT Validity (Range, Format?)>
+<!ELEMENT Range (From, To)>
+<!ELEMENT From (#PCDATA)>
+<!ELEMENT To (#PCDATA)>
+<!ELEMENT Format (#PCDATA)>
+
+<!ELEMENT ANSI EMPTY>
+<!ELEMENT Macintosh EMPTY>
+<!ELEMENT OEM EMPTY>
+<!ELEMENT UTF16 EMPTY>
+<!ELEMENT UTF7 EMPTY>
+<!ELEMENT UTF8 EMPTY>
+
+<!ELEMENT DecimalSymbol (#PCDATA)>
+<!ELEMENT DigitGroupingSymbol (#PCDATA)>
+
+<!ELEMENT Columns ((VariableLength | FixedLength), Range?)>
+
+<!ELEMENT VariableLength (ColumnDelimiter?, RecordDelimiter?, TextEncapsulator?, VariablePrimaryKey?, (VariableColumn)+)>
+<!ELEMENT ColumnDelimiter (#PCDATA)>
+<!ELEMENT RecordDelimiter (#PCDATA)>
+<!ELEMENT TextEncapsulator (#PCDATA)>
+<!ELEMENT VariablePrimaryKey ((Name | Description | (Numeric | AlphaNumeric | Date))+)>
+<!ELEMENT VariableColumn (Name, Description?, (Numeric | AlphaNumeric | Date), Map*, ForeignKey?)>
+
+<!ELEMENT FixedLength (RecordLength, (FixedPrimaryKey)?, (FixedColumn)+)>
+<!ELEMENT RecordLength (#PCDATA)>
+<!ELEMENT FixedPrimaryKey ((Name | Description | (Numeric | AlphaNumeric | Date))+)>
+<!ELEMENT FixedColumn (Name, Description?, (Numeric | AlphaNumeric | Date), Map*, ForeignKey?)>
+
+<!ELEMENT Numeric (Accuracy?)>
+<!ELEMENT Accuracy (#PCDATA)>
+<!ELEMENT AlphaNumeric (MaxLength?)>
+<!ELEMENT MaxLength (#PCDATA)>
+<!ELEMENT Date (Format?)>
+
+<!ELEMENT Map (From, To)>
+
+<!ELEMENT ForeignKey (Name+, References)>
+<!ELEMENT References (#PCDATA)>
