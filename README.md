@@ -43,8 +43,8 @@ a restart of the backend.
 
 ## Feature Highlights
 
-- **Playbook execution** against single hosts or entire **device groups** (multi-host), with
-  live log streaming and a persistent job history in the database.
+- **Playbook execution** against a single host or **multiple devices at once** (selected per
+  checkbox in a scenario or preset), with live log streaming and a persistent job history in the database.
 - **Asynchronous task queue** with a configurable concurrency limit (`MAX_CONCURRENT_RUNS`):
   excess runs wait with the status "Queued" and are processed as soon as a
   worker becomes free.
