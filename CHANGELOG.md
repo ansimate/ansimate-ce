@@ -27,6 +27,17 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-07-12
+
+### Security
+- **CVE-2026-39822 (Docker-CLI im Backend-Image) behoben:** Die für den Sandbox-Betrieb
+  enthaltene Docker-CLI wird jetzt aus dem Quellcode mit einer gepatchten Go-Toolchain
+  (≥ 1.26.5) gebaut, statt das offizielle statische Binary zu laden — letzteres ist derzeit
+  noch mit dem verwundbaren Go 1.26.4 gebaut (Go `os.Root` Symlink-Following → Directory-
+  Traversal). Das Backend-Image ist damit wieder frei von behebbaren CRITICAL/HIGH-Funden
+  (Trivy). Sobald Docker ein statisches Release mit Go ≥ 1.26.5 bereitstellt, kann wieder auf
+  den einfachen Download umgestellt werden.
+
 ## [0.4.1] - 2026-07-11
 
 ### Added
@@ -375,7 +386,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/your-org/ansimate/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/your-org/ansimate/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/your-org/ansimate/compare/v0.3.8...v0.4.0
 [0.3.8]: https://github.com/your-org/ansimate/compare/v0.3.7...v0.3.8

@@ -1,26 +1,27 @@
-# ---- Stage 1: Docker-CLI-Downloader (Wegwerf-Stage) ----
-# CVE-Reduktion: Das Docker-CLI-Binary wird in einer separaten Build-Stage geladen, damit
-# `curl` (und seine Transitiv-Deps libcurl4/libssh2-1/libldap-2.5-0) NICHT ins Laufzeit-Image
-# gelangen. Das entfernt ~6 HIGH-CVEs aus dem Backend-Image (Trivy).
+# ---- Stage 1: Docker-CLI from-source bauen (Wegwerf-Stage) ----
+# Die Docker-CLI (wird benoetigt, um die Sandbox zu starten) wird hier FROM-SOURCE mit einer
+# gepatchten Go-Toolchain gebaut und als statisches Binary (CGO=0) ins Laufzeit-Image kopiert;
+# weder der Go-Compiler noch curl landen im Runtime-Image (curls Transitiv-CVEs entfallen weiter).
+# WARUM from-source statt Static-Download (lud es zuvor von download.docker.com): das
+# offizielle Static-Binary ist (Stand 2026-07-11) noch mit Go 1.26.4 gebaut und traegt
+# CVE-2026-39822 (HIGH, Go os.Root Symlink-Following) — auch die neueste Version 29.6.1; es gibt
+# aktuell KEIN gefixtes Docker-Static-Release. Wir bauen docker/cli daher selbst mit Go >= 1.26.5
+# (Fix enthalten) -> das Binary ist CVE-frei (Trivy 0 behebbare CRITICAL/HIGH).
+# ZURUECK auf den simplen Static-Download wechseln, sobald Docker mit Go >= 1.26.5 released.
 ARG BASE_IMAGE=python:3.11-slim-trixie
+ARG GO_BUILDER_IMAGE=golang:1.26.5-bookworm
 
-FROM ${BASE_IMAGE} AS dockercli
-# Install Docker CLI static binary (wird benoetigt, um die Sandbox zu starten).
-# Optionale Integritaetspruefung: beim Build  --build-arg DOCKER_SHA256=<sha256>  setzen.
-# Die offizielle Checksumme steht unter:
-#   https://download.docker.com/linux/static/stable/x86_64/  (Datei .sha256)
-#: Bump 24.0.7 -> 29.5.3. Das alte static-Binary war mit Go 1.20.10 gebaut und schleppte
-# 19 Go-stdlib-CVEs (CRITICAL/HIGH) ins Backend-Image; die aktuelle Version ist mit neuem Go gebaut.
-ARG DOCKER_VERSION=29.5.3
-ARG DOCKER_SHA256=
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz" -o docker.tgz \
-    && if [ -n "$DOCKER_SHA256" ]; then echo "${DOCKER_SHA256}  docker.tgz" | sha256sum -c -; \
-       else echo "WARNUNG: Keine DOCKER_SHA256 gesetzt - Integritaet des Docker-CLI-Downloads nicht geprueft."; fi \
-    && tar -xzf docker.tgz --strip-components=1 docker/docker \
-    && mv docker /usr/local/bin/ \
-    && rm docker.tgz
+FROM ${GO_BUILDER_IMAGE} AS dockercli
+# docker/cli-Version als Git-Tag. Die Abhaengigkeiten sind im docker/cli-Repo committet vendored
+# (vendor.mod + vendor/) -> der Build laeuft offline (-mod=vendor); nur der flache Clone braucht Netz.
+ARG DOCKER_CLI_VERSION=v29.6.1
+RUN git clone --depth 1 --branch "${DOCKER_CLI_VERSION}" https://github.com/docker/cli.git /src \
+    && cd /src \
+    && ln -sf vendor.mod go.mod && ln -sf vendor.sum go.sum \
+    && CGO_ENABLED=0 go build -mod=vendor -trimpath \
+       -ldflags "-s -w -X github.com/docker/cli/cli/version.Version=${DOCKER_CLI_VERSION#v}" \
+       -o /usr/local/bin/docker ./cmd/docker \
+    && /usr/local/bin/docker --version
 
 # ---- Stage 1b: Standard-Playbooks vorbereiten (editions-bewusst, LEAK-SICHER) ----
 # Die Free-Tier-Playbooks werden ins Image gebacken, damit ein minimales Deployment OHNE
