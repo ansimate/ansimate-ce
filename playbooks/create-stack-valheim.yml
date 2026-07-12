@@ -42,9 +42,9 @@
             ports:
               - "2456-2458:2456-2458/udp"
             environment:
-              - SERVER_NAME=Valheim Server
+              - SERVER_NAME={{ valheim_server_name | default('Valheim Server') }}
               - WORLD_NAME=Dedicated
-              - SERVER_PASS=changeme
+              - SERVER_PASS={{ valheim_password | default('changeme') }}
               - SERVER_PORT=2456
               - SERVER_PUBLIC=true
               - BACKUPS=true

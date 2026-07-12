@@ -40,16 +40,16 @@
             container_name: ark-survival-evolved
             image: ich777/steamcmd:arkse
             ports:
-              - "7777:7777/udp"
+              - "{{ ark_survival_evolved_port | default('7777') }}:7777/udp"
               - "7778:7778/udp"
-              - "27015:27015/udp"
-              - "27020:27020/tcp"
+              - "{{ ark_survival_evolved_query_port | default('27015') }}:27015/udp"
+              - "{{ ark_survival_evolved_rcon_port | default('27020') }}:27020/tcp"
             environment:
               - GAME_ID=376030
               - MAP=TheIsland
-              - SERVER_NAME=AnsimateARKServer
-              - SRV_PWD=changeme
-              - SRV_ADMIN_PWD=AdminPleaseChangeMe
+              - SERVER_NAME={{ ark_survival_evolved_server_name | default('AnsimateARKServer') }}
+              - SRV_PWD={{ ark_survival_evolved_password | default('changeme') }}
+              - SRV_ADMIN_PWD={{ ark_survival_evolved_rcon_password | default('AdminPleaseChangeMe') }}
               - GAME_PARAMS=?MaxPlayers=20
               - GAME_PARAMS_EXTRA=-server -log
               - VALIDATE=true

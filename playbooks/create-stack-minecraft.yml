@@ -40,24 +40,24 @@
             container_name: minecraft
             image: itzg/minecraft-server:latest
             ports:
-              - "25565:25565/tcp"
-              - "25575:25575/tcp"
+              - "{{ minecraft_port | default('25565') }}:25565/tcp"
+              - "{{ minecraft_rcon_port | default('25575') }}:25575/tcp"
             environment:
               - EULA=TRUE
               - TYPE=VANILLA
               - VERSION=LATEST
               - MEMORY=2G
               - MOTD=Ansimate Minecraft Server
-              - SERVER_NAME=Minecraft Server
+              - SERVER_NAME={{ minecraft_server_name | default('Minecraft Server') }}
               - DIFFICULTY=normal
               - MODE=survival
-              - MAX_PLAYERS=20
+              - MAX_PLAYERS={{ minecraft_max_players | default('20') }}
               - OPS=
-              - SERVER_PORT=25565
+              - SERVER_PORT={{ minecraft_port | default('25565') }}
               - ONLINE_MODE=true
               - ENABLE_RCON=true
-              - RCON_PORT=25575
-              - RCON_PASSWORD=changeme
+              - RCON_PORT={{ minecraft_rcon_port | default('25575') }}
+              - RCON_PASSWORD={{ minecraft_rcon_password | default('changeme') }}
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/data"
 #---------------------------------------------------------------------------------------------

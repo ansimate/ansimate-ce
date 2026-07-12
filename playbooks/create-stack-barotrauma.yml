@@ -40,16 +40,16 @@
             container_name: barotrauma
             image: thijsvanloef/barotrauma-server-docker:latest
             ports:
-              - "27015:27015/udp"
-              - "27016:27016/udp"
+              - "{{ barotrauma_port | default('27015') }}:27015/udp"
+              - "{{ barotrauma_query_port | default('27016') }}:27016/udp"
             environment:
-              - SERVERNAME=Barotrauma Server
-              - PASSWORD=changeme
+              - SERVERNAME={{ barotrauma_server_name | default('Barotrauma Server') }}
+              - PASSWORD={{ barotrauma_password | default('changeme') }}
               - OWNER_STEAMNAME=
               - OWNER_STEAMID=
-              - MAX_PLAYERS=16
-              - PORT=27015
-              - QUERYPORT=27016
+              - MAX_PLAYERS={{ barotrauma_max_players | default('16') }}
+              - PORT={{ barotrauma_port | default('27015') }}
+              - QUERYPORT={{ barotrauma_query_port | default('27016') }}
               - PUBLICITY=false
               - INSTALL_LUA=false
             volumes:

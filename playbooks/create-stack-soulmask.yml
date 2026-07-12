@@ -40,20 +40,20 @@
             container_name: soulmask
             image: sknnr/soulmask-dedicated-server:latest
             ports:
-              - "27050:27050/udp"
-              - "27051:27051/udp"
-              - "19000:19000/tcp"
+              - "{{ soulmask_port | default('27050') }}:27050/udp"
+              - "{{ soulmask_query_port | default('27051') }}:27051/udp"
+              - "{{ soulmask_rcon_port | default('19000') }}:19000/tcp"
             environment:
-              - SERVER_NAME=Soulmask Server
+              - SERVER_NAME={{ soulmask_server_name | default('Soulmask Server') }}
               - GAME_MODE=pve
-              - SERVER_SLOTS=50
+              - SERVER_SLOTS={{ soulmask_max_players | default('50') }}
               - SERVER_LEVEL=Level01_Main
               - ADMIN_PASSWORD=AdminPleaseChangeMe
-              - SERVER_PASSWORD=
-              - GAME_PORT=27050
-              - QUERY_PORT=27051
-              - RCON_PORT=19000
-              - RCON_PASSWORD=
+              - SERVER_PASSWORD={{ soulmask_password | default('') }}
+              - GAME_PORT={{ soulmask_port | default('27050') }}
+              - QUERY_PORT={{ soulmask_query_port | default('27051') }}
+              - RCON_PORT={{ soulmask_rcon_port | default('19000') }}
+              - RCON_PASSWORD={{ soulmask_rcon_password | default('') }}
               - BACKUP=900
               - SAVING=600
             volumes:

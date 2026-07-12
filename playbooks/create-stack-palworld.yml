@@ -40,24 +40,24 @@
             container_name: palworld
             image: thijsvanloef/palworld-server-docker:latest
             ports:
-              - "8211:8211/udp"
-              - "27015:27015/udp"
+              - "{{ palworld_port | default('8211') }}:8211/udp"
+              - "{{ palworld_query_port | default('27015') }}:27015/udp"
               - "8212:8212/tcp"
             environment:
               - PUID=1000
               - PGID=1000
-              - PORT=8211
-              - PLAYERS=32
+              - PORT={{ palworld_port | default('8211') }}
+              - PLAYERS={{ palworld_max_players | default('32') }}
               - MULTITHREADING=true
               - REST_API_ENABLED=true
               - REST_API_PORT=8212
               - UPDATE_ON_BOOT=true
               - BACKUP_ENABLED=true
               - TZ=UTC
-              - SERVER_NAME=Palworld Server
+              - SERVER_NAME={{ palworld_server_name | default('Palworld Server') }}
               - SERVER_DESCRIPTION=Palworld Server
-              - SERVER_PASSWORD=changeme
-              - ADMIN_PASSWORD=AdminPleaseChangeMe
+              - SERVER_PASSWORD={{ palworld_password | default('changeme') }}
+              - ADMIN_PASSWORD={{ palworld_rcon_password | default('AdminPleaseChangeMe') }}
               - COMMUNITY=false
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/palworld/"

@@ -42,12 +42,12 @@
             stdin_open: true
             tty: true
             ports:
-              - "30120:30120/tcp"
-              - "30120:30120/udp"
+              - "{{ fivem_port | default('30120') }}:30120/tcp"
+              - "{{ fivem_port | default('30120') }}:30120/udp"
               - "40120:40120/tcp"
             environment:
               - LICENSE_KEY=
-              - RCON_PASSWORD=AdminPleaseChangeMe
+              - RCON_PASSWORD={{ fivem_rcon_password | default('AdminPleaseChangeMe') }}
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/config"
 #---------------------------------------------------------------------------------------------

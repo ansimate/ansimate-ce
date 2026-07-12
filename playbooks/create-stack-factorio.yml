@@ -40,11 +40,11 @@
             container_name: factorio
             image: factoriotools/factorio:latest
             ports:
-              - "34197:34197/udp"
-              - "27015:27015/tcp"
+              - "{{ factorio_port | default('34197') }}:34197/udp"
+              - "{{ factorio_rcon_port | default('27015') }}:27015/tcp"
             environment:
-              - PORT=34197
-              - RCON_PORT=27015
+              - PORT={{ factorio_port | default('34197') }}
+              - RCON_PORT={{ factorio_rcon_port | default('27015') }}
               - SAVE_NAME=_autosave1
               - GENERATE_NEW_SAVE=true
               - LOAD_LATEST_SAVE=true

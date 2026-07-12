@@ -43,6 +43,77 @@ function closeTariffDialog(...a) { return billingApi.closeTariffDialog?.(...a); 
 function openCouponCreateDialog(...a) { return billingApi.openCouponCreateDialog?.(...a); }
 function closeCouponDialog(...a) { return billingApi.closeCouponDialog?.(...a); }
 
+// -Nachtrag: Playbook-Kategorien werden fuer die Anzeige uebersetzt. Der (deutsche)
+// Kategoriewert aus playbooks/index.yml bleibt der stabile Gruppier-/Sortier-Schluessel; nur das
+// angezeigte Label laeuft durch i18n. Unbekannte Kategorien fallen auf den Rohwert zurueck, damit
+// kuenftige Kategorien nicht als leerer Text erscheinen. Keys liegen in i18n/dict/i18n-gaps.js.
+const CATEGORY_I18N_KEYS = {
+    "System": "catalog.cat.system",
+    "Netzwerk Sicherheit": "catalog.cat.netsec",
+    "Gaming": "catalog.cat.gaming",
+    "Produktivität": "catalog.cat.productivity",
+    "Entwicklung": "catalog.cat.development",
+    "Dateiverwaltung": "catalog.cat.files",
+    "Multimedia": "catalog.cat.multimedia",
+    "Laufzeitumgebung": "catalog.cat.runtime",
+    "Kommunikation": "catalog.cat.communication",
+    "Browser": "catalog.cat.browser",
+    "Netzwerk": "catalog.cat.network",
+    "Grafik": "catalog.cat.graphics",
+    "Smart Home": "catalog.cat.smarthome",
+    "Sonstige": "catalog.cat.other",
+};
+function catLabel(cat) {
+    if (!cat) return cat;
+    const key = CATEGORY_I18N_KEYS[cat.trim()];
+    return key ? t(key) : cat;
+}
+
+//: Zustand des Kategorie-Filters (leer = alle). Enthaelt die deutschen index.yml-Kategorie-
+// werte (dieselben Schluessel wie die Gruppierung). Wirkt in applyPlaybookSearch zusammen mit der
+// Textsuche. Wird bei jedem Katalog-Render aus den tatsaechlich vorhandenen Kategorien aufgebaut.
+const selectedCatalogCategories = new Set();
+
+function updateCategoryFilterBadge() {
+    const badge = document.getElementById("catalog-filter-count");
+    if (!badge) return;
+    const n = selectedCatalogCategories.size;
+    badge.textContent = n ? String(n) : "";
+    badge.classList.toggle("hidden", n === 0);
+}
+
+// Baut die Checkbox-Liste im Filter-Dropdown aus den aktuell vorhandenen Kategorien (uebersetzt via
+// catLabel; alphabetisch, "Sonstige" zuletzt). Selektion bleibt erhalten, solange die Kategorie noch
+// existiert. Aufruf aus renderPlaybooks.
+function populateCategoryFilter(catNames) {
+    const opts = document.getElementById("catalog-filter-options");
+    if (!opts) return;
+    for (const c of Array.from(selectedCatalogCategories)) {
+        if (!catNames.includes(c)) selectedCatalogCategories.delete(c);
+    }
+    opts.innerHTML = "";
+    catNames.forEach(cat => {
+        const row = document.createElement("label");
+        row.className = "catalog-filter-item";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.className = "catalog-filter-cb";
+        cb.value = cat;
+        cb.checked = selectedCatalogCategories.has(cat);
+        cb.addEventListener("change", () => {
+            if (cb.checked) selectedCatalogCategories.add(cat); else selectedCatalogCategories.delete(cat);
+            updateCategoryFilterBadge();
+            applyPlaybookSearch();
+        });
+        const span = document.createElement("span");
+        span.textContent = catLabel(cat);
+        row.appendChild(cb);
+        row.appendChild(span);
+        opts.appendChild(row);
+    });
+    updateCategoryFilterBadge();
+}
+
 let activeHost = null;
 let selectedJobId = null;
 let jobViewMode = "tiles";   //: "tiles" (Flow-Chart, Standard) oder "log" (Text-Konsole)
@@ -363,6 +434,20 @@ async function init() {
     // Bereich, ohne diesen Hook erneut anfassen zu muessen).
     setRenderHook((lang) => {
         document.dispatchEvent(new CustomEvent("i18n:languagechange", { detail: { lang } }));
+    });
+    // -Nachtrag: Views, deren Beschriftungen per JS gesetzt werden (Kategorie-Header im
+    // Playbook-Katalog, Admin-FAB-Label, Szenario-Kacheln), sind NICHT von applyStaticTranslations
+    // erfasst und muessen sich bei einem Live-Sprachwechsel selbst neu rendern.
+    document.addEventListener("i18n:languagechange", async () => {
+        updateAdminFab(currentAdminTab);  // FAB-Label des aktiven Admin-Tabs (rein clientseitig)
+        // Kategorie-Header laufen ueber catLabel (clientseitig); die Playbook-BESCHREIBUNGEN liefert
+        // der Server aber sprachabhaengig (?lang=). Daher bei bereits geladenem Katalog neu
+        // laden: fetchPresets() zuerst (renderPlaybooks nutzt allPresets), dann fetchPlaybooks()
+        // (setzt allPlaybooks und rendert neu). Vor dem ersten Boot-Load nichts tun.
+        if (Array.isArray(allPlaybooks) && allPlaybooks.length) {
+            await fetchPresets();
+            await fetchPlaybooks();
+        }
     });
     initModalA11y(); //: ARIA + Focus-Trap fuer alle Modals
     setupEventListeners();
@@ -1166,6 +1251,31 @@ function setupEventListeners() {
     const playbookSearch = document.getElementById("playbook-search");
     if (playbookSearch) playbookSearch.addEventListener("input", applyPlaybookSearch);
 
+    //: Kategorie-Filter-Dropdown (oeffnen/schliessen, Aussenklick, Zuruecksetzen). Die
+    // Checkboxen selbst werden in populateCategoryFilter() verdrahtet.
+    const catFilterBtn = document.getElementById("catalog-filter-btn");
+    const catFilterMenu = document.getElementById("catalog-filter-menu");
+    if (catFilterBtn && catFilterMenu) {
+        catFilterBtn.addEventListener("click", (e) => {
+            e.preventDefault(); e.stopPropagation();
+            const nowHidden = catFilterMenu.classList.toggle("hidden");
+            catFilterBtn.setAttribute("aria-expanded", nowHidden ? "false" : "true");
+        });
+        document.addEventListener("click", (e) => {
+            if (catFilterMenu.classList.contains("hidden")) return;
+            if (catFilterMenu.contains(e.target) || catFilterBtn.contains(e.target)) return;
+            catFilterMenu.classList.add("hidden");
+            catFilterBtn.setAttribute("aria-expanded", "false");
+        });
+    }
+    const catFilterClear = document.getElementById("catalog-filter-clear");
+    if (catFilterClear) catFilterClear.addEventListener("click", () => {
+        selectedCatalogCategories.clear();
+        document.querySelectorAll(".catalog-filter-cb").forEach(cb => { cb.checked = false; });
+        updateCategoryFilterBadge();
+        applyPlaybookSearch();
+    });
+
     // Modal actions
     //: Abbrechen, Backdrop-Klick und ESC schliessen mit Warnung bei ungespeicherten
     // Eingaben; jede Nutzereingabe im Dialog markiert ihn als "dirty".
@@ -1909,7 +2019,8 @@ async function fetchTimezone() {
 // Fetch all presets
 async function fetchPresets() {
     try {
-        const response = await fetch("/api/presets");
+        //: ?lang -> Server liefert zweisprachige Playbook-Beschreibungen in der UI-Sprache.
+        const response = await fetch(`/api/presets?lang=${encodeURIComponent(getLanguage())}`);
         if (response.ok) {
             allPresets = await response.json();
         } else {
@@ -1950,7 +2061,7 @@ async function fetchUserScenarios() {
 
 async function fetchPlaybooks() {
     try {
-        const response = await fetch("/api/playbooks", { cache: "no-store" });
+        const response = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`, { cache: "no-store" });
         if (!response.ok) throw new Error("Fehler beim Laden");
         allPlaybooks = await response.json();
         await fetchUserCustomPresets();  //: eigene/freigegebene Presets fuer Kacheln laden
@@ -1970,6 +2081,9 @@ function renderSinglePlaybookItem(pb) {
     item.className = "playbook-item";
     //: Suchindex (Name, Kategorie, Beschreibung) fuer das Sichtbarkeits-Filtern.
     item.dataset.search = `${pb.name || ""} ${pb.category || ""} ${pb.description || ""}`.toLowerCase();
+    //: exakter Kategorie-Schluessel (deutscher index.yml-Wert) fuer den Kategorie-Filter.
+    // Presets/Szenarien/Custom-Kacheln tragen KEIN data-category -> sie umgehen den Filter.
+    item.dataset.category = (pb.category && pb.category.trim()) ? pb.category.trim() : "";
 
     let requiresHtml = "";
     if (pb.requires && pb.requires.length > 0) {
@@ -2318,12 +2432,14 @@ function renderPlaybooks() {
             if (b === "Sonstige") return -1;
             return a.localeCompare(b);
         });
-        
+        //: Filter-Dropdown mit den tatsaechlich vorhandenen Kategorien befuellen.
+        populateCategoryFilter(catNames);
+
         catNames.forEach(catName => {
             const subTitle = document.createElement("div");
             subTitle.className = "subcategory-title grid-row-header";
             subTitle.style.marginTop = "12px";
-            subTitle.textContent = catName;
+            subTitle.textContent = catLabel(catName);
             playbooksList.appendChild(subTitle);
             
             //: innerhalb der Kategorie alphabetisch nach Anzeigenamen sortieren.
@@ -2373,7 +2489,12 @@ function applyPlaybookSearch() {
             return;
         }
         if (el.classList.contains("playbook-item") || el.classList.contains("preset-tile")) {
-            const vis = !term || (el.dataset.search || "").includes(term);
+            const matchesText = !term || (el.dataset.search || "").includes(term);
+            //: Kategorie-Filter. Kacheln ohne data-category (Presets/Szenarien/Custom) bleiben
+            // sichtbar; ist kein Filter aktiv, gilt ebenfalls alles.
+            const cat = el.dataset.category || "";
+            const matchesCat = selectedCatalogCategories.size === 0 || cat === "" || selectedCatalogCategories.has(cat);
+            const vis = matchesText && matchesCat;
             el.style.display = vis ? "" : "none";
             if (vis) { anyVisible = true; mainCount++; subCount++; }
         }
@@ -4066,6 +4187,11 @@ function updateAuthUI() {
     const btnHistory = document.getElementById("nav-btn-history");
     const deviceSelectContainer = document.getElementById("modal-device-select-container");
 
+    //: Das Header-Sprachauswahl-Icon ist nur fuer nicht-eingeloggte Besucher gedacht;
+    // eingeloggte Nutzer stellen die Sprache ausschliesslich ueber die Profileinstellungen um.
+    const langWrap = document.querySelector(".lang-switch-wrap");
+    if (langWrap) langWrap.classList.toggle("hidden", !!currentUser);
+
     if (currentUser) {
         loggedOutView.classList.add("hidden");
         loggedInView.classList.remove("hidden");
@@ -4330,6 +4456,13 @@ function writeAuthCache() {
     } catch (e) { /* localStorage nicht verfuegbar -> kein Cache, nur (seltenes) Flackern */ }
 }
 function applyCachedNavVisibility() {
+    //: Header-Sprachumschalter schon im Cache-Pfad ausblenden, wenn "eingeloggt" gecacht ist
+    // (kein Flackern beim Reload; die autoritative Entscheidung trifft updateAuthUI).
+    try {
+        const c = JSON.parse(localStorage.getItem(AUTH_CACHE_KEY) || "null");
+        const lw = document.querySelector(".lang-switch-wrap");
+        if (lw) lw.classList.toggle("hidden", !!(c && c.loggedIn));
+    } catch (e) { /* localStorage evtl. blockiert */ }
     const btn = document.getElementById("nav-btn-vault");
     if (!btn) return;
     let cache = null;
@@ -5103,7 +5236,7 @@ function renderDeviceGroupPlaybooks(selPlaybookIds) {
         cb.checked = sel.has(pb.file);
         row.appendChild(cb);
         const span = document.createElement("span");
-        span.textContent = pb.category ? `${pb.name} — ${pb.category}` : pb.name;
+        span.textContent = pb.category ? `${pb.name} — ${catLabel(pb.category)}` : pb.name;
         row.appendChild(span);
         pc.appendChild(row);
     });
@@ -5677,7 +5810,7 @@ function renderPresetPlaybooks(selIds) {
         cb.checked = sel.has(pb.file);
         row.appendChild(cb);
         const span = document.createElement("span");
-        span.textContent = pb.category ? `${pb.name} — ${pb.category}` : pb.name;
+        span.textContent = pb.category ? `${pb.name} — ${catLabel(pb.category)}` : pb.name;
         row.appendChild(span);
         pc.appendChild(row);
     });
@@ -5924,10 +6057,10 @@ async function handleProfileUpdateSubmit(e) {
             showToast(t("misc.profileUpdated"));
             await checkAuthStatus();
         } else {
-            showToast(errorDetailToMessage(data.detail, "Profil-Update fehlgeschlagen."));
+            showToast(errorDetailToMessage(data.detail, t("misc.profileUpdateFailed")));
         }
     } catch (err) {
-        showToast("Netzwerkfehler beim Aktualisieren des Profils.");
+        showToast(t("misc.profileUpdateNetErr"));
     }
 }
 
@@ -6454,13 +6587,15 @@ function switchAdminTab(tabName) {
 let currentAdminTab = "dashboard";
 
 // Pro Tab: Icon, Label und Aktion des Admin-FAB. Tabs ohne Eintrag -> FAB ausgeblendet (.fab-off).
+// labelKey: i18n-Schlüssel für die (bereits übersetzten) community-sichtbaren FABs; label = DE-Fallback.
+// Die cloud-only-Tabs (tariffs/coupons) bleiben vorerst ohne Key (Nachzug via OnPrem/Cloud-Issue).
 const ADMIN_FAB_CONFIG = {
     users: { icon: "person_add", label: "Benutzer erstellen" },
-    security: { icon: "download", label: "Protokolle exportieren" },
+    security: { icon: "download", label: "Protokolle exportieren", labelKey: "adm.export.title" },
     tariffs: { icon: "add", label: "Tarif erstellen" },
     coupons: { icon: "add", label: "Gutschein erstellen" },
-    ip: { icon: "block", label: "IP-Sperre hinzufügen" },  // 
-    config: { icon: "save", label: "Einstellungen speichern" },  // : speichert direkt
+    ip: { icon: "block", label: "IP-Sperre hinzufügen", labelKey: "adm.fabIpBlock" },  // 
+    config: { icon: "save", label: "Einstellungen speichern", labelKey: "adm.fabSaveConfig" },  // : speichert direkt
 };
 
 function updateAdminFab(tabName) {
@@ -6472,7 +6607,7 @@ function updateAdminFab(tabName) {
     const icon = document.getElementById("admin-fab-icon");
     const label = document.getElementById("admin-fab-label");
     if (icon) icon.textContent = cfg.icon;
-    if (label) label.textContent = cfg.label;
+    if (label) label.textContent = cfg.labelKey ? t(cfg.labelKey) : cfg.label;
 }
 
 function onAdminFab() {
@@ -6536,7 +6671,7 @@ async function loadScenarios() {
         const saveBtn = document.getElementById("scenario-save-btn");
         if (saveBtn) saveBtn.disabled = missing;
     } catch (e) {
-        if (listEl) listEl.innerHTML = '<p style="color:var(--md-sys-color-error);">Netzwerkfehler beim Laden der Szenarien.</p>';
+        if (listEl) listEl.innerHTML = `<p style="color:var(--md-sys-color-error);">${t("scenario.loadNetErr")}</p>`;
     }
 }
 
@@ -6547,7 +6682,7 @@ function populateScenarioSelects() {
         const cur = pSel.value;
         pSel.innerHTML = userScenarioPresets.length
             ? userScenarioPresets.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join("")
-            : '<option value="">— kein Preset vorhanden —</option>';
+            : `<option value="">${t("scenario.noPreset")}</option>`;
         if (cur) pSel.value = cur;
     }
 }
@@ -6598,7 +6733,7 @@ function vaultActionButton(label, icon, variant) {
 // : einheitliches Zielgerät-Label für Liste UND Startseiten-Kacheln.
 // Gerät zugewiesen -> Gerätename; gerätelos -> „beim Ausführen festlegen".
 function scenarioTargetLabel(s) {
-    return s.device_optional ? "beim Ausführen festlegen" : (s.device_name || "?");
+    return s.device_optional ? t("scenario.deviceOnRun") : (s.device_name || "?");
 }
 
 function renderScenariosList(scenarios) {
@@ -7000,7 +7135,7 @@ function renderWizardPlaybooks(filter, ctx = presetWizardCtx()) {
         cb.addEventListener("change", () => { if (cb.checked) ctx.selected.add(pb.file); else ctx.selected.delete(pb.file); });
         const icon = document.createElement("span"); icon.innerHTML = playbookIconHtml(pb);
         const info = document.createElement("div"); info.style.minWidth = "0";
-        info.innerHTML = `<div style="font-weight:bold;">${escapeHtml(pb.name || pb.file)}</div>` + (pb.category ? `<div style="color:var(--text-secondary); font-size:12px;">${escapeHtml(pb.category)}</div>` : "");
+        info.innerHTML = `<div style="font-weight:bold;">${escapeHtml(pb.name || pb.file)}</div>` + (pb.category ? `<div style="color:var(--text-secondary); font-size:12px;">${escapeHtml(catLabel(pb.category))}</div>` : "");
         row.appendChild(cb); row.appendChild(icon); row.appendChild(info);
         c.appendChild(row);
     });
@@ -8289,7 +8424,7 @@ async function fetchCustomPlaybooks() {
     try {
         // : kein HTTP-Cache -> nach Login/Upload sofort die aktuellen eigenen Playbooks
         // (eine vor dem Login gecachte Antwort ohne Custom-Einträge wird nicht wiederverwendet).
-        const response = await fetch("/api/playbooks", { cache: "no-store" });
+        const response = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`, { cache: "no-store" });
         if (!response.ok) {
             listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">${t("customPb.loadError")}</p>`;
             return;
@@ -8888,7 +9023,7 @@ async function openGuestRevokeDialog(guestId) {
     container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.loadingPlaybooks")}</p>`;
     document.getElementById("guest-revoke-dialog").classList.remove("hidden");
     try {
-        const res = await fetch("/api/playbooks");
+        const res = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`);
         const all = res.ok ? await res.json() : [];
         // Custom-Playbooks werden ueber ihren eigenen Freigabe-Dialog verwaltet;
         // dieser Dialog steuert den Standardkatalog (Free + Premium).
@@ -8915,7 +9050,7 @@ async function openGuestRevokeDialog(guestId) {
 
         catNames.forEach(cat => {
             const h = document.createElement("div");
-            h.textContent = cat;
+            h.textContent = catLabel(cat);
             h.style.cssText = "font-weight:600; color:var(--md-sys-color-primary); margin:12px 0 6px;";
             container.appendChild(h);
             grouped[cat].forEach(pb => {

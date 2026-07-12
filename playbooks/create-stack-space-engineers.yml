@@ -40,7 +40,7 @@
             container_name: space-engineers
             image: devidian/spaceengineers:latest
             ports:
-              - "27016:27016/udp"
+              - "{{ space_engineers_port | default('27016') }}:27016/udp"
               - "18080:8080/tcp"
             environment:
               - WINEDEBUG=-all

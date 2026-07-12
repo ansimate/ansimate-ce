@@ -129,6 +129,20 @@
                     <input type="text" id="playbook-search" placeholder=" " autocomplete="off" style="width: 100%;">
                     <label for="playbook-search" data-i18n="landing.searchPlaceholder">Durchsuchen ...</label>
                 </div>
+                
+                <div class="catalog-filter-wrap">
+                    <button type="button" id="catalog-filter-btn" class="btn btn-icon" aria-haspopup="true" aria-expanded="false" title="Nach Kategorie filtern" data-i18n-title="catalog.filterByCategory">
+                        <span class="material-symbols-outlined">filter_list</span>
+                        <span id="catalog-filter-count" class="catalog-filter-count hidden"></span>
+                    </button>
+                    <div id="catalog-filter-menu" class="catalog-filter-menu hidden" role="menu" aria-label="Kategorie-Filter" data-i18n-aria-label="catalog.filterMenuLabel">
+                        <div class="catalog-filter-header">
+                            <span data-i18n="catalog.filterByCategory">Nach Kategorie filtern</span>
+                            <button type="button" id="catalog-filter-clear" data-i18n="catalog.filterClear">Zurücksetzen</button>
+                        </div>
+                        <div id="catalog-filter-options"></div>
+                    </div>
+                </div>
                 <div class="view-toggle-buttons">
                     <button type="button" id="view-grid-btn" class="btn btn-icon active" title="Kachelansicht" data-i18n-title="ws.viewGrid">
                         <span class="material-symbols-outlined">grid_view</span>
@@ -831,7 +845,7 @@
                         
                         
                         <div class="host-history-sidebar">
-                            <h3>Historie für diesen Host</h3>
+                            <h3 data-i18n="job.hostHistory">Historie für diesen Host</h3>
                             <div id="host-history-list" class="host-history-list">
                                 
                             </div>
@@ -852,17 +866,17 @@
                                 </div>
                                 <div class="header-actions">
                                     
-                                    <button id="view-toggle-btn" type="button" class="btn btn-icon" title="Zur Text-Log-Ansicht wechseln">
+                                    <button id="view-toggle-btn" type="button" class="btn btn-icon" title="Zur Text-Log-Ansicht wechseln" data-i18n-title="job.switchToLogView">
                                         <span class="material-symbols-outlined">terminal</span>
                                     </button>
-                                    <button id="copy-logs-btn" type="button" class="btn btn-icon" title="Logs kopieren" disabled>
+                                    <button id="copy-logs-btn" type="button" class="btn btn-icon" title="Logs kopieren" data-i18n-title="job.copyLogs" disabled>
                                         <span class="material-symbols-outlined">content_copy</span>
                                     </button>
-                                    <button id="autoscroll-btn" type="button" class="btn btn-icon active" title="Autoscroll umschalten">
+                                    <button id="autoscroll-btn" type="button" class="btn btn-icon active" title="Autoscroll umschalten" data-i18n-title="job.toggleAutoscroll">
                                         <span class="material-symbols-outlined">arrow_downward</span>
                                     </button>
                                     
-                                    <button id="cancel-job-btn" type="button" class="btn btn-icon cancel-job-btn" title="Ausführung abbrechen" style="display: none;">
+                                    <button id="cancel-job-btn" type="button" class="btn btn-icon cancel-job-btn" title="Ausführung abbrechen" data-i18n-title="job.cancelExec" style="display: none;">
                                         <span class="material-symbols-outlined">stop_circle</span>
                                     </button>
                                 </div>
@@ -870,7 +884,7 @@
                             <div class="console-body">
                                 
                                 <div id="flowchart-view" class="flowchart-view">
-                                    <div class="flowchart-empty">Wähle links einen Job aus, um den Ablauf anzuzeigen.</div>
+                                    <div class="flowchart-empty" data-i18n="job.selectJobForFlow">Wähle links einen Job aus, um den Ablauf anzuzeigen.</div>
                                 </div>
                                 <pre id="console-output" class="console-text hidden">Wähle links einen Job aus, um die Log-Ausgabe anzuzeigen.</pre>
                             </div>
@@ -950,16 +964,16 @@
         <div class="dialog-card auth-modal" style="max-width: 440px; width: 95%;">
             <div class="dialog-header">
                 <span class="material-symbols-outlined">download</span>
-                <h3>Protokolle exportieren</h3>
+                <h3 data-i18n="adm.export.title">Protokolle exportieren</h3>
             </div>
             <div class="dialog-body">
-                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Wählen Sie die zu exportierenden Protokolle und das Format.</p>
+                <p data-i18n="adm.export.intro" style="font-size: 13px; color: var(--text-secondary); margin-bottom: 14px;">Wählen Sie die zu exportierenden Protokolle und das Format.</p>
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
                     <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
-                        <input type="checkbox" id="export-log-security" class="styled-checkbox" checked> Ungewöhnliche Aktivitäten
+                        <input type="checkbox" id="export-log-security" class="styled-checkbox" checked> <span data-i18n="adm.export.security">Ungewöhnliche Aktivitäten</span>
                     </label>
                     <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; cursor: pointer;">
-                        <input type="checkbox" id="export-log-audit" class="styled-checkbox" checked> Audit-Log
+                        <input type="checkbox" id="export-log-audit" class="styled-checkbox" checked> <span data-i18n="adm.export.audit">Audit-Log</span>
                     </label>
                 </div>
                 <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;">Format</div>
@@ -972,8 +986,8 @@
                     </label>
                 </div>
                 <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn btn-text" id="admin-export-cancel" style="flex: 1;">Abbrechen</button>
-                    <button type="button" class="btn btn-primary" id="admin-export-go" style="flex: 2;">Exportieren</button>
+                    <button type="button" class="btn btn-text" id="admin-export-cancel" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="admin-export-go" style="flex: 2;" data-i18n="adm.export.go">Exportieren</button>
                 </div>
             </div>
         </div>
@@ -1318,9 +1332,9 @@
                                 <button type="button" class="password-toggle-btn" aria-label="Passwort anzeigen" data-i18n-aria-label="site.showPassword"><span class="material-symbols-outlined">visibility</span></button>
                             </div>
                             <ul class="password-requirements" id="pw-change-requirements" style="margin: 0 0 8px 4px; padding: 0; list-style: none; font-size: 12px; color: var(--text-muted);">
-                                <li id="pwc-req-length">&#x2715; Mindestens 8 Zeichen</li>
-                                <li id="pwc-req-upper">&#x2715; Mindestens 1 Großbuchstabe</li>
-                                <li id="pwc-req-number">&#x2715; Mindestens 1 Ziffer</li>
+                                <li id="pwc-req-length">&#x2715; <span data-i18n="site.pwReqLength">Mindestens 8 Zeichen</span></li>
+                                <li id="pwc-req-upper">&#x2715; <span data-i18n="site.pwReqUpper">Mindestens 1 Großbuchstabe</span></li>
+                                <li id="pwc-req-number">&#x2715; <span data-i18n="site.pwReqNumber">Mindestens 1 Ziffer</span></li>
                             </ul>
                             <div class="text-field password-field" style="margin-bottom: 4px; width: 100%;">
                                 <input type="password" id="pw-change-confirm" required placeholder=" " autocomplete="new-password" style="width: 100%;">
@@ -1410,7 +1424,7 @@
                             </thead>
                             <tbody id="tokens-tbody">
                                 <tr>
-                                    <td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">Keine API-Token generiert.</td>
+                                    <td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);" data-i18n="tokens.none">Keine API-Token generiert.</td>
                                 </tr>
                             </tbody>
                         </table>

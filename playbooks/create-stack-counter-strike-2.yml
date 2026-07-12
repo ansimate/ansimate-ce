@@ -40,16 +40,16 @@
             container_name: counter-strike-2
             image: joedwards32/cs2:latest
             ports:
-              - "27015:27015/tcp"
-              - "27015:27015/udp"
+              - "{{ counter_strike_2_port | default('27015') }}:27015/tcp"
+              - "{{ counter_strike_2_port | default('27015') }}:27015/udp"
               - "27020:27020/udp"
             environment:
               - SRCDS_TOKEN=
-              - CS2_SERVERNAME=Counter-Strike 2 Server
-              - CS2_PW=
-              - CS2_RCONPW=changeme
-              - CS2_PORT=27015
-              - CS2_MAXPLAYERS=16
+              - CS2_SERVERNAME={{ counter_strike_2_server_name | default('Counter-Strike 2 Server') }}
+              - CS2_PW={{ counter_strike_2_password | default('') }}
+              - CS2_RCONPW={{ counter_strike_2_rcon_password | default('changeme') }}
+              - CS2_PORT={{ counter_strike_2_port | default('27015') }}
+              - CS2_MAXPLAYERS={{ counter_strike_2_max_players | default('16') }}
               - CS2_GAMEALIAS=competitive
               - CS2_MAPGROUP=mg_active
               - CS2_STARTMAP=de_dust2

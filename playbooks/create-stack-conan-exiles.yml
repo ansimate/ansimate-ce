@@ -40,14 +40,14 @@
             container_name: conan-exiles
             image: melle2/conanexiles-ds:latest
             ports:
-              - "7777:7777/udp"
+              - "{{ conan_exiles_port | default('7777') }}:7777/udp"
               - "7778:7778/udp"
-              - "27015:27015/udp"
+              - "{{ conan_exiles_query_port | default('27015') }}:27015/udp"
             environment:
               - TZ=Etc/UTC
               - GAME_INSTANCE_NAME=ConanServer
-              - GAME_SERVER_NAME=Conan Exiles Server
-              - GAME_SERVER_PASSWORD=changeme
+              - GAME_SERVER_NAME={{ conan_exiles_server_name | default('Conan Exiles Server') }}
+              - GAME_SERVER_PASSWORD={{ conan_exiles_password | default('changeme') }}
               - GAME_MOD_IDS=
               - GAME_UPDATE=true
               - GAME_UPDATE_MODS=false

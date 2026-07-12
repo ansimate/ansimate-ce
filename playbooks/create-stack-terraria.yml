@@ -42,8 +42,8 @@
             stdin_open: true
             tty: true
             ports:
-              - "7777:7777/tcp"
-              - "7777:7777/udp"
+              - "{{ terraria_port | default('7777') }}:7777/tcp"
+              - "{{ terraria_port | default('7777') }}:7777/udp"
               - "7878:7878/tcp"
             environment:
               - WORLD_FILENAME=world.wld

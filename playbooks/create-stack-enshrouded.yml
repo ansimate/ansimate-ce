@@ -40,14 +40,14 @@
             container_name: enshrouded
             image: sknnr/enshrouded-dedicated-server:latest
             ports:
-              - "15637:15637/udp"
-              - "27015:27015/udp"
+              - "{{ enshrouded_port | default('15637') }}:15637/udp"
+              - "{{ enshrouded_query_port | default('27015') }}:27015/udp"
             environment:
-              - SERVER_NAME=Enshrouded Server
-              - SERVER_PASSWORD=AdminPleaseChangeMe
+              - SERVER_NAME={{ enshrouded_server_name | default('Enshrouded Server') }}
+              - SERVER_PASSWORD={{ enshrouded_password | default('AdminPleaseChangeMe') }}
               - SERVER_SLOTS=16
-              - PORT=15637
-              - STEAM_PORT=27015
+              - PORT={{ enshrouded_port | default('15637') }}
+              - STEAM_PORT={{ enshrouded_query_port | default('27015') }}
               - SERVER_IP=0.0.0.0
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/home/steam/enshrouded/savegame"

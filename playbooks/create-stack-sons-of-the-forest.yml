@@ -40,8 +40,8 @@
             container_name: sons-of-the-forest
             image: jammsen/sons-of-the-forest-dedicated-server:latest
             ports:
-              - "8766:8766/udp"
-              - "27016:27016/udp"
+              - "{{ sons_of_the_forest_port | default('8766') }}:8766/udp"
+              - "{{ sons_of_the_forest_query_port | default('27016') }}:27016/udp"
               - "9700:9700/udp"
             environment:
               - PUID=1000

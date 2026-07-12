@@ -27,6 +27,44 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.3] - 2026-07-12
+
+### Added
+- **9 neue Desktop-App-Playbooks (ohne Docker):** KiCad, KDE Connect, AnyDesk, Remmina,
+  Telegram Desktop und Flatseal als Free-Playbooks (Flatpak von Flathub bzw. nativ via apt),
+  jeweils mit App-Icon und zweisprachiger Beschreibung.
+  (#1137, #1139, #1140, #1141, #1142, #1143)
+- **Kategorie-Filter im Playbook-Katalog:** Ein Dropdown mit Checkboxen neben dem Suchfeld
+  filtert die Kacheln nach Kategorie – kombinierbar mit der Textsuche. (#1135)
+- **Zweisprachige Playbook-Beschreibungen (Mechanik):** Das Feld `description` in
+  `playbooks/index.yml` darf jetzt statt eines einfachen Strings ein Sprach-Dict
+  `{ de: "…", en: "…" }` tragen; das Backend liefert die Beschreibung passend zur aktiven
+  UI-Sprache (`?lang=` an `/api/playbooks` und `/api/presets`, Fallback en→de). Einfache
+  String-Beschreibungen bleiben unverändert gültig — drei Playbooks (Docker/Git/Nmap) dienen
+  als Vorlage, die übrigen können schrittweise ergänzt werden. (#1020)
+
+### Changed
+- Das Sprachauswahl-Icon im Header wird nur noch nicht eingeloggten Besuchern angezeigt;
+  eingeloggte Nutzer stellen die Sprache über die Profileinstellungen um. (#1134)
+
+### Fixed
+- **Game-Server-Playbooks sind jetzt über die Web-UI konfigurierbar:** Port(s), Servername,
+  maximale Spielerzahl sowie Server- und RCON-Passwörter der 34 Game-Server lassen sich im
+  Konfigurationsformular setzen. Ohne Eingabe bleibt das bisherige Verhalten unverändert
+  (Standardwerte = bisherige Werte). (#1138)
+- **Übersehene deutsche Beschriftungen** blieben beim Umschalten auf Englisch deutsch, weil sie
+  nicht an die i18n-Engine angebunden waren: Log-/Ausführungs-Konsole (Buttons, Host-Historie,
+  Flow-Chart-Leerzustand), Passwort-Anforderungen, Admin-Protokoll-Export-Dialog, Admin-
+  Schnellaktions-Buttons sowie Profil- und Szenario-Meldungen sind nun übersetzt. Die
+  Playbook-Kategorien werden für die Anzeige übersetzt, während der Katalogwert stabiler
+  Gruppier-/Sortierschlüssel bleibt; ein Live-Sprachwechsel rendert die betroffenen Ansichten
+  neu. (#1020)
+
+### Security
+- Der Cookie-Consent-Banner wird in der Community-Edition jetzt vollständig aus dem
+  ausgelieferten HTML entfernt (nicht nur per CSS versteckt) und ist damit nicht mehr per
+  DOM-Inspektor einsehbar. (#1136)
+
 ## [0.4.2] - 2026-07-12
 
 ### Security
@@ -386,7 +424,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/your-org/ansimate/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/your-org/ansimate/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/your-org/ansimate/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/your-org/ansimate/compare/v0.3.8...v0.4.0

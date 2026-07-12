@@ -3453,3 +3453,69 @@ body.drawer-open { overflow: hidden; }
     font-size: 1.15rem;
     line-height: 1;
 }
+
+/*: Kategorie-Filter-Dropdown neben dem Katalog-Suchfeld. Spiegelt das Lang-Switch-Menue. */
+.catalog-filter-wrap { position: relative; display: inline-flex; }
+#catalog-filter-btn { position: relative; }
+.catalog-filter-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-size: 0.68rem;
+    line-height: 16px;
+    text-align: center;
+    font-weight: 600;
+}
+.catalog-filter-count.hidden { display: none; }
+.catalog-filter-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 1200;
+    min-width: 230px;
+    max-height: 360px;
+    overflow-y: auto;
+    background-color: var(--md-sys-color-surface-container-high);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 12px;
+    padding: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.catalog-filter-menu.hidden { display: none; }
+.catalog-filter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px 8px;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    margin-bottom: 4px;
+    font-size: 0.82rem;
+    color: var(--md-sys-color-on-surface-variant);
+}
+.catalog-filter-header button {
+    border: none; background: transparent; color: var(--md-sys-color-primary);
+    font: inherit; font-size: 0.82rem; cursor: pointer; padding: 2px 4px;
+}
+.catalog-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--md-sys-color-on-surface);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+.catalog-filter-item:hover { background-color: var(--md-sys-color-secondary-container); }
+.catalog-filter-item input { cursor: pointer; }

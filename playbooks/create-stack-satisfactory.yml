@@ -40,14 +40,14 @@
             container_name: satisfactory
             image: wolveix/satisfactory-server:latest
             ports:
-              - "7777:7777/tcp"
-              - "7777:7777/udp"
+              - "{{ satisfactory_port | default('7777') }}:7777/tcp"
+              - "{{ satisfactory_port | default('7777') }}:7777/udp"
               - "8888:8888/tcp"
             environment:
-              - MAXPLAYERS=4
+              - MAXPLAYERS={{ satisfactory_max_players | default('4') }}
               - PGID=1000
               - PUID=1000
-              - SERVERGAMEPORT=7777
+              - SERVERGAMEPORT={{ satisfactory_port | default('7777') }}
               - SERVERMESSAGINGPORT=8888
               - AUTOSAVENUM=5
               - STEAMBETA=false

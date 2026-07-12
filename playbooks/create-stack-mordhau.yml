@@ -40,17 +40,17 @@
             container_name: mordhau
             image: cm2network/mordhau:latest
             ports:
-              - "7777:7777/udp"
-              - "27015:27015/udp"
+              - "{{ mordhau_port | default('7777') }}:7777/udp"
+              - "{{ mordhau_query_port | default('27015') }}:27015/udp"
               - "15000:15000/udp"
             environment:
-              - SERVER_NAME=My Mordhau Server
-              - SERVER_MAXPLAYERS=32
-              - SERVER_PORT=7777
-              - SERVER_QUERYPORT=27015
+              - SERVER_NAME={{ mordhau_server_name | default('My Mordhau Server') }}
+              - SERVER_MAXPLAYERS={{ mordhau_max_players | default('32') }}
+              - SERVER_PORT={{ mordhau_port | default('7777') }}
+              - SERVER_QUERYPORT={{ mordhau_query_port | default('27015') }}
               - SERVER_BEACONPORT=15000
               - SERVER_TICKRATE=60
-              - SERVER_ADMINPW=replacethisyoumadlad
+              - SERVER_ADMINPW={{ mordhau_rcon_password | default('replacethisyoumadlad') }}
               - SERVER_DEFAULTMAP=ThePit/FFA_ThePit.FFA_ThePit
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/home/steam/mordhau-dedicated"

@@ -3,7 +3,13 @@
   vendor_urls:
     - "https://www.docker.com"
   icon: docker.svg
-  description: "Installiert Docker CE mit Docker Compose und Buildx, erstellt die Docker-Gruppe und richtet Standardverzeichnisstrukturen ein."
+  # : `description` darf statt eines Strings ein Sprach-Dict {de,en} sein. Das Backend
+  # (_localize) waehlt anhand von ?lang= den passenden Text; fehlt eine Sprache, greift die
+  # Fallback-Kette en -> de. Einfache String-Beschreibungen bleiben unveraendert gueltig — diese
+  # drei Playbooks (docker/git/nmap) dienen als Vorlage fuer die schrittweise Zweisprachigkeit.
+  description:
+    de: "Installiert Docker CE mit Docker Compose und Buildx, erstellt die Docker-Gruppe und richtet Standardverzeichnisstrukturen ein."
+    en: "Installs Docker CE with Docker Compose and Buildx, creates the docker group, and sets up the default directory structure."
   category: "System"
 
 - file: install-flatpak.yml
@@ -19,7 +25,9 @@
   vendor_urls:
     - "https://git-scm.com"
   icon: git.svg
-  description: "Stellt sicher, dass das Versionskontrollsystem Git auf dem neuesten Stand auf dem Zielgerät installiert ist."
+  description:
+    de: "Stellt sicher, dass das Versionskontrollsystem Git auf dem neuesten Stand auf dem Zielgerät installiert ist."
+    en: "Ensures the Git version control system is installed and up to date on the target device."
   category: "System"
 
 - file: install-nmap.yml
@@ -27,7 +35,9 @@
   vendor_urls:
     - "https://nmap.org"
   icon: "radar"
-  description: "Installiert Nmap für Netzwerksicherheits-Scans und Port-Audits auf dem Zielgerät."
+  description:
+    de: "Installiert Nmap für Netzwerksicherheits-Scans und Port-Audits auf dem Zielgerät."
+    en: "Installs Nmap for network security scans and port audits on the target device."
   category: "Netzwerk Sicherheit"
 
 - file: install-zerotier.yml
@@ -746,6 +756,77 @@
       default: "3032"
       required: false
 
+# === Free-Desktop-Apps (ohne Docker) – Batch ===
+- file: install-kicad.yml
+  name: "KiCad"
+  vendor_urls:
+    - "https://www.kicad.org"
+  icon: kicad.png
+  requires:
+    - install-flatpak.yml
+  description:
+    de: "Installiert die Open-Source-EDA-Suite KiCad (Schaltplan- und Leiterplatten-Design) als Flatpak von Flathub."
+    en: "Installs the open-source EDA suite KiCad (schematic and PCB design) as a Flatpak from Flathub."
+  category: "Entwicklung"
+
+- file: install-kdeconnect.yml
+  name: "KDE Connect"
+  vendor_urls:
+    - "https://kdeconnect.kde.org"
+  icon: smartphone
+  description:
+    de: "Installiert KDE Connect nativ über die Paketquellen (apt) zur Integration von Smartphone und Desktop – Benachrichtigungen, Dateiübertragung und Fernsteuerung."
+    en: "Installs KDE Connect natively via the package sources (apt) to integrate smartphone and desktop — notifications, file transfer and remote control."
+  category: "Produktivität"
+
+- file: install-anydesk.yml
+  name: "AnyDesk"
+  vendor_urls:
+    - "https://anydesk.com"
+  icon: anydesk.svg
+  requires:
+    - install-flatpak.yml
+  description:
+    de: "Installiert den Remote-Desktop-Client AnyDesk als Flatpak von Flathub für den Fernzugriff auf andere Rechner."
+    en: "Installs the AnyDesk remote desktop client as a Flatpak from Flathub for remote access to other machines."
+  category: "Netzwerk"
+
+- file: install-remmina.yml
+  name: "Remmina"
+  vendor_urls:
+    - "https://remmina.org"
+  icon: remmina.svg
+  requires:
+    - install-flatpak.yml
+  description:
+    de: "Installiert den Remote-Desktop-Client Remmina (RDP, VNC, SSH, SPICE) als Flatpak von Flathub."
+    en: "Installs the Remmina remote desktop client (RDP, VNC, SSH, SPICE) as a Flatpak from Flathub."
+  category: "Netzwerk"
+
+- file: install-telegram.yml
+  name: "Telegram Desktop"
+  vendor_urls:
+    - "https://telegram.org"
+  icon: telegram.svg
+  requires:
+    - install-flatpak.yml
+  description:
+    de: "Installiert den Messenger Telegram Desktop als Flatpak von Flathub."
+    en: "Installs the Telegram Desktop messenger as a Flatpak from Flathub."
+  category: "Kommunikation"
+
+- file: install-flatseal.yml
+  name: "Flatseal"
+  vendor_urls:
+    - "https://github.com/tchx84/Flatseal"
+  icon: flatseal.png
+  requires:
+    - install-flatpak.yml
+  description:
+    de: "Installiert Flatseal als Flatpak von Flathub – eine grafische Verwaltung der Berechtigungen installierter Flatpak-Anwendungen."
+    en: "Installs Flatseal as a Flatpak from Flathub — a graphical manager for the permissions of installed Flatpak applications."
+  category: "System"
+
 
 
 
@@ -1263,6 +1344,32 @@
     - "https://github.com/Pleut/abiotic-factor-linux-docker"
   icon: "sports_esports"
   description: "Dedizierter Abiotic-Factor-Spielserver (Windows-Server via Wine unter Linux), konfigurierbar über Servername, Spieleranzahl, Ports und Passwort."
+  variables:
+    - name: abiotic_factor_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
+    - name: abiotic_factor_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: abiotic_factor_server_name
+      label: "Servername"
+      type: string
+      default: "Abiotic Factor Server"
+      required: false
+    - name: abiotic_factor_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "6"
+      required: false
+    - name: abiotic_factor_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1273,6 +1380,42 @@
     - "https://github.com/jsknnr/soulmask-dedicated-server"
   icon: "sports_esports"
   description: "Dedizierter Soulmask-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Survival-Welt für Freunde und Community."
+  variables:
+    - name: soulmask_port
+      label: "Server-Port"
+      type: port
+      default: "27050"
+      required: false
+    - name: soulmask_query_port
+      label: "Query-Port"
+      type: port
+      default: "27051"
+      required: false
+    - name: soulmask_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "19000"
+      required: false
+    - name: soulmask_server_name
+      label: "Servername"
+      type: string
+      default: "Soulmask Server"
+      required: false
+    - name: soulmask_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "50"
+      required: false
+    - name: soulmask_password
+      label: "Server-Passwort"
+      type: secret
+      default: ""
+      required: false
+    - name: soulmask_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: ""
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1283,6 +1426,22 @@
     - "https://github.com/barumel/docker-astroneer-server"
   icon: "sports_esports"
   description: "Dedizierter Astroneer-Server, der die Windows-Serverbinary per GE-Proton/Wine unter Linux ausfuehrt und ueber Umgebungsvariablen (Servername, Besitzer, Passwort, Port) konfiguriert wird."
+  variables:
+    - name: astroneer_port
+      label: "Server-Port"
+      type: port
+      default: "8777"
+      required: false
+    - name: astroneer_server_name
+      label: "Servername"
+      type: string
+      default: "Astroneer Dedicated Server"
+      required: false
+    - name: astroneer_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1293,6 +1452,22 @@
     - "https://hub.docker.com/r/strangeloopgames/eco-game-server"
   icon: "eco"
   description: "Dedizierter Server für das Ökologie-Aufbauspiel Eco, betrieben mit dem offiziellen Strange-Loop-Games-Image (Spielport 3000/UDP, Web-Interface 3001/TCP)."
+  variables:
+    - name: eco_port
+      label: "Server-Port"
+      type: port
+      default: "3000"
+      required: false
+    - name: eco_server_name
+      label: "Servername"
+      type: string
+      default: "Eco Dedicated Server"
+      required: false
+    - name: eco_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "50"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1313,6 +1488,32 @@
     - "https://github.com/mornedhels/icarus-server"
   icon: "sports_esports"
   description: "Dedizierter Spielserver für Icarus auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
+  variables:
+    - name: icarus_port
+      label: "Server-Port"
+      type: port
+      default: "17777"
+      required: false
+    - name: icarus_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: icarus_server_name
+      label: "Servername"
+      type: string
+      default: "ICARUS Server"
+      required: false
+    - name: icarus_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "8"
+      required: false
+    - name: icarus_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1323,6 +1524,32 @@
     - "https://github.com/CM2Walki/Mordhau"
   icon: "sports_esports"
   description: "Ein dedizierter Mordhau-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/mordhau, der beim Start automatisch das Spiel aktualisiert und komplett per Umgebungsvariablen konfigurierbar ist."
+  variables:
+    - name: mordhau_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
+    - name: mordhau_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: mordhau_server_name
+      label: "Servername"
+      type: string
+      default: "My Mordhau Server"
+      required: false
+    - name: mordhau_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "32"
+      required: false
+    - name: mordhau_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "replacethisyoumadlad"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1333,6 +1560,32 @@
     - "https://github.com/LsHallo/ets2-dedicated-convoy-server"
   icon: "local_shipping"
   description: "Dedizierter Convoy-Multiplayer-Server für Euro Truck Simulator 2, per SteamCMD dockerisiert und vollständig über Umgebungsvariablen konfigurierbar."
+  variables:
+    - name: euro_truck_simulator_2_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: euro_truck_simulator_2_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
+    - name: euro_truck_simulator_2_server_name
+      label: "Servername"
+      type: string
+      default: "Euro Truck Simulator 2 Docker Server"
+      required: false
+    - name: euro_truck_simulator_2_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "8"
+      required: false
+    - name: euro_truck_simulator_2_password
+      label: "Server-Passwort"
+      type: secret
+      default: ""
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1345,6 +1598,32 @@
     - "https://github.com/itzg/docker-minecraft-server"
   icon: "sports_esports"
   description: "Dedizierter Minecraft-Java-Spielserver auf Basis des De-facto-Standard-Images itzg/minecraft-server, konfigurierbar über Servertyp, Version, Arbeitsspeicher, Schwierigkeit, Spielmodus und Operatoren."
+  variables:
+    - name: minecraft_port
+      label: "Server-Port"
+      type: port
+      default: "25565"
+      required: false
+    - name: minecraft_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "25575"
+      required: false
+    - name: minecraft_server_name
+      label: "Servername"
+      type: string
+      default: "Minecraft Server"
+      required: false
+    - name: minecraft_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "20"
+      required: false
+    - name: minecraft_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1355,6 +1634,32 @@
     - "https://github.com/Didstopia/rust-server"
   icon: "sports_esports"
   description: "Dedizierter Rust-Spielserver mit Web-RCON-Verwaltung als Docker-Stack."
+  variables:
+    - name: rust_port
+      label: "Server-Port"
+      type: port
+      default: "28015"
+      required: false
+    - name: rust_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "28016"
+      required: false
+    - name: rust_server_name
+      label: "Servername"
+      type: string
+      default: "Rust Dedicated Server"
+      required: false
+    - name: rust_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "50"
+      required: false
+    - name: rust_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1365,6 +1670,37 @@
     - "https://github.com/ich777/docker-steamcmd-server/tree/arkse"
   icon: "sports_esports"
   description: "Dedizierter ARK: Survival Evolved-Spielserver auf Basis des ich777-SteamCMD-Images, der das Spiel beim Start automatisch installiert und aktualisiert und über Umgebungsvariablen wie Karte, Servername, Passwort, Admin-Passwort und Spielerlimit konfigurierbar ist."
+  variables:
+    - name: ark_survival_evolved_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
+    - name: ark_survival_evolved_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: ark_survival_evolved_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "27020"
+      required: false
+    - name: ark_survival_evolved_server_name
+      label: "Servername"
+      type: string
+      default: "AnsimateARKServer"
+      required: false
+    - name: ark_survival_evolved_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
+    - name: ark_survival_evolved_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1375,6 +1711,32 @@
     - "https://github.com/joedwards32/CS2"
   icon: "sports_esports"
   description: "Dedizierter Counter-Strike-2-Spielserver auf Basis von SteamCMD, konfigurierbar über Servername, Spielmodus, Startmap, Spieleranzahl, RCON-Passwort und optionalen Steam-GSLT-Token für die öffentliche Serverliste."
+  variables:
+    - name: counter_strike_2_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: counter_strike_2_server_name
+      label: "Servername"
+      type: string
+      default: "Counter-Strike 2 Server"
+      required: false
+    - name: counter_strike_2_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "16"
+      required: false
+    - name: counter_strike_2_password
+      label: "Server-Passwort"
+      type: secret
+      default: ""
+      required: false
+    - name: counter_strike_2_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1385,6 +1747,17 @@
     - "https://github.com/lloesche/valheim-server-docker"
   icon: "sports_esports"
   description: "Dedizierter Valheim-Koop-Spielserver auf Basis des lloesche-Images mit automatischen Server-Updates und World-Backups, konfigurierbar über Servername, Weltname, Passwort und Ports."
+  variables:
+    - name: valheim_server_name
+      label: "Servername"
+      type: string
+      default: "Valheim Server"
+      required: false
+    - name: valheim_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1395,6 +1768,17 @@
     - "https://github.com/ich777/docker-steamcmd-server"
   icon: "sports_esports"
   description: "Dedizierter DayZ-Survival-Server auf Basis von SteamCMD (experimenteller Linux-Build) zum Hosten einer eigenen Chernarus- oder Livonia-Welt für Freunde und Community."
+  variables:
+    - name: dayz_port
+      label: "Server-Port"
+      type: port
+      default: "2302"
+      required: false
+    - name: dayz_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1405,6 +1789,12 @@
     - "https://github.com/vinanrra/Docker-7DaysToDie"
   icon: "sports_esports"
   description: "Dedizierter 7 Days to Die-Spielserver auf Basis von LinuxGSM mit automatischen SteamCMD-Updates, Mod-Unterstützung und Backups."
+  variables:
+    - name: sdtd_port
+      label: "Server-Port"
+      type: port
+      default: "26900"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1415,6 +1805,27 @@
     - "https://github.com/jsknnr/enshrouded-server"
   icon: "sports_esports"
   description: "Dedizierter Enshrouded-Koop-Spielserver auf Basis des SteamCMD-Images sknnr/enshrouded-dedicated-server, der unter Linux via Wine läuft und vollständig über Umgebungsvariablen konfigurierbar ist."
+  variables:
+    - name: enshrouded_port
+      label: "Server-Port"
+      type: port
+      default: "15637"
+      required: false
+    - name: enshrouded_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: enshrouded_server_name
+      label: "Servername"
+      type: string
+      default: "Enshrouded Server"
+      required: false
+    - name: enshrouded_password
+      label: "Server-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1425,6 +1836,37 @@
     - "https://github.com/thijsvanloef/palworld-server-docker"
   icon: "sports_esports"
   description: "Dedizierter Palworld-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Koop-Welt, konfigurierbar über Servername, Spieleranzahl, Ports und Passwörter."
+  variables:
+    - name: palworld_port
+      label: "Server-Port"
+      type: port
+      default: "8211"
+      required: false
+    - name: palworld_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: palworld_server_name
+      label: "Servername"
+      type: string
+      default: "Palworld Server"
+      required: false
+    - name: palworld_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "32"
+      required: false
+    - name: palworld_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
+    - name: palworld_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1435,6 +1877,27 @@
     - "https://github.com/melle2/conanexiles-ds"
   icon: "sports_esports"
   description: "Dedizierter Conan-Exiles-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Instanz-/Servername, Beitrittspasswort, Mods und Auto-Update) konfiguriert wird."
+  variables:
+    - name: conan_exiles_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
+    - name: conan_exiles_query_port
+      label: "Query-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: conan_exiles_server_name
+      label: "Servername"
+      type: string
+      default: "Conan Exiles Server"
+      required: false
+    - name: conan_exiles_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1445,6 +1908,22 @@
     - "https://github.com/ceifa/garrysmod-docker"
   icon: "sports_esports"
   description: "Dedizierter Garry's-Mod-Spielserver auf Basis von SteamCMD zum Hosten eigener Sandbox- oder Gamemode-Welten, konfigurierbar über Servername, Spielerzahl, Gamemode, Startkarte und Steam-Workshop-Collection."
+  variables:
+    - name: garrys_mod_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: garrys_mod_server_name
+      label: "Servername"
+      type: string
+      default: "Garrys Mod Server"
+      required: false
+    - name: garrys_mod_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "16"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1455,6 +1934,17 @@
     - "https://github.com/spritsail/fivem"
   icon: "sports_esports"
   description: "Dedizierter FiveM-Server für GTA-V-Multiplayer und Roleplay auf Basis des spritsail/fivem-Images, konfigurierbar über FiveM-License-Key, RCON-Passwort und Serverport (30120) mit optionalem txAdmin-Web-Interface (40120)."
+  variables:
+    - name: fivem_port
+      label: "Server-Port"
+      type: port
+      default: "30120"
+      required: false
+    - name: fivem_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1465,6 +1955,17 @@
     - "https://github.com/factoriotools/factorio-docker"
   icon: "sports_esports"
   description: "Dedizierter Factorio-Spielserver auf Basis des offiziellen factoriotools-Images, konfigurierbar über Spielport (34197/UDP), RCON-Fernsteuerung und Spielstand-Verwaltung."
+  variables:
+    - name: factorio_port
+      label: "Server-Port"
+      type: port
+      default: "34197"
+      required: false
+    - name: factorio_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "27015"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1475,6 +1976,17 @@
     - "https://github.com/wolveix/satisfactory-server"
   icon: "sports_esports"
   description: "Dedizierter Satisfactory-Spielserver auf Basis des gepflegten wolveix-Images (nativer Linux-Server), konfigurierbar über Spieleranzahl, Ports und automatische Speicherstände."
+  variables:
+    - name: satisfactory_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
+    - name: satisfactory_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "4"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1485,6 +1997,12 @@
     - "https://github.com/ryansheehan/terraria"
   icon: "sports_esports"
   description: "Dedizierter Terraria-Spielserver auf Basis von TShock zum Hosten einer eigenen Sandbox-Welt, konfigurierbar über Weltdatei, Ports (Spielport 7777, REST-API 7878) und Konfigurationsdatei."
+  variables:
+    - name: terraria_port
+      label: "Server-Port"
+      type: port
+      default: "7777"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1495,6 +2013,32 @@
     - "https://github.com/CM2Walki/TF2"
   icon: "sports_esports"
   description: "Ein dedizierter Team-Fortress-2-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/tf2, der beim Start automatisch das Spiel aktualisiert und per Umgebungsvariablen (Servername, Startkarte, Spielerlimit, GSLT-Token, Ports) konfigurierbar ist."
+  variables:
+    - name: team_fortress_2_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: team_fortress_2_server_name
+      label: "Servername"
+      type: string
+      default: "New TF Server"
+      required: false
+    - name: team_fortress_2_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "24"
+      required: false
+    - name: team_fortress_2_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
+    - name: team_fortress_2_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1505,6 +2049,27 @@
     - "https://github.com/TrueOsiris/docker-vrising"
   icon: "sports_esports"
   description: "Dedizierter V-Rising-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Servername, Weltname, Ports, Passwort) konfiguriert wird."
+  variables:
+    - name: v_rising_port
+      label: "Server-Port"
+      type: port
+      default: "9876"
+      required: false
+    - name: v_rising_query_port
+      label: "Query-Port"
+      type: port
+      default: "9877"
+      required: false
+    - name: v_rising_server_name
+      label: "Servername"
+      type: string
+      default: "V Rising Server"
+      required: false
+    - name: v_rising_password
+      label: "Server-Passwort"
+      type: secret
+      default: ""
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1515,6 +2080,32 @@
     - "https://github.com/jammsen/docker-the-forest-dedicated-server"
   icon: "sports_esports"
   description: "Dedizierter The-Forest-Spielserver (Windows-Server via Wine unter Linux), per SteamCMD automatisch aktualisiert und konfigurierbar über Servername, Admin-Passwort, Beitrittspasswort und Ports."
+  variables:
+    - name: the_forest_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: the_forest_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
+    - name: the_forest_server_name
+      label: "Servername"
+      type: string
+      default: "The Forest Server"
+      required: false
+    - name: the_forest_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
+    - name: the_forest_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "AdminPleaseChangeMe"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1525,6 +2116,22 @@
     - "https://github.com/ImperialPlugins/unturned-docker"
   icon: "sports_esports"
   description: "Dedizierter Unturned-Spielserver auf Basis von SteamCMD, betrieben mit dem Community-Image imperialplugins/unturned und optional per RocketMod (rm4/rm5) erweiterbar."
+  variables:
+    - name: unturned_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: unturned_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
+    - name: unturned_server_name
+      label: "Servername"
+      type: string
+      default: "unturned"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1535,6 +2142,12 @@
     - "https://github.com/Devidian/docker-spaceengineers"
   icon: "sports_esports"
   description: "Dedizierter Space-Engineers-Spielserver, der via Wine auf Linux läuft, zum Hosten einer eigenen Sandbox-Welt für Freunde und Community."
+  variables:
+    - name: space_engineers_port
+      label: "Server-Port"
+      type: port
+      default: "27016"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1545,6 +2158,37 @@
     - "https://github.com/Renegade-Master/zomboid-dedicated-server"
   icon: "sports_esports"
   description: "Dedizierter Project-Zomboid-Spielserver auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
+  variables:
+    - name: project_zomboid_port
+      label: "Server-Port"
+      type: port
+      default: "16261"
+      required: false
+    - name: project_zomboid_rcon_port
+      label: "RCON-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: project_zomboid_server_name
+      label: "Servername"
+      type: string
+      default: "ZomboidServer"
+      required: false
+    - name: project_zomboid_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "32"
+      required: false
+    - name: project_zomboid_password
+      label: "Server-Passwort"
+      type: secret
+      default: ""
+      required: false
+    - name: project_zomboid_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1555,6 +2199,17 @@
     - "https://github.com/jammsen/docker-sons-of-the-forest-dedicated-server"
   icon: "sports_esports"
   description: "Dedizierter Sons-of-the-Forest-Spielserver (Windows-Server via Wine unter Linux) mit automatischer SteamCMD-Aktualisierung, dessen Servername, Passwort und Spieleranzahl über die Konfigurationsdatei im Spielstand-Volume gesetzt werden."
+  variables:
+    - name: sons_of_the_forest_port
+      label: "Server-Port"
+      type: port
+      default: "8766"
+      required: false
+    - name: sons_of_the_forest_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1565,6 +2220,22 @@
     - "https://github.com/Left4DevOps/l4d2-docker"
   icon: "sports_esports"
   description: "Dedizierter Left-4-Dead-2-Koop-Server auf Basis von SteamCMD, der beim Start automatisch aktualisiert und per Umgebungsvariablen über Servername, Startkarte, Spielmodus und Port konfiguriert wird."
+  variables:
+    - name: left_4_dead_2_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: left_4_dead_2_server_name
+      label: "Servername"
+      type: string
+      default: "Left 4 Dead 2 Server"
+      required: false
+    - name: left_4_dead_2_rcon_password
+      label: "RCON-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1575,6 +2246,12 @@
     - "https://github.com/Jamesits/docker-dst-server"
   icon: "sports_esports"
   description: "Dedizierter Don't-Starve-Together-Spielserver (Master- und Caves-Shard) auf Basis von SteamCMD, der zum Betrieb einen Klei-Cluster-Token benötigt."
+  variables:
+    - name: dont_starve_together_port
+      label: "Server-Port"
+      type: port
+      default: "10999"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1585,6 +2262,27 @@
     - "https://github.com/jsknnr/vintage-story-server"
   icon: "sports_esports"
   description: "Dedizierter Vintage-Story-Spielserver (Sandbox-/Survival-Spiel als Minecraft-Alternative), betrieben mit dem community-gepflegten Image von jsknnr; konfigurierbar über Servername, Beitritts-Passwort, Spieleranzahl und Port (42420 TCP/UDP)."
+  variables:
+    - name: vintage_story_port
+      label: "Server-Port"
+      type: port
+      default: "42420"
+      required: false
+    - name: vintage_story_server_name
+      label: "Servername"
+      type: string
+      default: "Vintage Story Dedicated Server"
+      required: false
+    - name: vintage_story_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "16"
+      required: false
+    - name: vintage_story_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1595,6 +2293,27 @@
     - "https://github.com/escapingnetwork/core-keeper-dedicated"
   icon: "sports_esports"
   description: "Dedizierter Core-Keeper-Spielserver auf Basis von SteamCMD zum gemeinsamen Erkunden und Ausbauen einer persistenten Untergrund-Welt mit Freunden und Community."
+  variables:
+    - name: core_keeper_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: core_keeper_server_name
+      label: "Servername"
+      type: string
+      default: "Core Keeper Server"
+      required: false
+    - name: core_keeper_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "10"
+      required: false
+    - name: core_keeper_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml
@@ -1605,6 +2324,32 @@
     - "https://github.com/thijsvanloef/barotrauma-server-docker"
   icon: "sports_esports"
   description: "Dedizierter Barotrauma-Spielserver auf Basis von SteamCMD zum Hosten kooperativer U-Boot-Missionen für Freunde und Community."
+  variables:
+    - name: barotrauma_port
+      label: "Server-Port"
+      type: port
+      default: "27015"
+      required: false
+    - name: barotrauma_query_port
+      label: "Query-Port"
+      type: port
+      default: "27016"
+      required: false
+    - name: barotrauma_server_name
+      label: "Servername"
+      type: string
+      default: "Barotrauma Server"
+      required: false
+    - name: barotrauma_max_players
+      label: "Max. Spieler"
+      type: string
+      default: "16"
+      required: false
+    - name: barotrauma_password
+      label: "Server-Passwort"
+      type: secret
+      default: "changeme"
+      required: false
   category: "Gaming"
   requires:
     - install-docker.yml

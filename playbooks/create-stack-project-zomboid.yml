@@ -40,19 +40,19 @@
             container_name: project-zomboid
             image: renegademaster/zomboid-dedicated-server:latest
             ports:
-              - "16261:16261/udp"
+              - "{{ project_zomboid_port | default('16261') }}:16261/udp"
               - "16262:16262/udp"
-              - "27015:27015/tcp"
+              - "{{ project_zomboid_rcon_port | default('27015') }}:27015/tcp"
             environment:
-              - SERVER_NAME=ZomboidServer
+              - SERVER_NAME={{ project_zomboid_server_name | default('ZomboidServer') }}
               - ADMIN_USERNAME=superuser
               - ADMIN_PASSWORD=AdminPleaseChangeMe
-              - SERVER_PASSWORD=
-              - RCON_PASSWORD=changeme
-              - RCON_PORT=27015
-              - DEFAULT_PORT=16261
+              - SERVER_PASSWORD={{ project_zomboid_password | default('') }}
+              - RCON_PASSWORD={{ project_zomboid_rcon_password | default('changeme') }}
+              - RCON_PORT={{ project_zomboid_rcon_port | default('27015') }}
+              - DEFAULT_PORT={{ project_zomboid_port | default('16261') }}
               - UDP_PORT=16262
-              - MAX_PLAYERS=32
+              - MAX_PLAYERS={{ project_zomboid_max_players | default('32') }}
               - MAX_RAM=4096m
               - MAP_NAMES=Muldraugh, KY
               - PAUSE_ON_EMPTY=true

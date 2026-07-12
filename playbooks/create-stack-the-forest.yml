@@ -41,8 +41,8 @@
             image: jammsen/the-forest-dedicated-server:latest
             ports:
               - "8766:8766/udp"
-              - "27015:27015/udp"
-              - "27016:27016/udp"
+              - "{{ the_forest_port | default('27015') }}:27015/udp"
+              - "{{ the_forest_query_port | default('27016') }}:27016/udp"
             environment:
               - PUID=1000
               - PGID=1000
@@ -51,9 +51,9 @@
               - FILTER_SHADER_AND_MESH_AND_WINE_DEBUG=true
               - ALWAYS_UPDATE_ON_START=true
               - SERVER_STEAM_ACCOUNT_TOKEN=
-              - SERVER_NAME=The Forest Server
-              - ADMIN_PASSWORD=AdminPleaseChangeMe
-              - SERVER_PASSWORD=changeme
+              - SERVER_NAME={{ the_forest_server_name | default('The Forest Server') }}
+              - ADMIN_PASSWORD={{ the_forest_rcon_password | default('AdminPleaseChangeMe') }}
+              - SERVER_PASSWORD={{ the_forest_password | default('changeme') }}
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/theforest"
 #---------------------------------------------------------------------------------------------

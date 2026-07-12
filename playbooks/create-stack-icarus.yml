@@ -40,15 +40,15 @@
             container_name: icarus
             image: mornedhels/icarus-server:latest
             ports:
-              - "17777:17777/udp"
-              - "27015:27015/udp"
+              - "{{ icarus_port | default('17777') }}:17777/udp"
+              - "{{ icarus_query_port | default('27015') }}:27015/udp"
             environment:
-              - SERVER_NAME=ICARUS Server
-              - SERVER_MAX_PLAYERS=8
-              - SERVER_PORT=17777
-              - SERVER_QUERYPORT=27015
+              - SERVER_NAME={{ icarus_server_name | default('ICARUS Server') }}
+              - SERVER_MAX_PLAYERS={{ icarus_max_players | default('8') }}
+              - SERVER_PORT={{ icarus_port | default('17777') }}
+              - SERVER_QUERYPORT={{ icarus_query_port | default('27015') }}
               - GAME_BRANCH=public
-              - SERVER_ADMIN_PASSWORD=changeme
+              - SERVER_ADMIN_PASSWORD={{ icarus_rcon_password | default('changeme') }}
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/home/icarus/drive_c/icarus"
 #---------------------------------------------------------------------------------------------

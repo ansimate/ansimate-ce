@@ -40,8 +40,8 @@
             container_name: 7-days-to-die
             image: vinanrra/7dtd-server:latest
             ports:
-              - "26900:26900/tcp"
-              - "26900:26900/udp"
+              - "{{ sdtd_port | default('26900') }}:26900/tcp"
+              - "{{ sdtd_port | default('26900') }}:26900/udp"
               - "26901:26901/udp"
               - "26902:26902/udp"
               - "8080:8080/tcp"

@@ -40,14 +40,14 @@
             container_name: abiotic-factor
             image: ghcr.io/pleut/abiotic-factor-linux-docker:latest
             ports:
-              - "7777:7777/udp"
-              - "27015:27015/udp"
+              - "{{ abiotic_factor_port | default('7777') }}:7777/udp"
+              - "{{ abiotic_factor_query_port | default('27015') }}:27015/udp"
             environment:
-              - SteamServerName=Abiotic Factor Server
-              - MaxServerPlayers=6
-              - Port=7777
-              - QueryPort=27015
-              - ServerPassword=changeme
+              - SteamServerName={{ abiotic_factor_server_name | default('Abiotic Factor Server') }}
+              - MaxServerPlayers={{ abiotic_factor_max_players | default('6') }}
+              - Port={{ abiotic_factor_port | default('7777') }}
+              - QueryPort={{ abiotic_factor_query_port | default('27015') }}
+              - ServerPassword={{ abiotic_factor_password | default('changeme') }}
               - WorldSaveName=Cascade
               - UsePerfThreads=true
               - NoAsyncLoadingThread=true

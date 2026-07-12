@@ -40,17 +40,17 @@
             container_name: left-4-dead-2
             image: left4devops/l4d2:latest
             ports:
-              - "27015:27015/tcp"
-              - "27015:27015/udp"
+              - "{{ left_4_dead_2_port | default('27015') }}:27015/tcp"
+              - "{{ left_4_dead_2_port | default('27015') }}:27015/udp"
             environment:
-              - HOSTNAME=Left 4 Dead 2 Server
+              - HOSTNAME={{ left_4_dead_2_server_name | default('Left 4 Dead 2 Server') }}
               - DEFAULT_MAP=c1m1_hotel
               - DEFAULT_MODE=coop
-              - PORT=27015
+              - PORT={{ left_4_dead_2_port | default('27015') }}
               - REGION=255
               - MOTD=0
               - STEAM_GROUP=0
-              - RCON_PASSWORD=changeme
+              - RCON_PASSWORD={{ left_4_dead_2_rcon_password | default('changeme') }}
               - EXTRA_ARGS=+sv_maxplayers 8
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/cfg"

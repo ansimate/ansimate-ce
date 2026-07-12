@@ -40,10 +40,10 @@
             container_name: unturned
             image: imperialplugins/unturned:latest
             ports:
-              - "27015:27015/udp"
-              - "27016:27016/udp"
+              - "{{ unturned_port | default('27015') }}:27015/udp"
+              - "{{ unturned_query_port | default('27016') }}:27016/udp"
             environment:
-              - SERVER_NAME=unturned
+              - SERVER_NAME={{ unturned_server_name | default('unturned') }}
               - GAME_ID=1110390
               - SERVER_TYPE=
               - STEAM_USERNAME=anonymous

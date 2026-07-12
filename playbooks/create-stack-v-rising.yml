@@ -40,16 +40,16 @@
             container_name: v-rising
             image: trueosiris/vrising:latest
             ports:
-              - "9876:9876/udp"
-              - "9877:9877/udp"
+              - "{{ v_rising_port | default('9876') }}:9876/udp"
+              - "{{ v_rising_query_port | default('9877') }}:9877/udp"
             environment:
               - TZ=Europe/Berlin
-              - SERVERNAME=V Rising Server
+              - SERVERNAME={{ v_rising_server_name | default('V Rising Server') }}
               - WORLDNAME=world1
-              - GAMEPORT=9876
-              - QUERYPORT=9877
+              - GAMEPORT={{ v_rising_port | default('9876') }}
+              - QUERYPORT={{ v_rising_query_port | default('9877') }}
               - HOST_SETTINGS_Description=V Rising Server
-              - HOST_SETTINGS_Password=
+              - HOST_SETTINGS_Password={{ v_rising_password | default('') }}
               - GAME_SETTINGS_GameModeType=PvE
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/mnt/vrising/persistentdata"

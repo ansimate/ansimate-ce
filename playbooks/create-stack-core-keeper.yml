@@ -40,19 +40,19 @@
             container_name: core-keeper
             image: escaping/core-keeper-dedicated:latest
             ports:
-              - "27015:27015/udp"
+              - "{{ core_keeper_port | default('27015') }}:27015/udp"
             environment:
               - PUID=1000
               - PGID=1000
               - WORLD_INDEX=0
-              - WORLD_NAME=Core Keeper Server
+              - WORLD_NAME={{ core_keeper_server_name | default('Core Keeper Server') }}
               - WORLD_SEED=
               - WORLD_MODE=0
-              - MAX_PLAYERS=10
+              - MAX_PLAYERS={{ core_keeper_max_players | default('10') }}
               - GAME_ID=
               - SERVER_IP=
-              - SERVER_PORT=27015
-              - PASSWORD=changeme
+              - SERVER_PORT={{ core_keeper_port | default('27015') }}
+              - PASSWORD={{ core_keeper_password | default('changeme') }}
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/home/steam/core-keeper-data"
 #---------------------------------------------------------------------------------------------

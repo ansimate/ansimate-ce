@@ -40,7 +40,7 @@
             container_name: dont-starve-together
             image: jamesits/dst-server:latest
             ports:
-              - "10999:10999/udp"
+              - "{{ dont_starve_together_port | default('10999') }}:10999/udp"
               - "11000:11000/udp"
               - "12346:12346/udp"
               - "12347:12347/udp"

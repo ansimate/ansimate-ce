@@ -1,0 +1,12 @@
+- name: install Flatseal (Flatpak)
+  hosts: all
+  remote_user: "{{ssh_user}}"
+  gather_facts: no
+  tasks:
+#---------------------------------------------------------------------------------------------
+  - name: "install Flatseal (com.github.tchx84.Flatseal) from flathub"
+    become: true
+    become_method: sudo
+    command: "flatpak install --assumeyes --noninteractive flathub com.github.tchx84.Flatseal"
+    register: flatpak_install
+    changed_when: "'Installing' in flatpak_install.stdout"

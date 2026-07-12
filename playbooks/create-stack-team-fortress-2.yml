@@ -40,21 +40,21 @@
             container_name: team-fortress-2
             image: cm2network/tf2:latest
             ports:
-              - "27015:27015/tcp"
-              - "27015:27015/udp"
+              - "{{ team_fortress_2_port | default('27015') }}:27015/tcp"
+              - "{{ team_fortress_2_port | default('27015') }}:27015/udp"
               - "27020:27020/udp"
             environment:
               - SRCDS_TOKEN=
-              - SRCDS_HOSTNAME=New TF Server
+              - SRCDS_HOSTNAME={{ team_fortress_2_server_name | default('New TF Server') }}
               - SRCDS_STARTMAP=ctf_2fort
-              - SRCDS_MAXPLAYERS=24
-              - SRCDS_PORT=27015
+              - SRCDS_MAXPLAYERS={{ team_fortress_2_max_players | default('24') }}
+              - SRCDS_PORT={{ team_fortress_2_port | default('27015') }}
               - SRCDS_TV_PORT=27020
               - SRCDS_TICKRATE=66
               - SRCDS_FPSMAX=300
               - SRCDS_REGION=3
-              - SRCDS_RCONPW=AdminPleaseChangeMe
-              - SRCDS_PW=changeme
+              - SRCDS_RCONPW={{ team_fortress_2_rcon_password | default('AdminPleaseChangeMe') }}
+              - SRCDS_PW={{ team_fortress_2_password | default('changeme') }}
               - SRCDS_WORKSHOP_AUTHKEY=
             volumes:
               - "{{base_dir}}/docker/{{stack}}:/home/steam/tf-dedicated"

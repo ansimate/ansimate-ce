@@ -40,15 +40,15 @@
             container_name: garrys-mod
             image: ceifa/garrysmod:latest
             ports:
-              - "27015:27015/udp"
-              - "27015:27015/tcp"
+              - "{{ garrys_mod_port | default('27015') }}:27015/udp"
+              - "{{ garrys_mod_port | default('27015') }}:27015/tcp"
               - "27005:27005/udp"
             environment:
-              - NAME=Garrys Mod Server
-              - MAXPLAYERS=16
+              - NAME={{ garrys_mod_server_name | default('Garrys Mod Server') }}
+              - MAXPLAYERS={{ garrys_mod_max_players | default('16') }}
               - GAMEMODE=sandbox
               - MAP=gm_construct
-              - PORT=27015
+              - PORT={{ garrys_mod_port | default('27015') }}
               - GSLT=
               - ARGS=
               - AUTOUPDATE=1

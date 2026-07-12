@@ -40,13 +40,13 @@
             container_name: astroneer
             image: barumel/docker-astroneer-server:latest
             ports:
-              - "8777:8777/udp"
-              - "8777:8777/tcp"
+              - "{{ astroneer_port | default('8777') }}:8777/udp"
+              - "{{ astroneer_port | default('8777') }}:8777/tcp"
             environment:
-              - ASTRO_SERVER_NAME=Astroneer Dedicated Server
+              - ASTRO_SERVER_NAME={{ astroneer_server_name | default('Astroneer Dedicated Server') }}
               - ASTRO_SERVER_OWNER_NAME=SteamOwnerName
-              - ASTRO_SERVER_PASSWORD=changeme
-              - ASTRO_SERVER_PORT=8777
+              - ASTRO_SERVER_PASSWORD={{ astroneer_password | default('changeme') }}
+              - ASTRO_SERVER_PORT={{ astroneer_port | default('8777') }}
               - ASTRO_SERVER_AUTO_SAVE_INTERVAL=60
               - ASTRO_SERVER_DISABLE_ENCRYPTION=false
             volumes:

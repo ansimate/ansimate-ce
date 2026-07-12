@@ -1836,7 +1836,25 @@ def _expand_playbook_requires(playbook_files: list) -> list:
         queue.extend(requires_map.get(base, []))
     return result
 
-def resolve_playbook_metadata(file_path: str, index_metadata: list) -> dict:
+# : i18n-faehige Metadaten-Felder in index.yml. Ein Feld darf statt eines einfachen
+# Strings ein Sprach-Dict tragen, z. B.  description: { de: "...", en: "..." }. `_localize` waehlt
+# daraus den Wert der aktiven UI-Sprache (Fallback-Kette: gewuenschte Sprache -> en -> de -> erster
+# nicht-leerer Wert). Einfache Strings (der Normalfall fuer 161 Playbooks) werden unveraendert
+# durchgereicht -> vollstaendig abwaertskompatibel; ein Playbook kann schrittweise zweisprachig
+# werden, ohne dass die uebrigen angefasst werden muessen. `lang` kommt aus dem `?lang=`-Query der
+# Katalog-Endpunkte (Quelle der Wahrheit ist die im Frontend aktive Sprache).
+def _localize(value, lang):
+    if isinstance(value, dict):
+        for cand in (lang, "en", "de"):
+            if cand and value.get(cand):
+                return value[cand]
+        for v in value.values():
+            if v:
+                return v
+        return ""
+    return value
+
+def resolve_playbook_metadata(file_path: str, index_metadata: list, lang: Optional[str] = None) -> dict:
     base_file = os.path.basename(file_path)
     metadata_entry = None
     if index_metadata:
@@ -1853,7 +1871,7 @@ def resolve_playbook_metadata(file_path: str, index_metadata: list) -> dict:
             "file": file_path,
             "name": metadata_entry.get("name", base_file),
             "icon": metadata_entry.get("icon", "description"),
-            "description": metadata_entry.get("description", "Keine Beschreibung verfügbar."),
+            "description": _localize(metadata_entry.get("description", "Keine Beschreibung verfügbar."), lang),
             "size": size,
             "requires": metadata_entry.get("requires", []),
             "category": metadata_entry.get("category", ""),
@@ -3839,7 +3857,7 @@ def get_preset_playbook_files() -> set:
 
 
 @app.get("/api/presets")
-def list_presets():
+def list_presets(lang: Optional[str] = None):  # : aktive UI-Sprache durchreichen
     presets_path = "/playbooks/presets.yml"
     if not os.path.isfile(presets_path):
         return []
@@ -3855,7 +3873,7 @@ def list_presets():
                 if isinstance(entry, dict) and "name" in entry and "playbooks" in entry:
                     resolved_playbooks = []
                     for pb_file in entry["playbooks"]:
-                        resolved_playbooks.append(resolve_playbook_metadata(pb_file, index_metadata))
+                        resolved_playbooks.append(resolve_playbook_metadata(pb_file, index_metadata, lang))
                     presets.append({
                         "name": entry["name"],
                         "playbooks": resolved_playbooks,
@@ -3895,7 +3913,8 @@ def save_custom_meta(owner_id: str, data: dict):
 @app.get("/api/playbooks")
 def list_playbooks(
     current_user: Optional[User] = Depends(get_current_user),
-    db: DBSession = Depends(get_db)
+    db: DBSession = Depends(get_db),
+    lang: Optional[str] = None,  # : aktive UI-Sprache -> zweisprachige description
 ):
     if not os.path.isdir("/playbooks"):
         return []
@@ -3924,7 +3943,7 @@ def list_playbooks(
                                     "file": file_name,
                                     "name": entry.get("name", file_name),
                                     "icon": entry.get("icon", "description"),
-                                    "description": entry.get("description", "Keine Beschreibung verfügbar."),
+                                    "description": _localize(entry.get("description", "Keine Beschreibung verfügbar."), lang),
                                     "size": os.path.getsize(resolved_path),
                                     "requires": entry.get("requires", []),
                                     "category": entry.get("category", ""),

@@ -40,13 +40,13 @@
             container_name: dayz
             image: ich777/steamcmd:dayz
             ports:
-              - "2302:2302/udp"
+              - "{{ dayz_port | default('2302') }}:2302/udp"
               - "2303:2303/udp"
               - "2304:2304/udp"
-              - "27016:27016/udp"
+              - "{{ dayz_query_port | default('27016') }}:27016/udp"
             environment:
               - GAME_ID=1042420
-              - GAME_PORT=2302
+              - GAME_PORT={{ dayz_port | default('2302') }}
               - GAME_PARAMS=
               - VALIDATE=true
               - USERNAME=
