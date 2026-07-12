@@ -27,12 +27,17 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.4] - 2026-07-12
+
 ### Changed
 - Spiel-spezifische Icons für die Game-Server-Playbooks im Katalog: Marken-Logos für Minecraft, Counter-Strike 2, Enshrouded, Terraria, Satisfactory und Lutris; alle übrigen Dedicated-Server erhalten genre-passende Symbole statt des generischen Gamepad-Platzhalters (#1155).
 - Echte Marken-Logos für weitere Katalog-Playbooks statt generischer Material-Icons: IT-Tools, Open WebUI, Claude Code, GearLever, Sublime Text, VLC und Inkscape (#1155).
 
 ### Added
 - `images/README.md` dokumentiert Herkunft, Lizenzen (Material Symbols, Dashboard Icons, Flathub) und den Markenrechts-Hinweis (nominative Nutzung) der Icon-Assets (#1155).
+
+### Fixed
+- Der Kategorie-Filter-Button im Katalog sitzt jetzt direkt neben dem Suchfeld, statt weit rechts neben dem Ansicht-Umschalter (#1135).
 
 ## [0.4.3] - 2026-07-12
 
@@ -431,7 +436,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.3...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.4...HEAD
+[0.4.4]: https://github.com/your-org/ansimate/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/your-org/ansimate/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/your-org/ansimate/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/your-org/ansimate/compare/v0.4.0...v0.4.1
