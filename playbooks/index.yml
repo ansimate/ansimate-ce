@@ -1056,7 +1056,7 @@
   name: "Lutris"
   vendor_urls:
     - "https://lutris.net"
-  icon: "sports_esports"
+  icon: "lutris.png"
   description: "Installiert die Open-Source-Spieleplattform Lutris zum Verwalten und Starten von Spielen aus verschiedenen Quellen."
   requires:
     - install-flatpak.yml
@@ -1342,7 +1342,7 @@
   name: "Abiotic Factor Dedicated Server"
   vendor_urls:
     - "https://github.com/Pleut/abiotic-factor-linux-docker"
-  icon: "sports_esports"
+  icon: "science"
   description: "Dedizierter Abiotic-Factor-Spielserver (Windows-Server via Wine unter Linux), konfigurierbar über Servername, Spieleranzahl, Ports und Passwort."
   variables:
     - name: abiotic_factor_port
@@ -1378,7 +1378,7 @@
   name: "Soulmask Dedicated Server"
   vendor_urls:
     - "https://github.com/jsknnr/soulmask-dedicated-server"
-  icon: "sports_esports"
+  icon: "castle"
   description: "Dedizierter Soulmask-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Survival-Welt für Freunde und Community."
   variables:
     - name: soulmask_port
@@ -1424,7 +1424,7 @@
   name: "Astroneer Dedicated Server"
   vendor_urls:
     - "https://github.com/barumel/docker-astroneer-server"
-  icon: "sports_esports"
+  icon: "rocket_launch"
   description: "Dedizierter Astroneer-Server, der die Windows-Serverbinary per GE-Proton/Wine unter Linux ausfuehrt und ueber Umgebungsvariablen (Servername, Besitzer, Passwort, Port) konfiguriert wird."
   variables:
     - name: astroneer_port
@@ -1476,7 +1476,7 @@
   name: "Empyrion Dedicated Server"
   vendor_urls:
     - "https://github.com/antimodes201/empyrion-server"
-  icon: "sports_esports"
+  icon: "rocket_launch"
   description: "Dedizierter Spielserver für Empyrion – Galactic Survival (WINE-basiert, per SteamCMD aktualisiert) zum Hosten eigener Koop- und Multiplayer-Welten."
   category: "Gaming"
   requires:
@@ -1486,7 +1486,7 @@
   name: "Icarus Dedicated Server"
   vendor_urls:
     - "https://github.com/mornedhels/icarus-server"
-  icon: "sports_esports"
+  icon: "landscape"
   description: "Dedizierter Spielserver für Icarus auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
   variables:
     - name: icarus_port
@@ -1522,7 +1522,7 @@
   name: "Mordhau Dedicated Server"
   vendor_urls:
     - "https://github.com/CM2Walki/Mordhau"
-  icon: "sports_esports"
+  icon: "swords"
   description: "Ein dedizierter Mordhau-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/mordhau, der beim Start automatisch das Spiel aktualisiert und komplett per Umgebungsvariablen konfigurierbar ist."
   variables:
     - name: mordhau_port
@@ -1596,7 +1596,7 @@
   name: "Minecraft Dedicated Server"
   vendor_urls:
     - "https://github.com/itzg/docker-minecraft-server"
-  icon: "sports_esports"
+  icon: "minecraft.svg"
   description: "Dedizierter Minecraft-Java-Spielserver auf Basis des De-facto-Standard-Images itzg/minecraft-server, konfigurierbar über Servertyp, Version, Arbeitsspeicher, Schwierigkeit, Spielmodus und Operatoren."
   variables:
     - name: minecraft_port
@@ -1632,7 +1632,7 @@
   name: "Rust Dedicated Server"
   vendor_urls:
     - "https://github.com/Didstopia/rust-server"
-  icon: "sports_esports"
+  icon: "cabin"
   description: "Dedizierter Rust-Spielserver mit Web-RCON-Verwaltung als Docker-Stack."
   variables:
     - name: rust_port
@@ -1668,7 +1668,7 @@
   name: "ARK: Survival Evolved Dedicated Server"
   vendor_urls:
     - "https://github.com/ich777/docker-steamcmd-server/tree/arkse"
-  icon: "sports_esports"
+  icon: "pets"
   description: "Dedizierter ARK: Survival Evolved-Spielserver auf Basis des ich777-SteamCMD-Images, der das Spiel beim Start automatisch installiert und aktualisiert und über Umgebungsvariablen wie Karte, Servername, Passwort, Admin-Passwort und Spielerlimit konfigurierbar ist."
   variables:
     - name: ark_survival_evolved_port
@@ -1709,7 +1709,7 @@
   name: "Counter-Strike 2 Dedicated Server"
   vendor_urls:
     - "https://github.com/joedwards32/CS2"
-  icon: "sports_esports"
+  icon: "counter-strike-2.png"
   description: "Dedizierter Counter-Strike-2-Spielserver auf Basis von SteamCMD, konfigurierbar über Servername, Spielmodus, Startmap, Spieleranzahl, RCON-Passwort und optionalen Steam-GSLT-Token für die öffentliche Serverliste."
   variables:
     - name: counter_strike_2_port
@@ -1745,7 +1745,7 @@
   name: "Valheim Dedicated Server"
   vendor_urls:
     - "https://github.com/lloesche/valheim-server-docker"
-  icon: "sports_esports"
+  icon: "sailing"
   description: "Dedizierter Valheim-Koop-Spielserver auf Basis des lloesche-Images mit automatischen Server-Updates und World-Backups, konfigurierbar über Servername, Weltname, Passwort und Ports."
   variables:
     - name: valheim_server_name
@@ -1766,7 +1766,7 @@
   name: "DayZ Dedicated Server"
   vendor_urls:
     - "https://github.com/ich777/docker-steamcmd-server"
-  icon: "sports_esports"
+  icon: "dangerous"
   description: "Dedizierter DayZ-Survival-Server auf Basis von SteamCMD (experimenteller Linux-Build) zum Hosten einer eigenen Chernarus- oder Livonia-Welt für Freunde und Community."
   variables:
     - name: dayz_port
@@ -1787,7 +1787,7 @@
   name: "7 Days to Die Dedicated Server"
   vendor_urls:
     - "https://github.com/vinanrra/Docker-7DaysToDie"
-  icon: "sports_esports"
+  icon: "dangerous"
   description: "Dedizierter 7 Days to Die-Spielserver auf Basis von LinuxGSM mit automatischen SteamCMD-Updates, Mod-Unterstützung und Backups."
   variables:
     - name: sdtd_port
@@ -1803,7 +1803,7 @@
   name: "Enshrouded Dedicated Server"
   vendor_urls:
     - "https://github.com/jsknnr/enshrouded-server"
-  icon: "sports_esports"
+  icon: "enshrouded.png"
   description: "Dedizierter Enshrouded-Koop-Spielserver auf Basis des SteamCMD-Images sknnr/enshrouded-dedicated-server, der unter Linux via Wine läuft und vollständig über Umgebungsvariablen konfigurierbar ist."
   variables:
     - name: enshrouded_port
@@ -1834,7 +1834,7 @@
   name: "Palworld Dedicated Server"
   vendor_urls:
     - "https://github.com/thijsvanloef/palworld-server-docker"
-  icon: "sports_esports"
+  icon: "pets"
   description: "Dedizierter Palworld-Spielserver auf Basis von SteamCMD zum Hosten einer eigenen Koop-Welt, konfigurierbar über Servername, Spieleranzahl, Ports und Passwörter."
   variables:
     - name: palworld_port
@@ -1875,7 +1875,7 @@
   name: "Conan Exiles Dedicated Server"
   vendor_urls:
     - "https://github.com/melle2/conanexiles-ds"
-  icon: "sports_esports"
+  icon: "castle"
   description: "Dedizierter Conan-Exiles-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Instanz-/Servername, Beitrittspasswort, Mods und Auto-Update) konfiguriert wird."
   variables:
     - name: conan_exiles_port
@@ -1906,7 +1906,7 @@
   name: "Garry's Mod Dedicated Server"
   vendor_urls:
     - "https://github.com/ceifa/garrysmod-docker"
-  icon: "sports_esports"
+  icon: "build"
   description: "Dedizierter Garry's-Mod-Spielserver auf Basis von SteamCMD zum Hosten eigener Sandbox- oder Gamemode-Welten, konfigurierbar über Servername, Spielerzahl, Gamemode, Startkarte und Steam-Workshop-Collection."
   variables:
     - name: garrys_mod_port
@@ -1932,7 +1932,7 @@
   name: "FiveM Dedicated Server"
   vendor_urls:
     - "https://github.com/spritsail/fivem"
-  icon: "sports_esports"
+  icon: "directions_car"
   description: "Dedizierter FiveM-Server für GTA-V-Multiplayer und Roleplay auf Basis des spritsail/fivem-Images, konfigurierbar über FiveM-License-Key, RCON-Passwort und Serverport (30120) mit optionalem txAdmin-Web-Interface (40120)."
   variables:
     - name: fivem_port
@@ -1953,7 +1953,7 @@
   name: "Factorio Dedicated Server"
   vendor_urls:
     - "https://github.com/factoriotools/factorio-docker"
-  icon: "sports_esports"
+  icon: "factory"
   description: "Dedizierter Factorio-Spielserver auf Basis des offiziellen factoriotools-Images, konfigurierbar über Spielport (34197/UDP), RCON-Fernsteuerung und Spielstand-Verwaltung."
   variables:
     - name: factorio_port
@@ -1974,7 +1974,7 @@
   name: "Satisfactory Dedicated Server"
   vendor_urls:
     - "https://github.com/wolveix/satisfactory-server"
-  icon: "sports_esports"
+  icon: "satisfactory.png"
   description: "Dedizierter Satisfactory-Spielserver auf Basis des gepflegten wolveix-Images (nativer Linux-Server), konfigurierbar über Spieleranzahl, Ports und automatische Speicherstände."
   variables:
     - name: satisfactory_port
@@ -1995,7 +1995,7 @@
   name: "Terraria Dedicated Server"
   vendor_urls:
     - "https://github.com/ryansheehan/terraria"
-  icon: "sports_esports"
+  icon: "terraria.png"
   description: "Dedizierter Terraria-Spielserver auf Basis von TShock zum Hosten einer eigenen Sandbox-Welt, konfigurierbar über Weltdatei, Ports (Spielport 7777, REST-API 7878) und Konfigurationsdatei."
   variables:
     - name: terraria_port
@@ -2011,7 +2011,7 @@
   name: "Team Fortress 2 Dedicated Server"
   vendor_urls:
     - "https://github.com/CM2Walki/TF2"
-  icon: "sports_esports"
+  icon: "military_tech"
   description: "Ein dedizierter Team-Fortress-2-Spielserver auf Basis des gepflegten SteamCMD-Images cm2network/tf2, der beim Start automatisch das Spiel aktualisiert und per Umgebungsvariablen (Servername, Startkarte, Spielerlimit, GSLT-Token, Ports) konfigurierbar ist."
   variables:
     - name: team_fortress_2_port
@@ -2047,7 +2047,7 @@
   name: "V Rising Dedicated Server"
   vendor_urls:
     - "https://github.com/TrueOsiris/docker-vrising"
-  icon: "sports_esports"
+  icon: "castle"
   description: "Dedizierter V-Rising-Spielserver, der die Windows-Serverbinary per Wine unter Linux ausführt und über Umgebungsvariablen (Servername, Weltname, Ports, Passwort) konfiguriert wird."
   variables:
     - name: v_rising_port
@@ -2078,7 +2078,7 @@
   name: "The Forest Dedicated Server"
   vendor_urls:
     - "https://github.com/jammsen/docker-the-forest-dedicated-server"
-  icon: "sports_esports"
+  icon: "forest"
   description: "Dedizierter The-Forest-Spielserver (Windows-Server via Wine unter Linux), per SteamCMD automatisch aktualisiert und konfigurierbar über Servername, Admin-Passwort, Beitrittspasswort und Ports."
   variables:
     - name: the_forest_port
@@ -2114,7 +2114,7 @@
   name: "Unturned Dedicated Server"
   vendor_urls:
     - "https://github.com/ImperialPlugins/unturned-docker"
-  icon: "sports_esports"
+  icon: "dangerous"
   description: "Dedizierter Unturned-Spielserver auf Basis von SteamCMD, betrieben mit dem Community-Image imperialplugins/unturned und optional per RocketMod (rm4/rm5) erweiterbar."
   variables:
     - name: unturned_port
@@ -2140,7 +2140,7 @@
   name: "Space Engineers Dedicated Server"
   vendor_urls:
     - "https://github.com/Devidian/docker-spaceengineers"
-  icon: "sports_esports"
+  icon: "rocket_launch"
   description: "Dedizierter Space-Engineers-Spielserver, der via Wine auf Linux läuft, zum Hosten einer eigenen Sandbox-Welt für Freunde und Community."
   variables:
     - name: space_engineers_port
@@ -2156,7 +2156,7 @@
   name: "Project Zomboid Dedicated Server"
   vendor_urls:
     - "https://github.com/Renegade-Master/zomboid-dedicated-server"
-  icon: "sports_esports"
+  icon: "dangerous"
   description: "Dedizierter Project-Zomboid-Spielserver auf Basis von SteamCMD mit automatischen Updates, Spielstand-Speicherung und konfigurierbarem Server-Namen, Spielerlimit sowie Admin-Passwort."
   variables:
     - name: project_zomboid_port
@@ -2197,7 +2197,7 @@
   name: "Sons of the Forest Dedicated Server"
   vendor_urls:
     - "https://github.com/jammsen/docker-sons-of-the-forest-dedicated-server"
-  icon: "sports_esports"
+  icon: "forest"
   description: "Dedizierter Sons-of-the-Forest-Spielserver (Windows-Server via Wine unter Linux) mit automatischer SteamCMD-Aktualisierung, dessen Servername, Passwort und Spieleranzahl über die Konfigurationsdatei im Spielstand-Volume gesetzt werden."
   variables:
     - name: sons_of_the_forest_port
@@ -2218,7 +2218,7 @@
   name: "Left 4 Dead 2 Dedicated Server"
   vendor_urls:
     - "https://github.com/Left4DevOps/l4d2-docker"
-  icon: "sports_esports"
+  icon: "crisis_alert"
   description: "Dedizierter Left-4-Dead-2-Koop-Server auf Basis von SteamCMD, der beim Start automatisch aktualisiert und per Umgebungsvariablen über Servername, Startkarte, Spielmodus und Port konfiguriert wird."
   variables:
     - name: left_4_dead_2_port
@@ -2244,7 +2244,7 @@
   name: "Don't Starve Together Dedicated Server"
   vendor_urls:
     - "https://github.com/Jamesits/docker-dst-server"
-  icon: "sports_esports"
+  icon: "local_fire_department"
   description: "Dedizierter Don't-Starve-Together-Spielserver (Master- und Caves-Shard) auf Basis von SteamCMD, der zum Betrieb einen Klei-Cluster-Token benötigt."
   variables:
     - name: dont_starve_together_port
@@ -2260,7 +2260,7 @@
   name: "Vintage Story Dedicated Server"
   vendor_urls:
     - "https://github.com/jsknnr/vintage-story-server"
-  icon: "sports_esports"
+  icon: "cabin"
   description: "Dedizierter Vintage-Story-Spielserver (Sandbox-/Survival-Spiel als Minecraft-Alternative), betrieben mit dem community-gepflegten Image von jsknnr; konfigurierbar über Servername, Beitritts-Passwort, Spieleranzahl und Port (42420 TCP/UDP)."
   variables:
     - name: vintage_story_port
@@ -2291,7 +2291,7 @@
   name: "Core Keeper Dedicated Server"
   vendor_urls:
     - "https://github.com/escapingnetwork/core-keeper-dedicated"
-  icon: "sports_esports"
+  icon: "diamond"
   description: "Dedizierter Core-Keeper-Spielserver auf Basis von SteamCMD zum gemeinsamen Erkunden und Ausbauen einer persistenten Untergrund-Welt mit Freunden und Community."
   variables:
     - name: core_keeper_port
@@ -2322,7 +2322,7 @@
   name: "Barotrauma Dedicated Server"
   vendor_urls:
     - "https://github.com/thijsvanloef/barotrauma-server-docker"
-  icon: "sports_esports"
+  icon: "directions_boat"
   description: "Dedizierter Barotrauma-Spielserver auf Basis von SteamCMD zum Hosten kooperativer U-Boot-Missionen für Freunde und Community."
   variables:
     - name: barotrauma_port
