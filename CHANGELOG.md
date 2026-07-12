@@ -29,6 +29,10 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ### Changed
 - Spiel-spezifische Icons für die Game-Server-Playbooks im Katalog: Marken-Logos für Minecraft, Counter-Strike 2, Enshrouded, Terraria, Satisfactory und Lutris; alle übrigen Dedicated-Server erhalten genre-passende Symbole statt des generischen Gamepad-Platzhalters (#1155).
+- Echte Marken-Logos für weitere Katalog-Playbooks statt generischer Material-Icons: IT-Tools, Open WebUI, Claude Code, GearLever, Sublime Text, VLC und Inkscape (#1155).
+
+### Added
+- `images/README.md` dokumentiert Herkunft, Lizenzen (Material Symbols, Dashboard Icons, Flathub) und den Markenrechts-Hinweis (nominative Nutzung) der Icon-Assets (#1155).
 
 ## [0.4.3] - 2026-07-12
 

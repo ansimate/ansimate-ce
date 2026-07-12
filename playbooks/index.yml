@@ -216,7 +216,7 @@
   name: "IT-Tools"
   vendor_urls:
     - "https://github.com/CorentinTh/it-tools"
-  icon: "construction"
+  icon: "it-tools.svg"
   description: "Installiert IT-Tools – eine clientseitige Sammlung praktischer Entwickler-Werkzeuge (JSON-/JWT-Tools, Generatoren, Konverter), zustandslos und offline nutzbar."
   requires:
     - install-docker.yml
@@ -978,7 +978,7 @@
   name: "Gearlever"
   vendor_urls:
     - "https://mijorus.it/projects/gearlever/"
-  icon: "deployed_code"
+  icon: "gearlever.svg"
   description: "Installiert Gearlever, einen grafischen Verwalter zum Integrieren, Aktualisieren und Entfernen von AppImage-Anwendungen unter Linux."
   requires:
     - install-flatpak.yml
@@ -1172,7 +1172,7 @@
   name: "Sublime Text"
   vendor_urls:
     - "https://www.sublimetext.com"
-  icon: "code"
+  icon: "sublime-text.png"
   description: "Installiert den proprietären Text- und Quellcode-Editor Sublime Text als Flatpak."
   requires:
     - install-flatpak.yml
@@ -1192,7 +1192,7 @@
   name: "Inkscape"
   vendor_urls:
     - "https://inkscape.org"
-  icon: "brush"
+  icon: "inkscape.png"
   description: "Installiert Inkscape, einen professionellen Open-Source-Editor für skalierbare Vektorgrafiken (SVG)."
   requires:
     - install-flatpak.yml
@@ -1212,7 +1212,7 @@
   name: "VLC"
   vendor_urls:
     - "https://www.videolan.org"
-  icon: "movie"
+  icon: "vlc.png"
   description: "Installiert den VLC Media Player, einen quelloffenen Multimedia-Player für nahezu alle Audio- und Videoformate."
   requires:
     - install-flatpak.yml
