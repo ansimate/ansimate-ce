@@ -1,11 +1,11 @@
-//  /: Woerterbuch fuer app.js Region 4 (Zeilen ~4062-5010):
-// updateAuthUI + Auth-Flows (Login/Registrierung/2FA/Passwort-Reset) + Profil-Kern
-// (Feldfehler, Toasts, Button-Beschriftungen, aktive Sitzungen).
-// Namespaces: "auth.*" und "prof.*". Haeufige Buttons nutzen bestehende common.*/auth.*-Keys
-// (z. B. auth.logout) und tauchen hier NICHT auf.
+//  /: dictionary for app.js Region 4 (lines ~4062-5010):
+// updateAuthUI + auth flows (login/registration/2FA/password reset) + profile core
+// (field errors, toasts, button labels, active sessions).
+// Namespaces: "auth.*" and "prof.*". Common buttons use existing common.*/auth.* keys
+// (e.g. auth.logout) and do NOT appear here.
 export default {
     de: {
-        // --- Auth-Flows (Login / 2FA / Registrierung / Passwort-Reset / E-Mail-Bestaetigung) ---
+        // --- Auth flows (login / 2FA / registration / password reset / email confirmation) ---
         "auth.twoFaPinSent": "2FA PIN gesendet. Bitte E-Mail prüfen.",
         "auth.loginSuccess": "Erfolgreich angemeldet!",
         "auth.actionFailed": "Aktion fehlgeschlagen.",
@@ -41,7 +41,7 @@ export default {
         "auth.logoutAllMsg": "Möchten Sie sich wirklich von allen Geräten abmelden?",
         "auth.logoutAllSuccess": "Erfolgreich von allen Geräten abgemeldet.",
 
-        // --- Profil-Kern (updateAuthUI / 2FA / Webhook / Benachrichtigungen / Sitzungen / AVV) ---
+        // --- Profile core (updateAuthUI / 2FA / webhook / notifications / sessions / DPA) ---
         "prof.usernameImmutableHint": "Der Benutzername kann nach der Registrierung nicht mehr geändert werden.",
         "prof.avvDownloadSigned": "Unterzeichneten AVV herunterladen (PDF)",
         "prof.avvDownloadTemplate": "AVV-Muster herunterladen (PDF)",

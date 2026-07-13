@@ -1,20 +1,20 @@
 """Open-Core entitlement seam.
 
-Der ``EntitlementProvider`` kapselt ALLE Premium-/Abo-Entscheidungen, damit der Core
-keine editionsabhaengigen Inline-Checks (``EDITION == ...``) mehr in seinen Gates traegt.
-Editionen docken ihren Provider ueber die ExtensionRegistry an
-(``registry.set_entitlement_provider``); ist keiner registriert, waehlt der Core anhand
-der Build-Edition einen Default:
+The ``EntitlementProvider`` encapsulates ALL premium/subscription decisions, so that the core
+no longer carries edition-dependent inline checks (``EDITION == ...``) in its gates.
+Editions attach their provider via the ExtensionRegistry
+(``registry.set_entitlement_provider``); if none is registered, the core picks a default
+based on the build edition:
 
-  * community  -> CommunityEntitlementProvider: alles frei, ABER Premium-Playbooks werden
-                  weder aufgelistet noch ausgefuehrt (nicht Teil der Auslieferung).
-  * onpremise  -> OpenEntitlementProvider: alles frei, Premium-Playbooks laufen ohne Abo.
-  * cloud      -> CloudEntitlementProvider: Abo-/Trial-gesteuert.  ersetzt diesen ueber
-                  die Registry durch den Stripe-gestuetzten Provider.
+  * community  -> CommunityEntitlementProvider: everything free, BUT premium playbooks are
+                  neither listed nor executed (not part of the shipment).
+  * onpremise  -> OpenEntitlementProvider: everything free, premium playbooks run without a subscription.
+  * cloud      -> CloudEntitlementProvider: subscription/trial-driven.  replaces it via
+                  the registry with the Stripe-backed provider.
 
-Open-Core-Regel: Dieses Modul importiert KEINEN proprietaeren Code (kein ``stripe``). Es
-liest ausschliesslich Felder des Core-User-Modells (duck-typed, ohne ``models`` zu
-importieren -> kein Import-Zyklus).
+Open-Core rule: This module imports NO proprietary code (no ``stripe``). It
+reads only fields of the core user model (duck-typed, without importing ``models``
+-> no import cycle).
 """
 from abc import ABC, abstractmethod
 
@@ -22,34 +22,34 @@ from edition import EDITION
 
 
 class EntitlementProvider(ABC):
-    """Vertrag fuer Premium-/Abo-Entscheidungen."""
+    """Contract for premium/subscription decisions."""
 
     @abstractmethod
     def is_active(self, user, db=None) -> bool:
-        """Hat ``user`` eine aktive Berechtigung (Abo/Trial bzw. editionsbedingt frei)?"""
+        """Does ``user`` have an active entitlement (subscription/trial or edition-based free)?"""
 
     @abstractmethod
     def can_run_premium(self, user, rel_pb, canon_base, db=None) -> bool:
-        """Darf ``user`` das als premium markierte Playbook (rel_pb/canon_base) ausfuehren?"""
+        """May ``user`` run the playbook marked as premium (rel_pb/canon_base)?"""
 
     def hides_premium_in_catalog(self) -> bool:
-        """True, wenn Premium-Playbooks in dieser Edition gar nicht aufgelistet werden."""
+        """True if premium playbooks are not listed at all in this edition."""
         return False
 
     def premium_denied_message(self, user, rel_pb, canon_base, db=None) -> str:
-        """Fehlertext fuer den 403, wenn ``can_run_premium`` False ist (editionsspezifisch)."""
+        """Error text for the 403 when ``can_run_premium`` is False (edition-specific)."""
         return "Premium-Playbooks erfordern ein aktives Abonnement."
 
 
 
 
 class CommunityEntitlementProvider(EntitlementProvider):
-    """Community: alle (Nicht-Premium-)Features frei, aber Premium-Playbooks sind nicht
-    Teil der Community-Auslieferung -> weder gelistet noch ausfuehrbar.
+    """Community: all (non-premium) features free, but premium playbooks are not
+    part of the Community shipment -> neither listed nor runnable.
 
-: erbt direkt von EntitlementProvider (nicht von OpenEntitlementProvider), da der
-    On-Premise-Provider in der Community-Edition entfernt wird -> is_active hier eigenstaendig
-    (in der Community ist alles frei)."""
+: inherits directly from EntitlementProvider (not from OpenEntitlementProvider), since the
+    On-Premise provider is removed in the Community-Edition -> is_active is standalone here
+    (in the Community everything is free)."""
 
     def is_active(self, user, db=None) -> bool:
         return True
@@ -67,13 +67,13 @@ class CommunityEntitlementProvider(EntitlementProvider):
 
 
 def select_default_provider(edition: str) -> EntitlementProvider:
-    """Core-Default-Provider anhand der Build-Edition (kein proprietaerer Code)."""
+    """Core default provider based on the build edition (no proprietary code)."""
     if edition == "community":
         return CommunityEntitlementProvider()
 
 
-# Aktiver Provider. Default nach Build-Edition; per ``set_entitlement_provider``
-# (z. B. durch die Cloud-Billing-Extension in) ueberschreibbar.
+# Active provider. Default by build edition; overridable via ``set_entitlement_provider``
+# (e.g. by the cloud billing extension in).
 _active_provider: EntitlementProvider = select_default_provider(EDITION)
 
 

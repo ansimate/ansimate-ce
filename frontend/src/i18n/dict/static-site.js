@@ -1,35 +1,35 @@
-//  (Region 5): Woerterbuch fuer die statische Site-Chrome und die Profil-Seite in
-// index.html — Wartungs-Banner/-Overlay (Boot-Splash), Footer-Navigationslabels, das
-// Profil-Dialog (Tabs + Feld-Ueberschriften/-Labels ueber alle 5 Reiter), API-Token-Anzeige,
-// Konto-Loeschung-Bestaetigung, Rechts-Modal-Titel, Cookie-Consent-Banner und den
-// IP-Sperr-Overlay. Namespace: "site.".
-// Wird von index.js automatisch via import.meta.glob eingesammelt.
-// Konvention: flache, namespaced Keys; de-Wert = Originaltext, en-Wert = professionelle Uebersetzung.
-// Haeufige Buttons nutzen die gemeinsamen common.*-Keys (core.js), Sprache/Theme = profile.*.
-// Rechts-Fliesstext (AGB/DSGVO/Impressum/AVV) bleibt bewusst UNuebersetzt — nur deren Labels/Buttons.
+//  (Region 5): dictionary for the static site chrome and the profile page in
+// index.html — maintenance banner/overlay (boot splash), footer navigation labels, the
+// profile dialog (tabs + field headings/labels across all 5 tabs), API token display,
+// account deletion confirmation, legal modal titles, cookie consent banner, and the
+// IP block overlay. Namespace: "site.".
+// Collected automatically by index.js via import.meta.glob.
+// Convention: flat, namespaced keys; de value = original text, en value = professional translation.
+// Common buttons use the shared common.* keys (core.js), language/theme = profile.*.
+// Legal body copy (AGB/DSGVO/Impressum/AVV) stays deliberately UNtranslated — only their labels/buttons.
 export default {
     de: {
-        // Wartungsmodus-Banner (Admins, alle Seiten)
+        // Maintenance-mode banner (admins, all pages)
         "site.maintBannerActive": "Wartungsmodus aktiv",
         "site.maintBannerNote": " — reguläre Benutzer sind aktuell ausgesperrt. Nur Administratoren haben Zugriff.",
-        // Boot-Splash / Wartungsseite (Overlay)
+        // Boot splash / maintenance page (overlay)
         "site.maintTitle": "Wartungsmodus",
         "site.maintNote": "Die Anwendung wird gerade gewartet. Bitte versuchen Sie es später erneut.",
-        // Footer-Navigationslabels
+        // Footer navigation labels
         "site.footerDocs": "API Dokumentation",
         "site.footerLlm": "Agent Instructions",
         "site.footerPricing": "Preise",
         "site.footerAgb": "AGB",
         "site.footerImpressum": "Impressum",
         "site.footerPrivacy": "Datenschutz",
-        // Profil-Dialog — Kopf + Tab-Reiter
+        // Profile dialog — header + tabs
         "site.profileTitle": "Mein Profil & Einstellungen",
         "site.profileTabHome": "Startseite",
         "site.profileTabSecurity": "Sicherheit",
         "site.profileTabBilling": "Rechnungen",
         "site.profileTabApi": "API Zugriff",
         "site.profileTabGdpr": "DSGVO",
-        // Profil — Tab Startseite
+        // Profile — Overview tab
         "site.accountInfo": "Kontoinformationen",
         "site.usernameLabel": "Benutzername:",
         "site.emailLabel": "E-Mail:",
@@ -43,7 +43,7 @@ export default {
         "site.emailOnRuns": "E-Mail bei Ausführungen erhalten",
         "site.webhookDesc": "Webhook-URL — erhält nach jedem Lauf einen JSON-Payload (z. B. Slack/Teams/Discord). Leer lassen, um zu deaktivieren.",
         "site.webhookUrl": "Webhook-URL (optional)",
-        // Profil — Tab Sicherheit
+        // Profile — Security tab
         "site.changePassword": "Passwort ändern",
         "site.showPassword": "Passwort anzeigen",
         "site.currentPassword": "Aktuelles Passwort",
@@ -59,7 +59,7 @@ export default {
         "site.deletionPending": "Löschung ausstehend!",
         "site.deletionSoon": "Ihr Konto wird in Kürze endgültig gelöscht.",
         "site.cancelDeletion": "Löschung abbrechen",
-        // Profil — Tab Rechnungen (cloud-only)
+        // Profile — Billing tab (cloud-only)
         "site.subscriptionBilling": "Abonnement & Abrechnung",
         "site.runtimeRemaining": "Laufzeit verbleibend:",
         "site.days": "Tag(e)",
@@ -71,7 +71,7 @@ export default {
         "site.thInvoiceNo": "Rechnungs-Nr.",
         "site.thAmount": "Betrag",
         "site.thAction": "Aktion",
-        // Profil — Tab API Zugriff
+        // Profile — API Access tab
         "site.apiTokensTitle": "Automatisierungs-Token (API)",
         "site.apiTokensDesc1": "Generieren Sie API-Tokens, um Playbooks über CI/CD-Pipelines oder externe Skripte auszuführen und Logs auszulesen. Die vollständige Schnittstellen-Dokumentation finden Sie in den ",
         "site.apiDocsLink": "API-Docs",
@@ -87,31 +87,31 @@ export default {
         "site.thName": "Name",
         "site.thScopes": "Scopes",
         "site.thExpiry": "Ablauf",
-        // Profil — Tab DSGVO
+        // Profile — GDPR tab
         "site.dataExport": "Datenexport",
         "site.exportDataJson": "Daten exportieren (JSON)",
         "site.avvHeading": "Datenschutz & Verträge (AVV)",
         "site.avvDownload": "AVV herunterladen (PDF)",
         "site.avvSign": "AVV digital unterzeichnen",
-        // API-Token-Anzeige-Dialog
+        // API token display dialog
         "site.tokenGenerated": "API-Token generiert",
         "site.tokenDisplayInfo1": "Hier ist Ihr neuer API-Token. Kopieren Sie ihn jetzt. Aus Sicherheitsgründen wird er ",
         "site.tokenDisplayNever": "nie wieder angezeigt",
         "site.copy": "Kopieren",
         "site.tokenCopiedDone": "Ich habe den Token kopiert",
-        // Konto-Loeschung bestaetigen (cloud-only)
+        // Confirm account deletion (cloud-only)
         "site.deleteAccountConfirmTitle": "Konto unwiderruflich löschen?",
         "site.deleteAccountConfirmDesc": "Möchten Sie Ihr Konto wirklich zur Löschung vormerken? Alle gespeicherten Geräte und Logs werden nach 24 Stunden unwiderruflich gelöscht. Zur Bestätigung geben Sie bitte Ihr aktuelles Passwort ein:",
         "site.scheduleDeletion": "Konto vormerken",
-        // Rechts-Modal-Titel (Fliesstext bleibt unuebersetzt)
+        // Legal modal titles (body copy stays untranslated)
         "site.agbTitle": "Allgemeine Geschäftsbedingungen (AGB)",
         "site.privacyTitle": "Datenschutzerklärung (DSGVO)",
         "site.impressumTitle": "Impressum",
-        // AVV-Signatur-Modal (cloud-only) — nur Feld-Labels/Buttons
+        // DPA signature modal (cloud-only) — field labels/buttons only
         "site.avvCompany": "Unternehmensname (Auftraggeber)",
         "site.avvRepresentative": "Name des gesetzlichen Vertreters",
         "site.signContract": "Vertrag zeichnen",
-        // Cookie-Consent-Banner
+        // Cookie consent banner
         "site.cookieTitle": "Datenschutz & Cookie-Einstellungen",
         "site.cookieIntro": "Wir verwenden Cookies, um die Nutzererfahrung zu verbessern, den Login-Status aufrechtzuerhalten und anonymisierte Leistungsstatistiken (Telemetry) zu erfassen. Sie können Ihre Einwilligung jederzeit widerrufen.",
         "site.cookieEssentialTitle": "Essenzielle Cookies",
@@ -122,7 +122,7 @@ export default {
         "site.cookieDeclineNonEssential": "Nur notwendige",
         "site.cookieAcceptAll": "Alle akzeptieren",
         "site.cookieSavePref": "Auswahl speichern",
-        // IP-Sperr-Overlay
+        // IP block overlay
         "site.ipBlockTitle": "Zugriff vorübergehend gesperrt",
         "site.ipBlockText": "Ihre IP-Adresse wurde aus Sicherheitsgründen vorübergehend gesperrt (zu viele Anfragen in kurzer Zeit).",
         "site.ipBlockCountdownLabel": "Automatische Freigabe in",

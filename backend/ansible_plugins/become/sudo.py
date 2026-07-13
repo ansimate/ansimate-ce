@@ -129,8 +129,8 @@ class BecomeModule(BecomeBase):
         return ' '.join([becomecmd, flags, prompt, user, self._build_success_command(cmd, shell)])
 
     def check_password_prompt(self, b_output):
-        #: erst normale (klassisches sudo) Erkennung; wenn die scheitert, das sudo-rs-Format
-        # "[sudo: <prompt>] Password:" pruefen (upstream ansible PR).
+        #: first normal (classic sudo) detection; if that fails, check the sudo-rs format
+        # "[sudo: <prompt>] Password:" (upstream ansible PR).
         matched = super(BecomeModule, self).check_password_prompt(b_output)
         if not matched and self.prompt:
             prompt = self.prompt

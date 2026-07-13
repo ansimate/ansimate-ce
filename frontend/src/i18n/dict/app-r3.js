@@ -1,5 +1,5 @@
-// : app.js Region 3 — Ausfuehrung/Jobs/Historie/Live-Log + Toast-Kern.
-// Namespace "job". Haeufige Buttons nutzen weiter common.* (kein Eintrag hier).
+// : app.js Region 3 — execution/jobs/history/live log + toast core.
+// Namespace "job". Common buttons still use common.* (no entry here).
 export default {
     de: {
         "job.presetNameRequired": "Bitte einen Preset-Namen eingeben.",

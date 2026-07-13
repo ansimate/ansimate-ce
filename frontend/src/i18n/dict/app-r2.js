@@ -1,5 +1,5 @@
-//  / — app.js Region 2 (~2137–3200): Playbook-Liste + Ausfuehren-Dialog (modal-*).
-// Namespace "run". Haeufige Buttons nutzen common.* aus core.js (kein Eintrag hier).
+//  / — app.js Region 2 (~2137–3200): playbook list + run dialog (modal-*).
+// Namespace "run". Common buttons use common.* from core.js (no entry here).
 export default {
     de: {
         "run.emptyPlaybooks": "Keine Playbooks oder Presets gefunden.",

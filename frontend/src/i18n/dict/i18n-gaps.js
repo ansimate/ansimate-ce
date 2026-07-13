@@ -1,39 +1,39 @@
-// Nachtrag: übersehene Beschriftungen (Log-Konsole, Passwort-Anforderungen, Admin-Export-Dialog,
-// Szenario-/Profil-Meldungen) + Playbook-Katalog-Kategorien. index.js zieht diese Datei automatisch
-// ein (import.meta.glob). Konvention: flache, namespaced Keys; Werte stabil halten.
+// Addendum: overlooked labels (log console, password requirements, admin export dialog,
+// scenario/profile messages) + playbook catalog categories. index.js pulls this file in
+// automatically (import.meta.glob). Convention: flat, namespaced keys; keep values stable.
 export default {
     de: {
-        // Log-/Ausführungs-Konsole
+        // Log/execution console
         "job.hostHistory": "Historie für diesen Host",
         "job.copyLogs": "Logs kopieren",
         "job.toggleAutoscroll": "Autoscroll umschalten",
         "job.cancelExec": "Ausführung abbrechen",
-        // Passwort-Anforderungen (Profil → Passwort ändern)
+        // Password requirements (Profile → Change password)
         "site.pwReqLength": "Mindestens 8 Zeichen",
         "site.pwReqUpper": "Mindestens 1 Großbuchstabe",
         "site.pwReqNumber": "Mindestens 1 Ziffer",
-        // Admin: Protokoll-Export-Dialog
+        // Admin: log export dialog
         "adm.export.title": "Protokolle exportieren",
         "adm.export.intro": "Wählen Sie die zu exportierenden Protokolle und das Format.",
         "adm.export.security": "Ungewöhnliche Aktivitäten",
         "adm.export.audit": "Audit-Log",
         "adm.export.go": "Exportieren",
-        // Admin: Schnellaktions-Buttons (FAB)
+        // Admin: quick-action buttons (FAB)
         "adm.fabSaveConfig": "Einstellungen speichern",
         "adm.fabIpBlock": "IP-Sperre hinzufügen",
-        // Profil-Aktualisierung
+        // Profile update
         "misc.profileUpdateFailed": "Profil-Update fehlgeschlagen.",
         "misc.profileUpdateNetErr": "Netzwerkfehler beim Aktualisieren des Profils.",
-        // Szenarien
+        // Scenarios
         "scenario.loadNetErr": "Netzwerkfehler beim Laden der Szenarien.",
         "scenario.noPreset": "— kein Preset vorhanden —",
         "scenario.deviceOnRun": "beim Ausführen festlegen",
-        // Katalog-Kategorie-Filter
+        // Catalog category filter
         "catalog.filterByCategory": "Nach Kategorie filtern",
         "catalog.filterMenuLabel": "Kategorie-Filter",
         "catalog.filterClear": "Zurücksetzen",
-        // Playbook-Katalog-Kategorien (Gruppen-Header). Der deutsche Wert aus index.yml bleibt der
-        // stabile Gruppier-Schlüssel; nur die Anzeige wird übersetzt (catLabel() in app.js).
+        // Playbook catalog categories (group headers). The German value from index.yml stays the
+        // stable grouping key; only the display is translated (catLabel() in app.js).
         "catalog.cat.system": "System",
         "catalog.cat.netsec": "Netzwerk Sicherheit",
         "catalog.cat.gaming": "Gaming",

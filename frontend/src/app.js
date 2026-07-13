@@ -1,20 +1,20 @@
-// : Chart.js für die Admin-Dashboard-Diagramme (Pie + Verlauf).
+// : Chart.js for the admin dashboard charts (pie + trend).
 import Chart from "chart.js/auto";
 
-// : i18n-Engine. Wird von Vite ins app.js-Bundle gezogen (Community inklusive) und
-// haelt ihren State als window-Singleton, damit auch der cloud-only Billing-Chunk dieselbe
-// Sprache/dasselbe Woerterbuch teilt. t()/setLanguage() stehen dem restlichen App-Code zur
-// Verfuegung; die Content-Issues (–) ersetzen hartkodierte Strings durch t(...).
+// : i18n engine. Pulled by Vite into the app.js bundle (Community included) and
+// keeps its state as a window singleton, so the cloud-only billing chunk also shares the same
+// language/dictionary. t()/setLanguage() are available to the rest of the app
+// code; the content issues (–) replace hardcoded strings with t(...).
 import {
     t, setLanguage, getLanguage, getLocale, applyStaticTranslations,
     initI18n, applyServerLanguage, setLoggedIn, setRenderHook,
 } from "./i18n/index.js";
 
-// : Billing-UI nur in der cloud-Edition laden. import.meta.env.VITE_EDITION ist eine
-// BUILD-ZEIT-Konstante; der dynamische, editionsabhaengige Import wird in community/onprem-
-// Builds per Dead-Code-Elimination komplett entfernt -> diese Bundles enthalten KEINEN
-// Billing-Code (kein pricing/checkout/tariff/coupon/stripe). Die Aufrufstellen rufen lokale
-// Stubs, die an das (in cloud) geladene Modul delegieren (Stub = No-Op ohne Billing).
+// : Load the billing UI only in the cloud edition. import.meta.env.VITE_EDITION is a
+// build-time constant; the dynamic, edition-dependent import is completely removed via
+// dead-code elimination in community/onprem builds -> these bundles contain NO
+// billing code (no pricing/checkout/tariff/coupon/stripe). The call sites invoke local
+// stubs that delegate to the module loaded (in cloud) (stub = no-op without billing).
 const billingApi = {};
 if (import.meta.env.VITE_EDITION === "cloud") {
     import("./billing.js")
@@ -37,16 +37,16 @@ function fetchCoupons(...a) { return billingApi.fetchCoupons?.(...a); }
 function fetchBillingInvoices(...a) { return billingApi.fetchBillingInvoices?.(...a); }  // 
 function handleCouponSubmit(...a) { return billingApi.handleCouponSubmit?.(...a); }
 function resetCouponForm(...a) { return billingApi.resetCouponForm?.(...a); }
-// : Tarif-/Gutschein-Dialoge (im Billing-Modul, via FAB geöffnet).
+// : Tariff/coupon dialogs (in the billing module, opened via FAB).
 function openTariffCreateDialog(...a) { return billingApi.openTariffCreateDialog?.(...a); }
 function closeTariffDialog(...a) { return billingApi.closeTariffDialog?.(...a); }
 function openCouponCreateDialog(...a) { return billingApi.openCouponCreateDialog?.(...a); }
 function closeCouponDialog(...a) { return billingApi.closeCouponDialog?.(...a); }
 
-// -Nachtrag: Playbook-Kategorien werden fuer die Anzeige uebersetzt. Der (deutsche)
-// Kategoriewert aus playbooks/index.yml bleibt der stabile Gruppier-/Sortier-Schluessel; nur das
-// angezeigte Label laeuft durch i18n. Unbekannte Kategorien fallen auf den Rohwert zurueck, damit
-// kuenftige Kategorien nicht als leerer Text erscheinen. Keys liegen in i18n/dict/i18n-gaps.js.
+//  addendum: Playbook categories are translated for display. The (German)
+// category value from playbooks/index.yml stays the stable grouping/sorting key; only the
+// displayed label goes through i18n. Unknown categories fall back to the raw value, so that
+// future categories do not appear as empty text. Keys live in i18n/dict/i18n-gaps.js.
 const CATEGORY_I18N_KEYS = {
     "System": "catalog.cat.system",
     "Netzwerk Sicherheit": "catalog.cat.netsec",
@@ -69,9 +69,9 @@ function catLabel(cat) {
     return key ? t(key) : cat;
 }
 
-//: Zustand des Kategorie-Filters (leer = alle). Enthaelt die deutschen index.yml-Kategorie-
-// werte (dieselben Schluessel wie die Gruppierung). Wirkt in applyPlaybookSearch zusammen mit der
-// Textsuche. Wird bei jedem Katalog-Render aus den tatsaechlich vorhandenen Kategorien aufgebaut.
+//: State of the category filter (empty = all). Holds the German index.yml category
+// values (the same keys as the grouping). Takes effect in applyPlaybookSearch together with the
+// text search. Rebuilt on every catalog render from the categories actually present.
 const selectedCatalogCategories = new Set();
 
 function updateCategoryFilterBadge() {
@@ -82,9 +82,9 @@ function updateCategoryFilterBadge() {
     badge.classList.toggle("hidden", n === 0);
 }
 
-// Baut die Checkbox-Liste im Filter-Dropdown aus den aktuell vorhandenen Kategorien (uebersetzt via
-// catLabel; alphabetisch, "Sonstige" zuletzt). Selektion bleibt erhalten, solange die Kategorie noch
-// existiert. Aufruf aus renderPlaybooks.
+// Builds the checkbox list in the filter dropdown from the currently present categories (translated via
+// catLabel; alphabetical, "Sonstige" last). The selection is preserved as long as the category still
+// exists. Called from renderPlaybooks.
 function populateCategoryFilter(catNames) {
     const opts = document.getElementById("catalog-filter-options");
     if (!opts) return;
@@ -116,52 +116,52 @@ function populateCategoryFilter(catNames) {
 
 let activeHost = null;
 let selectedJobId = null;
-let jobViewMode = "tiles";   //: "tiles" (Flow-Chart, Standard) oder "log" (Text-Konsole)
+let jobViewMode = "tiles";   //: "tiles" (flow chart, default) or "log" (text console)
 let currentlyStreamingJobId = null;
 let logController = null;
-let logUserScrolledUp = false;   //: Auto-Scroll pausieren, sobald der Nutzer hochscrollt
-let logScrollListenerAttached = false; //: Scroll-Listener nur einmal anhängen
+let logUserScrolledUp = false;   //: pause auto-scroll as soon as the user scrolls up
+let logScrollListenerAttached = false; //: attach the scroll listener only once
 let pollTimeout = null;
-let pollingActive = false; //: verhindert doppelte Poll-Schleifen + erlaubt Re-Arm nach Logout
+let pollingActive = false; //: prevents duplicate poll loops + allows re-arm after logout
 let allJobs = [];
-let closedHosts = new Set();  // : vom Nutzer (sitzungsweit) geschlossene Host-Tabs
-let knownJobIds = new Set();  // : bekannte job_ids -> ein neuer Lauf öffnet einen geschlossenen Tab wieder
+let closedHosts = new Set();  // : host tabs closed by the user (session-wide)
+let knownJobIds = new Set();  // : known job_ids -> a new run reopens a closed tab
 let playbookNameMap = {};
 let playbookMetadataMap = {};
 let allPresets = [];
 let allPlaybooks = [];
 let containerTimezone = "Europe/Berlin";
 let currentEdition = "cloud";   // aktive Edition (cloud|onpremise|community), via GET /api/version
-let allowAnonymousRun = true;   // : anonyme Playbook-Ausfuehrung erlaubt? via GET /api/version
-let registrationEnabled = true; // : Selbstregistrierung erlaubt? via GET /api/version
+let allowAnonymousRun = true;   // : anonymous playbook execution allowed? via GET /api/version
+let registrationEnabled = true; // : self-registration allowed? via GET /api/version
 
-// : Registrieren-Button ein-/ausblenden je nach Server-Einstellung.
+// : show/hide the register button depending on the server setting.
 function applyRegistrationVisibility() {
     const btn = document.getElementById("register-btn");
-    // : in der Community-Edition gibt es keine Selbstregistrierung -> Button immer ausblenden.
+    // : the Community edition has no self-registration -> always hide the button.
     if (btn) btn.style.display = (registrationEnabled && currentEdition !== "community") ? "" : "none";
 }
-// : erst nach dem Auth-Boot steht currentUser fest. Bis dahin trifft routePage()
-// keine /admin-Entscheidung (kein verfrühtes Umleiten von Admins, kein Layout-Flicker).
+// : currentUser is only settled after the auth boot. Until then routePage() makes
+// no /admin decision (no premature redirect of admins, no layout flicker).
 let authReady = false;
-//: Ziel des Footer-Links ("Projekt-Webseite") in der Community-Edition.
+//: target of the footer link ("Project website") in the Community edition.
 const COMMUNITY_PROJECT_URL = "https://ansimate.eu";
 
 // Generate or retrieve Session ID
 const sessionId = getSessionId();
 
-// ===: Globaler IP-Sperr-Detektor ===========================================
-// Die SecurityMiddleware liefert bei gesperrter IP auf JEDEN Request 403 mit
+// ===: Global IP-block detector ===========================================
+// The SecurityMiddleware returns a 403 on EVERY request from a blocked IP, with
 // {"detail":"IP address is blocked.","expires_at":<iso|null>,"reason":<str|null>}.
-// window.fetch wird umhuellt, genau diese Antwort erkannt und ein Vollbild-
-// Sperrbildschirm (mit Freigabe-Countdown) gezeigt statt einer generischen Fehlermeldung.
+// window.fetch is wrapped, exactly this response is detected, and a full-screen
+// block screen (with an unblock countdown) is shown instead of a generic error message.
 const IP_BLOCK_DETAIL = "IP address is blocked.";
 let ipBlockShown = false;
 let ipBlockCountdownTimer = null;
 
-// : wird der Wartungsmodus aktiviert, beendet das Backend Nicht-Admin-Sessions; deren
-// nächster Request (z. B. der Historie-Poll) liefert 503 {maintenance:true}. Dann einmalig
-// neuladen -> der Boot zeigt die Wartungsseite (enforceMaintenanceGate).
+// : when maintenance mode is activated, the backend ends non-admin sessions; their
+// next request (e.g. the history poll) returns 503 {maintenance:true}. Then reload
+// once -> the boot shows the maintenance page (enforceMaintenanceGate).
 let maintenanceReloadTriggered = false;
 
 (function installIpBlockInterceptor() {
@@ -175,10 +175,10 @@ let maintenanceReloadTriggered = false;
                     showIpBlockedScreen(data.expires_at || null, data.reason || null);
                 }
             } catch (e) {
-                // Kein JSON-Body oder anderer 403 (z.B. Rechte/Scope) -> ignorieren.
+                // No JSON body or a different 403 (e.g. permissions/scope) -> ignore.
             }
         } else if (response.status === 503 && !maintenanceReloadTriggered) {
-            // : Wartungsmodus aktiviert -> Nicht-Admin sofort auf die Wartungsseite.
+            // : maintenance mode active -> send non-admins to the maintenance page immediately.
             try {
                 const data = await response.clone().json();
                 if (data && data.maintenance) {
@@ -186,7 +186,7 @@ let maintenanceReloadTriggered = false;
                     window.location.reload();
                 }
             } catch (e) {
-                // anderer 503 -> ignorieren.
+                // a different 503 -> ignore.
             }
         }
         return response;
@@ -196,7 +196,7 @@ let maintenanceReloadTriggered = false;
 function showIpBlockedScreen(expiresAtIso, reason) {
     const overlay = document.getElementById("ip-block-overlay");
     if (!overlay) return;
-    // Schon sichtbar? Dann nicht neu rendern (laufenden Countdown nicht zuruecksetzen).
+    // Already visible? Then don't re-render (don't reset the running countdown).
     if (ipBlockShown && !overlay.classList.contains("hidden")) return;
     ipBlockShown = true;
 
@@ -217,12 +217,12 @@ function showIpBlockedScreen(expiresAtIso, reason) {
         if (untilEl) untilEl.textContent = "Freigabe um " + expiresAt.toLocaleString();
         startIpBlockCountdown(expiresAt);
     } else {
-        // Permanente Sperre (manuelle Blacklist) -> kein Countdown.
+        // Permanent block (manual blacklist) -> no countdown.
         if (cdWrap) cdWrap.classList.add("hidden");
         if (permEl) permEl.classList.remove("hidden");
     }
 
-    // : „Erneut versuchen"-Button entfernt — keine direkte Wiederhol-Option im Sperr-Dialog.
+    // : "Try again" button removed — no direct retry option in the block dialog.
 
     overlay.classList.remove("hidden");
 }
@@ -237,8 +237,8 @@ function startIpBlockCountdown(expiresAt) {
             if (cdEl) cdEl.textContent = "00:00";
             clearInterval(ipBlockCountdownTimer);
             ipBlockCountdownTimer = null;
-            // Auto-Reload bei Ablauf, aber gegen Reload-Schleifen (Uhren-Drift Client/Server)
-            // auf hoechstens einmal je 15s drosseln; sonst nutzt der Nutzer den Retry-Button.
+            // Auto-reload on expiry, but to guard against reload loops (clock drift client/server)
+            // throttle to at most once every 15s; otherwise the user uses the retry button.
             const last = parseInt(sessionStorage.getItem("ip_block_reload_at") || "0", 10);
             if (Date.now() - last > 15000) {
                 sessionStorage.setItem("ip_block_reload_at", String(Date.now()));
@@ -299,7 +299,7 @@ const viewListBtn = document.getElementById("view-list-btn");
 
 // Credentials Dialog Modal
 const credentialsDialog = document.getElementById("credentials-dialog");
-let modalDirty = false; //: ungespeicherte Eingaben im Ausfuehrungs-Dialog
+let modalDirty = false; //: unsaved input in the run dialog
 const modalTargetHost = document.getElementById("modal-target-host");
 const modalUsernameInput = document.getElementById("modal-ssh-username");
 const modalPasswordInput = document.getElementById("modal-ssh-password");
@@ -312,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
     init();
 });
 
-//: Theme-Auswahl (System/Hell/Dunkel)
+//: theme selection (system/light/dark)
 const THEME_KEY = "ansimate-theme";
 function getThemePreference() {
     const v = localStorage.getItem(THEME_KEY);
@@ -323,7 +323,7 @@ function applyTheme(pref) {
     html.classList.remove("theme-light", "theme-dark");
     if (pref === "light") html.classList.add("theme-light");
     else if (pref === "dark") html.classList.add("theme-dark");
-    // "system": keine Klasse -> CSS @media (prefers-color-scheme) greift automatisch.
+    // "system": no class -> CSS @media (prefers-color-scheme) applies automatically.
 }
 function setThemePreference(pref) {
     localStorage.setItem(THEME_KEY, pref);
@@ -331,13 +331,13 @@ function setThemePreference(pref) {
 }
 function initTheme() {
     applyTheme(getThemePreference());
-    // System-Wechsel zur Laufzeit nachziehen (CSS macht das automatisch; Listener
-    // fuer Robustheit/zukuenftige JS-Reaktionen).
+    // Follow system changes at runtime (CSS does this automatically; listener
+    // for robustness/future JS reactions).
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onSystemChange = () => { if (getThemePreference() === "system") applyTheme("system"); };
     if (mq.addEventListener) mq.addEventListener("change", onSystemChange);
     else if (mq.addListener) mq.addListener(onSystemChange);
-    // Dropdown im Profil verdrahten.
+    // Wire up the dropdown in the profile.
     const sel = document.getElementById("profile-theme-select");
     if (sel) {
         sel.value = getThemePreference();
@@ -345,13 +345,13 @@ function initTheme() {
     }
 }
 
-//: Barrierefreiheit fuer modale Dialoge - ARIA-Semantik, Focus-Trap und
-// Fokus-Ruecksprung. Zentral ueber einen MutationObserver pro .dialog-overlay,
-// sodass die ~50 ad-hoc open/close-Aufrufstellen (classList.add/remove("hidden"))
-// NICHT angefasst werden muessen.
+//: accessibility for modal dialogs - ARIA semantics, focus trap and
+// focus restore. Centralized via one MutationObserver per .dialog-overlay,
+// so that the ~50 ad-hoc open/close call sites (classList.add/remove("hidden"))
+// do NOT have to be touched.
 const _modalTrap = new Map();
 function _isVisible(e) {
-    // Robuster als offsetParent (deckt position:fixed/absolute mit ab).
+    // More robust than offsetParent (also covers position:fixed/absolute).
     return e.getClientRects().length > 0 && !e.closest('[aria-hidden="true"]');
 }
 function _focusablesIn(el) {
@@ -366,8 +366,8 @@ function _anyOtherModalOpen(except) {
 function _onModalOpen(overlay) {
     if (_modalTrap.has(overlay)) return;
     const prevFocus = document.activeElement;
-    // Fokus SYNCHRON ins Modal setzen, BEVOR der Trap-Handler aktiv wird
-    // (verhindert Race, falls sofort Tab gedrueckt wird).
+    // Set focus into the modal SYNCHRONOUSLY, BEFORE the trap handler becomes active
+    // (prevents a race if Tab is pressed immediately).
     const f = _focusablesIn(overlay);
     if (f.length) { try { f[0].focus(); } catch (e) {} }
     const handler = (e) => {
@@ -386,8 +386,8 @@ function _onModalClose(overlay) {
     if (!s) return;
     document.removeEventListener("keydown", s.handler, true);
     _modalTrap.delete(overlay);
-    // Fokus nur zuruecksetzen, wenn KEIN anderes Modal offen ist (kein Fokus-Sprung
-    // bei Modal-zu-Modal-Wechsel, z.B. login -> otp).
+    // Only restore focus when NO other modal is open (no focus jump
+    // on modal-to-modal switches, e.g. login -> otp).
     if (!_anyOtherModalOpen(overlay) && s.prevFocus && typeof s.prevFocus.focus === "function") {
         try { s.prevFocus.focus(); } catch (e) {}
     }
@@ -405,8 +405,8 @@ function initModalA11y() {
                 card.setAttribute("aria-labelledby", header.id);
             }
         }
-        // aria-hidden nur im geschlossenen Zustand setzen; im offenen Zustand entfernen,
-        // damit der Dialog (role=dialog auf der Card) fuer AT sichtbar bleibt.
+        // Set aria-hidden only in the closed state; remove it in the open state,
+        // so the dialog (role=dialog on the card) stays visible to AT.
         const setAria = (hidden) => {
             if (hidden) overlay.setAttribute("aria-hidden", "true");
             else overlay.removeAttribute("aria-hidden");
@@ -424,86 +424,86 @@ function initModalA11y() {
 }
 
 async function init() {
-    initTheme();   //: so frueh wie moeglich, um Theme-Flackern zu minimieren
-    // : i18n so frueh wie initTheme — Sprache aus Cache/Browser bestimmen, statische
-    // Texte + Header-Switcher/Profil-Select verdrahten. Nach dem Auth-Boot uebernimmt
-    // checkAuthStatus() ggf. die Serversprache (applyServerLanguage).
+    initTheme();   //: as early as possible, to minimize theme flicker
+    // : i18n as early as initTheme — determine the language from cache/browser, static
+    // text + header switcher/profile select wiring. After the auth boot,
+    // checkAuthStatus() takes over the server language if applicable (applyServerLanguage).
     initI18n();
-    // Re-Render-Hook: statische Uebersetzungen erledigt setLanguage() bereits selbst; dynamische
-    // Views hoeren auf dieses Event und rendern sich neu (die Content-Issues verdrahten das je
-    // Bereich, ohne diesen Hook erneut anfassen zu muessen).
+    // Re-render hook: static translations are already handled by setLanguage() itself; dynamic
+    // views listen for this event and re-render themselves (the content issues wire this up per
+    // area, without having to touch this hook again).
     setRenderHook((lang) => {
         document.dispatchEvent(new CustomEvent("i18n:languagechange", { detail: { lang } }));
     });
-    // -Nachtrag: Views, deren Beschriftungen per JS gesetzt werden (Kategorie-Header im
-    // Playbook-Katalog, Admin-FAB-Label, Szenario-Kacheln), sind NICHT von applyStaticTranslations
-    // erfasst und muessen sich bei einem Live-Sprachwechsel selbst neu rendern.
+    //  addendum: views whose labels are set via JS (category headers in the
+    // playbook catalog, admin FAB label, scenario tiles) are NOT covered by applyStaticTranslations
+    // and must re-render themselves on a live language switch.
     document.addEventListener("i18n:languagechange", async () => {
-        updateAdminFab(currentAdminTab);  // FAB-Label des aktiven Admin-Tabs (rein clientseitig)
-        // Kategorie-Header laufen ueber catLabel (clientseitig); die Playbook-BESCHREIBUNGEN liefert
-        // der Server aber sprachabhaengig (?lang=). Daher bei bereits geladenem Katalog neu
-        // laden: fetchPresets() zuerst (renderPlaybooks nutzt allPresets), dann fetchPlaybooks()
-        // (setzt allPlaybooks und rendert neu). Vor dem ersten Boot-Load nichts tun.
+        updateAdminFab(currentAdminTab);  // FAB label of the active admin tab (purely client-side)
+        // Category headers run through catLabel (client-side); the playbook DESCRIPTIONS are provided
+        // by the server language-dependently (?lang=). So with a catalog already loaded, reload
+        // it: fetchPresets() first (renderPlaybooks uses allPresets), then fetchPlaybooks()
+        // (sets allPlaybooks and re-renders). Before the first boot load, do nothing.
         if (Array.isArray(allPlaybooks) && allPlaybooks.length) {
             await fetchPresets();
             await fetchPlaybooks();
         }
     });
-    initModalA11y(); //: ARIA + Focus-Trap fuer alle Modals
+    initModalA11y(); //: ARIA + focus trap for all modals
     setupEventListeners();
     initTabNavigation();
-    applyCachedNavVisibility(); //: Nav-Button synchron aus Auth-Cache setzen (kein Flackern)
+    applyCachedNavVisibility(); //: set the nav button synchronously from the auth cache (no flicker)
     routePage(); // Route to correct view based on current URL
     applyViewMode();
 
-    // : Wartungs-Gate so früh wie möglich — der Boot-Splash (#maintenance-overlay,
-    // per Default sichtbar) deckt die App ab, daher kein Aufblitzen der echten Seite. Die
-    // Admin-/Community-Ausnahme klärt der Server (`bypass`), sodass die Entscheidung NICHT auf
-    // den vollständigen Auth-/Edition-Boot warten muss. Blockiert -> Splash zeigt die Wartungs-
-    // meldung und der restliche Boot wird abgebrochen; sonst Splash ausblenden und normal weiter.
+    // : maintenance gate as early as possible — the boot splash (#maintenance-overlay,
+    // visible by default) covers the app, so there is no flash of the real page. The
+    // admin/community exception is decided by the server (`bypass`), so the decision does NOT have to
+    // wait for the full auth/edition boot. Blocked -> the splash shows the maintenance
+    // message and the rest of the boot is aborted; otherwise hide the splash and continue normally.
     if (await enforceMaintenanceGate()) return;
     hideBootSplash();
 
     await verifyConnection();
-    await loadBrandConfig(); //: Laufzeit-Branding (Titel/Footer) fuer dynamische UI laden
-    await loadEdition();   //: aktive Edition bestimmen, bevor Auth/UI aufgebaut wird
-    // : Community hat jetzt echtes Login (Admin + vom Admin via Teams angelegte
-    // Teammitglieder); ein abgemeldeter Besucher ist ein echter Gast. Daher in ALLEN
-    // Editionen den realen Auth-Status vom Server bestimmen (kein simulierter Admin mehr).
-    // Das behebt zugleich, dass im Gastzustand faelschlich die Admin-Navigation erschien.
+    await loadBrandConfig(); //: load runtime branding (title/footer) for the dynamic UI
+    await loadEdition();   //: determine the active edition before auth/UI is built
+    // : Community now has real login (admin + members created by the admin via Teams)
+    // a logged-out visitor is a real guest. Therefore, in ALL
+    // editions determine the real auth status from the server (no more simulated admin).
+    // This also fixes that the admin navigation wrongly appeared in the guest state.
     await checkAuthStatus();
-    authReady = true;  // : Auth steht fest -> routePage darf /admin final entscheiden.
-    // /: Zugriff auf /pricing und /teams erst final entscheiden,
-    // wenn Edition + Auth geladen sind. Der fruehe routePage()-Aufruf nutzt noch
-    // Defaults; hier neu evaluieren, falls eine dieser Seiten aktiv ist.
-    // : /admin ebenfalls erst jetzt final routen (Admin sehen, Nicht-Admin umleiten).
+    authReady = true;  // : auth is settled -> routePage may decide /admin definitively.
+    // /: decide access to /pricing and /teams definitively only
+    // once edition + auth are loaded. The early routePage() call still uses
+    // defaults; re-evaluate here if one of these pages is active.
+    // : also route /admin definitively only now (show admins, redirect non-admins).
     if (["/pricing", "/teams", "/admin"].includes(window.location.pathname)) routePage();
-    updateMaintenanceBanner();  // : Admin-Wartungsbanner (falls aktiv).
+    updateMaintenanceBanner();  // : admin maintenance banner (if active).
     await fetchTimezone();
     await fetchPresets();
     await fetchPlaybooks();
     await startHistoryPolling();
-    //  (Community): DSGVO/Cookie-Consent nur in der Cloud-Edition. Community/On-Premise
-    // betreiben keine Telemetrie und brauchen daher kein Consent-Banner.
+    //  (Community): GDPR/cookie consent only in the cloud edition. Community/On-Premise
+    // run no telemetry and therefore need no consent banner.
     if (currentEdition === "cloud") initCookieConsent();
 }
 
-// : Wartungsmodus-Gate. Liefert true, wenn die Wartungsseite gezeigt wurde (Aufrufer
-// bricht den restlichen App-Aufbau ab). Die Admin-/Community-Ausnahme (`bypass`) entscheidet der
-// Server, damit das Gate vor dem vollständigen Auth-/Edition-Boot laufen kann (kein FOUC).
+// : maintenance-mode gate. Returns true when the maintenance page was shown (the caller
+// aborts the rest of the app build). The admin/community exception (`bypass`) is decided by the
+// server, so the gate can run before the full auth/edition boot (no FOUC).
 async function enforceMaintenanceGate() {
-    //: In der Community-Edition gibt es keinen Wartungsmodus (serverseitig deaktiviert,;
-    // /api/maintenance liefert dort ohnehin immer bypass=true) und das Wartungs-Overlay wird aus dem
-    // Build gestrippt. Hier sofort zurückkehren -> kein /api/maintenance-Roundtrip und kein kurzes
-    // Aufblitzen des Boot-Splashes (VITE_EDITION ist eine Build-Zeit-Konstante, s. billing-Import).
+    //: The Community edition has no maintenance mode (disabled server-side,;
+    // /api/maintenance always returns bypass=true there) and the maintenance overlay is stripped from the
+    // build. Return immediately here -> no /api/maintenance roundtrip and no brief
+    // flash of the boot splash (VITE_EDITION is a build-time constant, see billing import).
     if (import.meta.env.VITE_EDITION === "community") return false;
     try {
         const r = await fetch("/api/maintenance", { cache: "no-store" });
         if (!r.ok) return false;
         const d = await r.json();
         if (d && d.active && !d.bypass) {
-            // : Nicht-Admins im Wartungsmodus auf „/" umleiten (Ausnahme: /login),
-            // statt die aufgerufene Route in der Adresszeile stehen zu lassen.
+            // : redirect non-admins in maintenance mode to "/" (exception: /login),
+            // instead of leaving the requested route in the address bar.
             if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
                 history.replaceState({}, "", "/");
             }
@@ -511,21 +511,21 @@ async function enforceMaintenanceGate() {
             return true;
         }
     } catch (e) {
-        // Bei Netzwerkfehler nicht aussperren (fail-open) — das Backend blockt ohnehin selbst.
+        // On a network error don't lock out (fail-open) — the backend blocks by itself anyway.
     }
     return false;
 }
 
-// Boot-Splash ausblenden -> App wird sichtbar (normaler, nicht gesperrter Boot-Pfad).
+// Hide the boot splash -> the app becomes visible (normal, non-blocked boot path).
 function hideBootSplash() {
     const ov = document.getElementById("maintenance-overlay");
     if (ov) ov.classList.add("hidden");
     document.body.style.overflow = "";
 }
 
-// Boot-Splash auf die Wartungsmeldung umschalten (Spinner aus, Wartungsinhalt an) und sichtbar
-// lassen. So sieht der Besucher nie die echte App, nur Splash -> Wartungsseite.
-// : persistentes Wartungs-Banner für eingeloggte Admins (auf allen Seiten).
+// Switch the boot splash to the maintenance message (spinner off, maintenance content on) and keep it
+// visible. So the visitor never sees the real app, only splash -> maintenance page.
+// : persistent maintenance banner for logged-in admins (on all pages).
 async function updateMaintenanceBanner() {
     const banner = document.getElementById("maintenance-admin-banner");
     if (!banner) return;
@@ -549,9 +549,9 @@ function showMaintenancePage(note) {
     const ov = document.getElementById("maintenance-overlay");
     if (ov) ov.classList.remove("hidden");
     document.body.style.overflow = "hidden";
-    // : Footer-Links ausblenden (nur Anmeldung erlauben).
+    // : hide the footer links (only allow sign-in).
     document.body.classList.add("maintenance-active");
-    // : Anmelden-Button öffnet den Login-Dialog ÜBER der Wartungsseite (höherer z-index).
+    // : the sign-in button opens the login dialog ABOVE the maintenance page (higher z-index).
     const loginBtn = document.getElementById("maintenance-login-btn");
     if (loginBtn && !loginBtn.dataset.wired) {
         loginBtn.dataset.wired = "1";
@@ -562,9 +562,9 @@ function showMaintenancePage(note) {
     }
 }
 
-//: Laufzeit-Branding (zur Build-Zeit aus config.yml erzeugt). Stellt den
-// konfigurierten Marken-Titel und Footer-Text dynamisch fuer JS bereit, damit auch
-// UI-Komponenten (nicht nur die eingebackene HTML) den Markennamen nutzen koennen.
+//: runtime branding (generated at build time from config.yml). Provides the
+// configured brand title and footer text dynamically for JS, so that
+// UI components (not just the baked-in HTML) can use the brand name.
 let brandConfig = { title: "Ansimate", footer_text: null };
 async function loadBrandConfig() {
     try {
@@ -577,9 +577,9 @@ async function loadBrandConfig() {
             }
         }
     } catch (e) {
-        // Kein Branding-Runtime vorhanden -> Standardwerte behalten.
+        // No branding runtime present -> keep the default values.
     }
-    // Footer-Text zur Laufzeit absichern (falls die HTML-Ersetzung nicht griff).
+    // Ensure the footer text at runtime (in case the HTML replacement didn't take).
     if (brandConfig.footer_text) {
         const fb = document.querySelector(".footer-brand");
         if (fb) fb.textContent = brandConfig.footer_text;
@@ -587,16 +587,16 @@ async function loadBrandConfig() {
     if (brandConfig.title) document.title = brandConfig.title;
 }
 
-// Aktive Edition vom Backend laden. Faellt bei Fehler auf "cloud" zurueck.
+// Load the active edition from the backend. Falls back to "cloud" on error.
 async function loadEdition() {
     try {
         const r = await fetch("/api/version");
         if (r.ok) {
             const d = await r.json();
             if (d && d.edition) currentEdition = d.edition;
-            // : anonyme Ausfuehrung kann serverseitig deaktiviert sein.
+            // : anonymous execution can be disabled server-side.
             if (d && typeof d.allow_anonymous_run === "boolean") allowAnonymousRun = d.allow_anonymous_run;
-            // : Registrierung kann vom Admin deaktiviert sein.
+            // : registration can be disabled by the admin.
             if (d && typeof d.registration_enabled === "boolean") registrationEnabled = d.registration_enabled;
         }
         applyRegistrationVisibility();
@@ -606,51 +606,51 @@ async function loadEdition() {
     document.body.classList.add("edition-" + currentEdition);
 }
 
-// Editionsspezifische UI-Regeln. Wird am Ende von updateAuthUI() aufgerufen,
-// damit die Regeln nach jedem UI-Refresh erhalten bleiben.
+// Edition-specific UI rules. Called at the end of updateAuthUI(),
+// so the rules persist after every UI refresh.
 function applyEditionRules() {
     if (currentEdition === "community") {
-        // : Community hat echtes Login (Admin + vom Admin angelegte Teammitglieder).
-        // Die Auth-Leiste bleibt sichtbar (Anmelden/Profil/Abmelden) — frueher war sie hier
-        // komplett ausgeblendet. Nur die Selbstregistrierung entfaellt.
+        // : Community has real login (admin + members created by the admin).
+        // The auth bar stays visible (sign-in/profile/sign-out) — previously it was
+        // hidden entirely here. Only self-registration is dropped.
         applyRegistrationVisibility();
-        //: "My Vault" bleibt in der Community-Edition fuer den System-Admin nutzbar — aber
-        // eingeschraenkt: nur Szenarien + Geraete, KEIN Freigeben (keine weiteren Benutzer/Teams).
-        // Nur "Teams" wird ausgeblendet. (Loest die zeitweise Vault-Ausblendung aus ab.)
+        //: "My Vault" stays usable for the system admin in the Community edition — but
+        // restricted: only scenarios + devices, NO sharing (no additional users/teams).
+        // Only "Teams" is hidden. (Supersedes the temporary vault hiding from .)
         ["nav-btn-teams"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add("hidden");
         });
-        //: Playbooks-Tab im Vault entfaellt in Community (Custom-Upload ist Backend-seitig
-        // gesperrt,) -> nur Szenarien + Geraete. Presets-Tab ist ohnehin global aus.
+        //: the Playbooks tab in the vault is dropped in Community (custom upload is backend-side
+        // locked,) -> only scenarios + devices. The Presets tab is globally off anyway.
         const pbTabBtn = document.getElementById("vault-tab-playbooks-btn");
         if (pbTabBtn) pbTabBtn.style.display = "none";
-        //: Tab-Beschreibungen ohne Team-/Freigabe-Bezug (in Community nicht zutreffend).
+        //: tab descriptions without team/share references (not applicable in Community).
         const devDesc = document.getElementById("vault-devices-desc");
         if (devDesc) devDesc.textContent = t("core.vaultDevicesDescCommunity");
         const scnDesc = document.getElementById("vault-scenarios-desc");
         if (scnDesc) scnDesc.textContent = t("core.vaultScenariosDescCommunity");
-        //  (Community): Elemente ausblenden, die nur für Cloud/On-Premise gelten.
-        // Hinweis: Wartungs-Config, Selbstregistrierungs-Schalter, Konten-Statistik-Charts und der
-        // Webhook-Block werden inzwischen build-zeitlich ENTFERNT (Klasse community-strip), nicht
-        // mehr hier per JS versteckt. Hier bleiben nur noch reine JS-Hides:
-        //  - Admin: Benutzer-Tab (#admin-tab-users-btn via .community-hide-tab);
-        //  - Admin-Config: die „System"-Kategorie-Überschrift (.community-hide), damit über dem
-        //    verbleibenden SMTP-Test keine leere Überschrift steht;
-        //  - Login: nur noch "Passwort vergessen?" — setzt funktionierendes SMTP voraus
-        //    (Community hat i. d. R. keins; ohne SMTP würde es Konten aussperren), daher
-        //    bewusst nur versteckt (mit SMTP nutzbar), nicht gestrippt. 2FA (E-Mail-OTP, ebenfalls
-        //    SMTP-abhängig) wird jetzt BUILD-ZEITLICH gestrippt (.community-strip, enterprise-only).
+        //  (Community): hide elements that apply only to Cloud/On-Premise.
+        // Note: maintenance config, self-registration toggle, account statistics charts and the
+        // webhook block are now removed at build time (class community-strip), no
+        // longer hidden here via JS. Only pure JS hides remain here:
+        //  - Admin: users tab (#admin-tab-users-btn via .community-hide-tab);
+        //  - Admin config: the "System" category heading (.community-hide), so that above the
+        //    remaining SMTP test there is no empty heading;
+        //  - Login: only "Forgot password?" — requires working SMTP
+        //    (Community usually has none; without SMTP it would lock accounts out), so
+        //    deliberately only hidden (usable with SMTP), not stripped. 2FA (email OTP, also
+        //    SMTP-dependent) is now stripped AT BUILD TIME (.community-strip, enterprise-only).
         document.querySelectorAll(".community-hide-tab").forEach(el => { el.style.display = "none"; });
         document.querySelectorAll(".community-hide").forEach(el => { el.style.display = "none"; });
         ["forgot-password-link"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = "none";
         });
-        //: Die Rechts-Footer-Links (Impressum/AGB/Datenschutz) werden in der
-        // Community-Edition bereits BUILD-ZEITLICH aus dem HTML entfernt (strip-cloud-only.cjs,
-        // Klasse "legal-only") — kein nachträgliches JS-Verstecken mehr (behebt das Flackern,
-        //). Hier wird nur noch der einzelne Projekt-Webseiten-Link ergänzt.
+        //: The right-hand footer links (Impressum/AGB/Datenschutz) are, in the
+        // Community edition, already removed from the HTML AT BUILD TIME (strip-cloud-only.cjs,
+        // class "legal-only") — no more subsequent JS hiding (fixes the flicker,
+        //). Only the single project-website link is added here.
         if (!document.getElementById("footer-link-project")) {
             const footer = document.querySelector("footer.config-footer");
             if (footer) {
@@ -669,7 +669,7 @@ function applyEditionRules() {
             }
         }
     } else if (currentEdition === "onpremise") {
-        // Billing & Teams ausblenden, dauerhaft "Enterprise Pro" anzeigen.
+        // Hide billing & teams, permanently show "Enterprise Pro".
         ["ptab-rechnungen", "ptab-teams"].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = "none";
@@ -681,8 +681,8 @@ function applyEditionRules() {
         const tierVal = document.getElementById("profile-tier-val");
         if (tierVal) tierVal.textContent = "Enterprise Pro";
     }
-    // : Pricing-/Billing-Funktionen (Tarif-/Gutschein-Admin-Tabs, Preisseite,
-    // Preise-Footer-Link) existieren nur in der Cloud-Edition. Sonst ausblenden.
+    // : pricing/billing features (tariff/coupon admin tabs, pricing page,
+    // pricing footer link) exist only in the cloud edition. Otherwise hide them.
     if (currentEdition !== "cloud") {
         document.querySelectorAll(".cloud-only-tab, .cloud-only").forEach(el => { el.style.display = "none"; });
     }
@@ -698,7 +698,7 @@ function initTabNavigation() {
     btnConfigure.addEventListener("click", () => navigateTo("/"));
     btnHistory.addEventListener("click", () => navigateTo("/history"));
 
-    //: Klick (oder Enter/Space) auf das Header-Logo fuehrt zur Startseite.
+    //: a click (or Enter/Space) on the header logo goes to the home page.
     const logoHome = document.getElementById("logo-home");
     if (logoHome) {
         logoHome.addEventListener("click", () => navigateTo("/"));
@@ -707,7 +707,7 @@ function initTabNavigation() {
         });
     }
 
-    //: Header-"Teams" navigiert zur dedizierten Teams-Seite.
+    //: the header "Teams" navigates to the dedicated Teams page.
     const teamsNav = document.getElementById("nav-btn-teams");
     if (teamsNav) {
         teamsNav.addEventListener("click", () => {
@@ -715,7 +715,7 @@ function initTabNavigation() {
             navigateTo("/teams");
         });
     }
-    //  (#A): Header-"My Vault" navigiert zur vereinten Vault-Seite (Playbooks/Geräte/Presets).
+    //  (#A): the header "My Vault" navigates to the unified Vault page (Playbooks/Devices/Presets).
     if (btnVault) {
         btnVault.addEventListener("click", () => {
             if (btnVault.classList.contains("hidden")) return;
@@ -724,7 +724,7 @@ function initTabNavigation() {
     }
 
     // Footer legal link interception for SPA routing
-    // : "Agent Instructions" (/llm) ebenfalls als SPA-Navigation abfangen.
+    // : also intercept "Agent Instructions" (/llm) as SPA navigation.
     const footerLinkIds = ["footer-link-impressum", "footer-link-agb", "footer-link-datenschutz", "footer-link-llm"];
     footerLinkIds.forEach(id => {
         const el = document.getElementById(id);
@@ -739,7 +739,7 @@ function initTabNavigation() {
     // Handle popstate (browser back/forward)
     window.addEventListener("popstate", () => routePage());
 
-    // : Burger-Menue / mobiles Drawer verdrahten.
+    // : wire up the burger menu / mobile drawer.
     const burgerBtn = document.getElementById("burger-btn");
     const drawerClose = document.getElementById("mobile-drawer-close");
     const drawerBackdrop = document.getElementById("mobile-drawer-backdrop");
@@ -755,11 +755,11 @@ function initTabNavigation() {
 }
 
 // ---------------------------------------------------------------------------
-// : Mobiles Navigations-Drawer (Burger-Menue). Statt die Nav-/Auth-/
-// Footer-Logik zu duplizieren, werden im Drawer Proxy-Eintraege erzeugt, die
-// per .click() die (auf Mobilgeraeten per CSS ausgeblendeten, aber weiterhin
-// funktionsfaehigen) Original-Elemente ausloesen. Sichtbarkeit wird aus dem
-// logischen Zustand der Originale (Klassen/Disabled/currentUser) abgeleitet.
+// : mobile navigation drawer (burger menu). Instead of duplicating the
+// nav/auth/footer logic, proxy entries are created in the drawer that
+// trigger the original elements (hidden on mobile via CSS, but still
+// functional) via .click(). Visibility is derived from the
+// logical state of the originals (classes/disabled/currentUser).
 // ---------------------------------------------------------------------------
 function _drawerSourceUsable(el) {
     if (!el) return false;
@@ -775,9 +775,9 @@ function _addDrawerProxy(container, srcId, iconOverride) {
     const item = document.createElement("button");
     item.type = "button";
     item.className = "mobile-drawer-item";
-    //: Label OHNE Icon-Ligatur ableiten. src.textContent enthielte sonst den Text des
-    // .material-symbols-outlined-Spans (z. B. "terminal", "account_circle") und würde ihn als
-    // Klartext vor das Label rendern. Daher an einem Klon die Icon-Spans entfernen.
+    //: derive the label WITHOUT the icon ligature. src.textContent would otherwise contain the text of the
+    // .material-symbols-outlined spans (e.g. "terminal", "account_circle") and would render it as
+    // plain text before the label. So remove the icon spans on a clone.
     const labelSrc = src.cloneNode(true);
     labelSrc.querySelectorAll(".material-symbols-outlined").forEach(n => n.remove());
     const label = (labelSrc.textContent || "").replace(/\s+/g, " ").trim() || src.getAttribute("aria-label") || "";
@@ -794,11 +794,11 @@ function buildMobileDrawer() {
     if (!navSec || !authSec || !footSec) return;
     navSec.innerHTML = ""; authSec.innerHTML = ""; footSec.innerHTML = "";
 
-    // Navigation (nur sichtbare/aktive Header-Buttons)
+    // Navigation (only visible/active header buttons)
     ["nav-btn-configure", "nav-btn-vault", "nav-btn-teams", "nav-btn-history", "nav-btn-admin"]
         .forEach(id => _addDrawerProxy(navSec, id));
 
-    // Auth-Aktionen abhaengig vom Login-Zustand
+    // Auth actions depending on the login state
     if (currentUser) {
         _addDrawerProxy(authSec, "profile-btn");
         _addDrawerProxy(authSec, "logout-btn");
@@ -807,7 +807,7 @@ function buildMobileDrawer() {
         _addDrawerProxy(authSec, "register-btn");
     }
 
-    // Footer-Links (-Reihenfolge: API-Docs, Agent Instructions, Preise, AGB, Impressum, Datenschutz, Projekt)
+    // Footer links (order: API-Docs, Agent Instructions, Preise, AGB, Impressum, Datenschutz, Projekt)
     ["footer-link-docs", "footer-link-llm", "footer-link-pricing", "footer-link-agb", "footer-link-impressum", "footer-link-datenschutz", "footer-link-project"]
         .forEach(id => _addDrawerProxy(footSec, id));
 }
@@ -830,8 +830,8 @@ function closeMobileDrawer() {
 }
 
 // Legal content definitions
-//: Rechtstexte werden dynamisch vom Backend geladen (GET /api/legal/text/{doc}),
-// nicht mehr hartcodiert. Map: SPA-Pfad -> Dokumentschluessel.
+//: legal texts are loaded dynamically from the backend (GET /api/legal/text/{doc}),
+// no longer hardcoded. Map: SPA path -> document key.
 const LEGAL_PATHS = {
     "/impressum": "impressum",
     "/tos": "tos",
@@ -854,13 +854,13 @@ async function loadLegalContent(doc) {
     }
 }
 
-// : Agent-Anleitung (llm.txt) laden und rendern.
-// Die Datei liegt statisch unter /llm.txt (nginx), ist in Markdown verfasst und wird
-// clientseitig zu HTML gerendert. Bewusst KEIN externer Markdown-Parser: die CSP erlaubt
-// nur script-src 'self'; der kleine, eigene Renderer deckt genau die in llm.txt genutzte
-// Teilmenge ab (Überschriften, Absätze, Listen, Blockzitate, Code, Tabellen, Trennlinien).
+// : load and render the agent instructions (llm.txt).
+// The file is served statically at /llm.txt (nginx), is written in Markdown and is
+// rendered to HTML client-side. Deliberately NO external Markdown parser: the CSP allows
+// only script-src 'self'; the small, custom renderer covers exactly the subset used in llm.txt
+// (headings, paragraphs, lists, block quotes, code, tables, horizontal rules).
 function _mdInline(s) {
-    // Erst komplett escapen, dann die Inline-Marker auf dem escapten Text anwenden.
+    // First escape everything, then apply the inline markers on the escaped text.
     let out = escapeHtml(s);
     out = out.replace(/`([^`]+)`/g, (m, c) => `<code>${c}</code>`);
     out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -883,8 +883,8 @@ function renderMarkdown(md) {
     while (i < lines.length) {
         const line = lines[i];
 
-        // Fenced code block — einrückungstolerant (Blöcke unter Aufzählungspunkten sind eingerückt);
-        // die Einrückung der öffnenden Fence wird vom Inhalt entfernt.
+        // Fenced code block — indentation-tolerant (blocks under bullet points are indented);
+        // the indentation of the opening fence is removed from the content.
         const fenceOpen = line.match(/^(\s*)```/);
         if (fenceOpen) {
             closeList();
@@ -897,13 +897,13 @@ function renderMarkdown(md) {
             continue;
         }
 
-        // GFM-Tabelle: aktuelle Zeile hat |, naechste ist eine Trenn-Zeile (---|---)
+        // GFM table: current line has |, next is a separator line (---|---)
         if (/\|/.test(line) && i + 1 < lines.length &&
             /-/.test(lines[i + 1]) && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
             closeList();
             const parseRow = (r) => r.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(c => c.trim());
             const headers = parseRow(line);
-            i += 2; // Kopf + Trenner ueberspringen
+            i += 2; // skip header + separator
             let t = '<table class="llm-table"><thead><tr>';
             headers.forEach(h => { t += `<th>${_mdInline(h)}</th>`; });
             t += "</tr></thead><tbody>";
@@ -917,10 +917,10 @@ function renderMarkdown(md) {
             continue;
         }
 
-        // Horizontale Trennlinie
+        // Horizontal rule
         if (/^\s*(---|\*\*\*|___)\s*$/.test(line)) { closeList(); out.push("<hr>"); i++; continue; }
 
-        // Ueberschrift
+        // Heading
         const h = line.match(/^\s*(#{1,6})\s+(.*)$/);
         if (h) { closeList(); const lv = h[1].length; out.push(`<h${lv}>${_mdInline(h[2])}</h${lv}>`); i++; continue; }
 
@@ -949,7 +949,7 @@ function renderMarkdown(md) {
         // Leerzeile
         if (line.trim() === "") { closeList(); i++; continue; }
 
-        // Absatz (bis zur naechsten Leerzeile / Spezialzeile sammeln)
+        // Paragraph (collect until the next blank line / special line)
         closeList();
         const pbuf = [line];
         i++;
@@ -963,7 +963,7 @@ function renderMarkdown(md) {
 async function loadLlmInstructions() {
     const bodyEl = document.getElementById("llm-instructions-body");
     if (!bodyEl) return;
-    if (bodyEl.dataset.loaded === "1") return;   // einmal laden reicht
+    if (bodyEl.dataset.loaded === "1") return;   // loading once is enough
     try {
         const r = await fetch("/llm.txt", { cache: "no-store" });
         if (!r.ok) throw new Error("HTTP " + r.status);
@@ -996,7 +996,7 @@ function routePage() {
         [configCard, vaultCard, legalCard, llmCard, adminCard, pricingCard, teamsCard].forEach(el => {
             if (el) { el.classList.add("hidden"); el.style.display = "none"; }
         });
-        //: API-Docs-Footer-Link standardmaessig wieder einblenden (auf /pricing aus).
+        //: show the API-Docs footer link again by default (hidden on /pricing).
         const docsLink = document.getElementById("footer-link-docs");
         if (docsLink) docsLink.style.display = "";
         document.body.classList.remove("tab-configure", "tab-history", "tab-vault", "tab-admin", "tab-legal", "tab-pricing", "tab-teams");
@@ -1022,10 +1022,10 @@ function routePage() {
         document.body.classList.add("tab-history");
         document.getElementById("nav-btn-history").classList.add("active");
     } else if (path === "/vault" || path.startsWith("/vault/")) {
-        //  (#A): "My Vault" — Eigene Playbooks/Geräte/Presets/Szenarios als Tabs unter einer
-        // Seite. Nur fuer eingeloggte Nicht-Gaeste; das Abo wird pro Tab/Endpoint erzwungen,
-        // nicht durch Ausblenden des ganzen Vaults.
-        //: In der Community-Edition ist My Vault (eingeschraenkt) erreichbar — nicht mehr sperren.
+        //  (#A): "My Vault" — your own Playbooks/Devices/Presets/Scenarios as tabs under one
+        // page. Only for logged-in non-guests; the subscription is enforced per tab/endpoint,
+        // not by hiding the whole vault.
+        //: In the Community edition My Vault is reachable (restricted) — no longer lock it.
         if (!currentUser || currentUser.role === "guest") {
             history.replaceState({}, "", "/");
             routePage();
@@ -1036,15 +1036,15 @@ function routePage() {
         document.body.classList.add("tab-vault");
         const btnVault = document.getElementById("nav-btn-vault");
         if (btnVault) btnVault.classList.add("active");
-        // : Beim Öffnen von "My Vault" ohne expliziten Tab standardmäßig Szenarien zeigen.
+        // : when opening "My Vault" without an explicit tab, show scenarios by default.
         const vaultTab = path.split("/")[2] || "scenarios";
         switchVaultTab(vaultTab);
     } else if (path === "/admin") {
-        // : Solange die Auth noch lädt, NICHT entscheiden — kein Admin-Markup zeigen
-        // (kein Flicker) und Admins nicht verfrüht umleiten. init() routet /admin nach dem
-        // Auth-Boot erneut.
+        // : while auth is still loading, do NOT decide — don't show admin markup
+        // (no flicker) and don't redirect admins prematurely. init() routes /admin after the
+        // auth boot again.
         if (!authReady) { hideAll(); return; }
-        // Berechtigung ZUERST prüfen — Nicht-Admins vor jeglichem Admin-Markup auf „/" leiten.
+        // Check permission FIRST — send non-admins to "/" before any admin markup.
         if (!currentUser || currentUser.role !== "admin") {
             history.replaceState({}, "", "/");
             routePage();
@@ -1058,19 +1058,19 @@ function routePage() {
         openAdminDashboard();
     } else if (LEGAL_PATHS[path]) {
         hideAll();
-        //: eigene Body-Klasse, damit die Job-Historie/Konsole (#right-column)
-        // auf Rechtsseiten ausgeblendet wird (CSS-Regeln haengen an tab-* Klassen).
+        //: dedicated body class, so the job history/console (#right-column)
+        // is hidden on legal pages (CSS rules hang off tab-* classes).
         document.body.classList.add("tab-legal");
         if (legalCard) {
             legalCard.classList.remove("hidden");
             legalCard.style.display = "flex";
-            //: Inhalt dynamisch aus den serverseitigen Textdateien laden.
+            //: load content dynamically from the server-side text files.
             loadLegalContent(LEGAL_PATHS[path]);
         }
     } else if (path === "/llm") {
-        // : Agent-Anleitung (llm.txt) als eigene SPA-Karte — in ALLEN Editionen.
-        // Gleiche Body-Klasse wie Rechtsseiten, damit die Job-Konsole (#right-column)
-        // ausgeblendet wird und der Doku-Inhalt die volle Breite bekommt.
+        // : agent instructions (llm.txt) as their own SPA card — in ALL editions.
+        // Same body class as legal pages, so the job console (#right-column)
+        // is hidden and the doc content gets the full width.
         hideAll();
         document.body.classList.add("tab-legal");
         if (llmCard) {
@@ -1079,10 +1079,10 @@ function routePage() {
             loadLlmInstructions();
         }
     } else if (path === "/pricing") {
-        // : Preisseite nur in der Cloud-Edition.: Gaeste DUERFEN die Preisseite
-        // einsehen (zum Informieren), koennen aber nicht buchen.  (-Feedback): Admins DUERFEN
-        // die Preisseite jetzt ebenfalls einsehen (read-only) — sie verwalten Tarife und wollen die
-        // oeffentliche Ansicht pruefen; frueher wurden sie hier auf "/" umgeleitet (Bounce nach Auth-Boot).
+        // : pricing page only in the cloud edition.: guests MAY view the pricing page
+        // (to inform themselves), but cannot purchase.  (feedback): admins MAY
+        // now view the pricing page too (read-only) — they manage tariffs and want to
+        // check the public view; previously they were redirected to "/" here (bounce after auth boot).
         if (currentEdition !== "cloud") {
             history.replaceState({}, "", "/");
             routePage();
@@ -1090,19 +1090,19 @@ function routePage() {
         }
         hideAll();
         document.body.classList.add("tab-pricing");
-        //: API-Docs-Link auf der Preisseite ausblenden.
+        //: hide the API-Docs link on the pricing page.
         const docsLink = document.getElementById("footer-link-docs");
         if (docsLink) docsLink.style.display = "none";
         if (pricingCard) { pricingCard.classList.remove("hidden"); pricingCard.style.display = "flex"; }
         fetchPricing();
     } else if (path === "/teams") {
-        // : Solange die Auth noch lädt, NICHT entscheiden — sonst redirectet der frühe
-        // routePage()-Aufruf den (noch unbekannten) Nutzer auf „/" und überschreibt die URL,
-        // wodurch das Post-Auth-Re-Routing für /teams nicht mehr greift. init() routet /teams
-        // nach dem Auth-Boot erneut (analog /admin).
+        // : while auth is still loading, do NOT decide — otherwise the early
+        // routePage() call redirects the (still unknown) user to "/" and overwrites the URL,
+        // which stops the post-auth re-routing for /teams from taking effect. init() routes /teams
+        // again after the auth boot (analogous to /admin).
         if (!authReady) { hideAll(); return; }
-        ///: dedizierte Teams-Seite. Admins dürfen sie jetzt nutzen; weiterhin
-        // gesperrt für Gäste/ausgeloggte Besucher und in der On-Premise-Edition.
+        ///: dedicated Teams page. Admins may use it now; still
+        // locked for guests/logged-out visitors and in the On-Premise edition.
         if (!currentUser || currentUser.role === "guest" || currentEdition === "onpremise" || currentEdition === "community") {
             history.replaceState({}, "", "/");
             routePage();
@@ -1113,12 +1113,12 @@ function routePage() {
         const teamsNavActive = document.getElementById("nav-btn-teams");
         if (teamsNavActive) teamsNavActive.classList.add("active");
         if (teamsCard) { teamsCard.classList.remove("hidden"); teamsCard.style.display = "flex"; }
-        switchTeamsTab("users");   // : immer auf Benutzer-Tab starten
+        switchTeamsTab("users");   // : always start on the users tab
         fetchGuests();
-        loadAuditLog();   // : Team-Aktivitaetsprotokoll laden
-        //  (#D): Eigene Presets liegen jetzt im Vault-Presets-Tab (nicht mehr auf /teams).
+        loadAuditLog();   // : load the team activity log
+        //  (#D): your own presets now live in the vault presets tab (no longer on /teams).
     } else if (path === "/custom-playbooks") {
-        //  (#A) Backward-Compat: alte Direktlinks auf den passenden Vault-Tab umleiten.
+        //  (#A) backward-compat: redirect old direct links to the matching vault tab.
         history.replaceState({}, "", "/vault/playbooks");
         routePage();
         return;
@@ -1207,7 +1207,7 @@ function setupEventListeners() {
         autoscrollBtn.classList.toggle("active");
     });
 
-    //: Umschalter Kachel-/Flow-Chart-Ansicht <-> Text-Log. Standard = Kacheln.
+    //: toggle tile/flow-chart view <-> text log. Default = tiles.
     if (viewToggleBtn) {
         viewToggleBtn.addEventListener("click", () => {
             jobViewMode = jobViewMode === "tiles" ? "log" : "tiles";
@@ -1216,7 +1216,7 @@ function setupEventListeners() {
     }
     applyJobViewMode();
 
-    // : Firefox-Fallback (textarea + execCommand) + Erfolgs-Toast, gespiegelt an copyGuestActivity().
+    // : Firefox fallback (textarea + execCommand) + success toast, mirrored from copyGuestActivity().
     copyLogsBtn.addEventListener("click", async () => {
         if (!consoleOutput.textContent) return;
         const text = consoleOutput.textContent;
@@ -1224,7 +1224,7 @@ function setupEventListeners() {
             await navigator.clipboard.writeText(text);
             showToast(t("core.logsCopied"));
         } catch (e) {
-            // Fallback ohne Clipboard-API (z. B. Firefox / unsicherer Kontext).
+            // Fallback without the Clipboard API (e.g. Firefox / insecure context).
             const ta = document.createElement("textarea");
             ta.value = text; document.body.appendChild(ta); ta.select();
             try { document.execCommand("copy"); showToast(t("core.logsCopied")); }
@@ -1233,7 +1233,7 @@ function setupEventListeners() {
         }
     });
 
-    // : Abbrechen-Button im Konsolen-Header (bricht die aktuell gewählte Ausführung ab).
+    // : cancel button in the console header (aborts the currently selected run).
     const cancelJobBtn = document.getElementById("cancel-job-btn");
     if (cancelJobBtn) {
         cancelJobBtn.addEventListener("click", () => {
@@ -1246,13 +1246,13 @@ function setupEventListeners() {
     viewListBtn.addEventListener("click", () => setViewMode("list"));
 
     // Playbook/Preset-Suche
-    //: Suche filtert nur die Sichtbarkeit (kein Neuaufbau), damit die getroffene
-    // Playbook-Auswahl beim Tippen erhalten bleibt.
+    //: search only filters visibility (no rebuild), so the selected
+    // playbook selection is preserved while typing.
     const playbookSearch = document.getElementById("playbook-search");
     if (playbookSearch) playbookSearch.addEventListener("input", applyPlaybookSearch);
 
-    //: Kategorie-Filter-Dropdown (oeffnen/schliessen, Aussenklick, Zuruecksetzen). Die
-    // Checkboxen selbst werden in populateCategoryFilter() verdrahtet.
+    //: category filter dropdown (open/close, outside click, reset). The
+    // checkboxes themselves are wired up in populateCategoryFilter().
     const catFilterBtn = document.getElementById("catalog-filter-btn");
     const catFilterMenu = document.getElementById("catalog-filter-menu");
     if (catFilterBtn && catFilterMenu) {
@@ -1277,14 +1277,14 @@ function setupEventListeners() {
     });
 
     // Modal actions
-    //: Abbrechen, Backdrop-Klick und ESC schliessen mit Warnung bei ungespeicherten
-    // Eingaben; jede Nutzereingabe im Dialog markiert ihn als "dirty".
+    //: cancel, backdrop click and ESC close with a warning on unsaved
+    // input; any user input in the dialog marks it as "dirty".
     modalCancelBtn.addEventListener("click", closeCredentialsModalGuarded);
     modalSubmitBtn.addEventListener("click", handleModalSubmit);
-    //  (#E): "Nur als Preset speichern" + Checkbox blendet das Namensfeld ein.
+    //  (#E): "Save as preset only" + checkbox reveals the name field.
     const modalSavePresetBtn = document.getElementById("modal-save-preset-btn");
     if (modalSavePresetBtn) modalSavePresetBtn.addEventListener("click", handleSavePresetFromDialog);
-    // : "Nur als Preset speichern" erst aktiv, wenn ein Preset-Name eingegeben wurde.
+    // : "Save as preset only" is enabled only once a preset name has been entered.
     const modalPresetNameInp = document.getElementById("modal-preset-name");
     if (modalPresetNameInp && modalSavePresetBtn) {
         modalPresetNameInp.addEventListener("input", () => {
@@ -1292,7 +1292,7 @@ function setupEventListeners() {
         });
     }
     enableModalDismiss("credentials-dialog", closeCredentialsModalGuarded);
-    // : Buttons des gestylten Abbrechen-Bestätigungsdialogs (verwerfen / weiter bearbeiten).
+    // : buttons of the styled cancel confirmation dialog (discard / keep editing).
     const _discardHide = () => { const d = document.getElementById("discard-confirm-dialog"); if (d) d.classList.add("hidden"); };
     const discardCancel = document.getElementById("discard-confirm-cancel");
     if (discardCancel) discardCancel.addEventListener("click", _discardHide);
@@ -1301,7 +1301,7 @@ function setupEventListeners() {
     enableModalDismiss("discard-confirm-dialog", _discardHide);
     credentialsDialog.addEventListener("input", () => { modalDirty = true; });
 
-    //: Premium-Upsell-Modal (Abbrechen / CTA zur Preisseite / Backdrop+ESC).
+    //: premium upsell modal (cancel / CTA to the pricing page / backdrop+ESC).
     const upsellCancel = document.getElementById("premium-upsell-cancel");
     const upsellCta = document.getElementById("premium-upsell-cta");
     if (upsellCancel) upsellCancel.addEventListener("click", closePremiumUpsell);
@@ -1351,7 +1351,7 @@ function setupEventListeners() {
     const closeLogin = () => document.getElementById("login-dialog").classList.add("hidden");
     document.getElementById("close-login-btn").addEventListener("click", closeLogin);
     document.getElementById("close-otp-btn")?.addEventListener("click", () => document.getElementById("otp-dialog")?.classList.add("hidden"));
-    //: null-safe, da der Registrieren-Dialog in der Community-Edition aus dem HTML entfernt wird.
+    //: null-safe, since the register dialog is removed from the HTML in the Community edition.
     document.getElementById("close-register-btn")?.addEventListener("click", closeRegisterModal);
     document.getElementById("close-profile-btn").addEventListener("click", () => document.getElementById("profile-dialog").classList.add("hidden"));
 
@@ -1395,20 +1395,20 @@ function setupEventListeners() {
     const dgCancel = document.getElementById("device-group-cancel-btn");
     if (dgSave) dgSave.addEventListener("click", saveDeviceGroup);
     if (dgCancel) dgCancel.addEventListener("click", resetDeviceGroupForm);
-    // : Filter fuer die Szenario-Playbook-Auswahl
+    // : filter for the scenario playbook selection
     const dgPbFilter = document.getElementById("device-group-playbook-filter");
     if (dgPbFilter) dgPbFilter.addEventListener("input", (e) => filterDeviceGroupPlaybooks(e.target.value));
-    //  (#C): Verwaltete Einzelgeraete (Vault-Geraete-Tab) + Freigabe-Modal verdrahten.
+    //  (#C): wire up managed single devices (vault devices tab) + share modal.
     const mdSave = document.getElementById("managed-device-save-btn");
     if (mdSave) mdSave.addEventListener("click", saveManagedDevice);
     const mdCancel = document.getElementById("managed-device-cancel-btn");
-    if (mdCancel) mdCancel.addEventListener("click", closeManagedDeviceDialog);  // : Dialog schließen
-    // : ESC / Klick außerhalb prüft auf ungespeicherte Eingaben (dataset.dirty).
+    if (mdCancel) mdCancel.addEventListener("click", closeManagedDeviceDialog);  // : close the dialog
+    // : ESC / outside click checks for unsaved input (dataset.dirty).
     enableAdminDialogDismiss("managed-device-dialog", closeManagedDeviceDialog);
-    // : FAB + Cancel-Buttons der Erstell-/Bearbeiten-Dialoge.
+    // : FAB + cancel buttons of the create/edit dialogs.
     const vaultFab = document.getElementById("vault-fab");
     if (vaultFab) vaultFab.addEventListener("click", onVaultFab);
-    // : Beispiel-Playbook (Hello World) als YAML herunterladen.
+    // : download the example playbook (Hello World) as YAML.
     const dlExample = document.getElementById("download-example-playbook-btn");
     if (dlExample) dlExample.addEventListener("click", downloadExamplePlaybook);
     const pbCreateCancel = document.getElementById("custom-pb-create-cancel");
@@ -1424,7 +1424,7 @@ function setupEventListeners() {
     if (pwFinish) pwFinish.addEventListener("click", presetWizardFinish);
     const pwFilter = document.getElementById("preset-wizard-pb-filter");
     if (pwFilter) pwFilter.addEventListener("input", (e) => renderWizardPlaybooks(e.target.value));
-    // : Szenario-Erstell-Wizard
+    // : scenario creation wizard
     const swCancel = document.getElementById("scenario-wizard-cancel");
     if (swCancel) swCancel.addEventListener("click", closeScenarioWizard);
     const swBack = document.getElementById("scenario-wizard-back");
@@ -1435,14 +1435,14 @@ function setupEventListeners() {
     if (swFinish) swFinish.addEventListener("click", scenarioWizardFinish);
     const swFilter = document.getElementById("scenario-wizard-pb-filter");
     if (swFilter) swFilter.addEventListener("input", (e) => renderWizardPlaybooks(e.target.value, scenarioWizardCtx()));
-    // : ESC / Klick außerhalb prüft auf ungespeicherte Eingaben (dataset.dirty).
+    // : ESC / outside click checks for unsaved input (dataset.dirty).
     enableAdminDialogDismiss("scenario-wizard-dialog", closeScenarioWizard);
-    // : Einmal-Geräte-Dialog beim geräteslosen Szenario-Run
+    // : one-time device dialog for a deviceless scenario run
     const srdCancel = document.getElementById("scenario-run-device-cancel");
     if (srdCancel) srdCancel.addEventListener("click", closeScenarioRunDeviceDialog);
     const srdGo = document.getElementById("scenario-run-device-go");
     if (srdGo) srdGo.addEventListener("click", submitScenarioRunDevice);
-    // : SSH-Key-Upload im Einmal-Geräte-Dialog (Klick öffnet Dateiauswahl, Entfernen leert sie).
+    // : SSH key upload in the one-time device dialog (click opens the file picker, remove clears it).
     const srdKeyDz = document.getElementById("scenario-run-key-dropzone");
     const srdKeyFile = document.getElementById("scenario-run-key-file");
     const srdKeyReset = document.getElementById("scenario-run-key-reset");
@@ -1456,8 +1456,8 @@ function setupEventListeners() {
         });
     }
     if (srdKeyReset) srdKeyReset.addEventListener("click", _resetScenarioRunKeyUpload);
-    // Basisverzeichnis aus dem SSH-Benutzer ableiten (root -> /root, sonst /home/<user>),
-    // solange der Nutzer das Feld nicht selbst bearbeitet hat (gleiche Logik wie im Run-Dialog).
+    // derive the base directory from the SSH user (root -> /root, otherwise /home/<user>),
+    // as long as the user has not edited the field themselves (same logic as in the run dialog).
     const srdUser = document.getElementById("scenario-run-user");
     const srdBaseDir = document.getElementById("scenario-run-basedir");
     if (srdUser && srdBaseDir) {
@@ -1468,12 +1468,12 @@ function setupEventListeners() {
         });
         srdBaseDir.addEventListener("input", () => { srdBaseDir.dataset.edited = "true"; });
     }
-    // : sobald der Nutzer das Platzhalter-Passwort anfasst, gilt es als geändert
-    // (leer = löschen, Eingabe = neues Secret).
+    // : as soon as the user touches the placeholder password, it counts as changed
+    // (empty = delete, input = new secret).
     const mdCred = document.getElementById("managed-device-credential");
     if (mdCred) mdCred.addEventListener("input", () => { mdCred.dataset.placeholder = ""; });
-    // : Basisverzeichnis aus dem SSH-Benutzer ableiten (root -> /root, sonst /home/<user>),
-    // solange das Feld nicht manuell bearbeitet wurde (gleiche Logik wie Run-/Einmal-Geräte-Dialog).
+    // : derive the base directory from the SSH user (root -> /root, otherwise /home/<user>),
+    // as long as the field has not been edited manually (same logic as the run/one-time device dialog).
     const mdUser = document.getElementById("managed-device-user");
     const mdBaseDir = document.getElementById("managed-device-basedir");
     if (mdUser && mdBaseDir) {
@@ -1484,7 +1484,7 @@ function setupEventListeners() {
         });
         mdBaseDir.addEventListener("input", () => { mdBaseDir.dataset.edited = "true"; });
     }
-    // : SSH-Key-Upload-Dropzone (Klick öffnet Dateiauswahl; Auswahl zeigt den Dateinamen).
+    // : SSH key upload dropzone (click opens the file picker; selection shows the file name).
     const mdKeyDz = document.getElementById("managed-device-key-dropzone");
     const mdKeyFile = document.getElementById("managed-device-key-file");
     if (mdKeyDz && mdKeyFile) {
@@ -1503,11 +1503,11 @@ function setupEventListeners() {
     const presetSave = document.getElementById("preset-save-btn");
     const presetCancel = document.getElementById("preset-cancel-btn");
     if (presetSave) presetSave.addEventListener("click", savePreset);
-    if (presetCancel) presetCancel.addEventListener("click", closePresetModal);  //  (#D): Modal schliessen
+    if (presetCancel) presetCancel.addEventListener("click", closePresetModal);  //  (#D): close the modal
     const presetPbFilter = document.getElementById("preset-playbook-filter");
     if (presetPbFilter) presetPbFilter.addEventListener("input", (e) => filterPresetPlaybooks(e.target.value));
-    //  (#D): Klick ausserhalb schliesst das Preset-Modal (geöffnet via "Bearbeiten";
-    // neue Presets entstehen im Ausführen-Dialog, daher kein "Neues Preset"-Button mehr).
+    //  (#D): an outside click closes the preset modal (opened via "Edit";
+    // new presets are created in the run dialog, so there is no "New preset" button anymore).
     enableModalDismiss("preset-edit-dialog", closePresetModal);
 
     // Profile password change
@@ -1515,14 +1515,8 @@ function setupEventListeners() {
     document.getElementById("pw-change-new").addEventListener("input", updatePwChangeRequirements);
     document.getElementById("pw-change-confirm").addEventListener("input", checkPwChangeMatch);
 
-    
-    document.getElementById("close-devices-btn").addEventListener("click", () => {
-        document.getElementById("devices-dialog").classList.add("hidden");
-        credentialsDialog.classList.remove("hidden");
-    });
-    
-    //  (#C): "Geräte verwalten"-Shortcut im Ausführen-Dialog zeigt jetzt auf den Vault-Geräte-Tab.
-    // Das alte #devices-dialog ist aus dem Flow genommen (/api/devices bleibt intern fuer das Dropdown).
+    //  (#C): the "Manage devices" shortcut in the run dialog now points to the vault devices tab.
+    //: the old #devices-dialog was removed as dead legacy code; /api/devices stays internal for the dropdown.
     const manageDevicesShortcut = document.getElementById("manage-devices-shortcut");
     if (manageDevicesShortcut) manageDevicesShortcut.addEventListener("click", () => {
         credentialsDialog.classList.add("hidden");
@@ -1534,12 +1528,11 @@ function setupEventListeners() {
     document.getElementById("otp-form")?.addEventListener("submit", handleOtpSubmit);
     document.getElementById("register-form")?.addEventListener("submit", handleRegisterSubmit);
     document.getElementById("profile-update-form").addEventListener("submit", handleProfileUpdateSubmit);
-    document.getElementById("delete-confirm-form")?.addEventListener("submit", handleDeleteConfirmSubmit);  // cloud-only: in Community gestrippt
-    document.getElementById("device-edit-form").addEventListener("submit", handleDeviceFormSubmit);
+    document.getElementById("delete-confirm-form")?.addEventListener("submit", handleDeleteConfirmSubmit);  // cloud-only: stripped in Community
     
     // Profile settings changes
     document.getElementById("profile-email-notif").addEventListener("change", handleNotificationToggle);
-    // : Webhook-URL speichern.
+    // : save the webhook URL.
     const webhookBtn = document.getElementById("profile-webhook-save-btn");
     if (webhookBtn) webhookBtn.addEventListener("click", handleWebhookSave);
     document.getElementById("profile-export-btn").addEventListener("click", handleProfileExport);
@@ -1557,46 +1550,46 @@ function setupEventListeners() {
 
     // Admin tab bar buttons
     document.getElementById("admin-tab-dashboard-btn").addEventListener("click", () => switchAdminTab("dashboard"));
-    document.getElementById("admin-tab-users-btn")?.addEventListener("click", () => switchAdminTab("users"));  // community-strip: in Community gestrippt
+    document.getElementById("admin-tab-users-btn")?.addEventListener("click", () => switchAdminTab("users"));  // community-strip: stripped in Community
     document.getElementById("admin-tab-config-btn").addEventListener("click", () => switchAdminTab("config"));
     document.getElementById("admin-tab-ip-btn").addEventListener("click", () => switchAdminTab("ip"));
-    // : „Audit-Log"-Tab entfernt -> Inhalt jetzt im Tab „Protokolle" (security).
+    // : "Audit log" tab removed -> content now in the "Logs" tab (security).
     document.getElementById("admin-tab-security-btn").addEventListener("click", () => switchAdminTab("security"));
-    // : zentraler Admin-FAB (Aktion je aktivem Tab).
+    // : central admin FAB (action per active tab).
     const adminFab = document.getElementById("admin-fab");
     if (adminFab) adminFab.addEventListener("click", onAdminFab);
-    // : Export-Dialog der Protokolle.
+    // : export dialog for the logs.
     const expCancel = document.getElementById("admin-export-cancel");
     if (expCancel) expCancel.addEventListener("click", closeAdminExportDialog);
     const expGo = document.getElementById("admin-export-go");
     if (expGo) expGo.addEventListener("click", runAdminExport);
-    // : Benutzer-erstellen-Dialog.
+    // : create-user dialog.
     const ucCancel = document.getElementById("admin-user-create-cancel");
     if (ucCancel) ucCancel.addEventListener("click", closeAdminUserCreateDialog);
     const ucForm = document.getElementById("admin-user-create-form");
     if (ucForm) ucForm.addEventListener("submit", handleAdminUserCreate);
-    // : IP-Sperre-Dialog Abbrechen.
+    // : IP block dialog cancel.
     const ipCancel = document.getElementById("admin-ip-cancel");
     if (ipCancel) ipCancel.addEventListener("click", closeIpBlockDialog);
     // : SMTP-Test-E-Mail.
     const testEmailBtn = document.getElementById("admin-test-email-btn");
     if (testEmailBtn) testEmailBtn.addEventListener("click", sendAdminTestEmail);
-    // : ESC/Backdrop-Schließen für Admin-Dialoge (Formulare mit Dirty-Warnung; Export ohne).
+    // : ESC/backdrop close for admin dialogs (forms with a dirty warning; export without).
     enableAdminDialogDismiss("admin-user-create-dialog", closeAdminUserCreateDialog);
     enableAdminDialogDismiss("admin-ip-dialog", closeIpBlockDialog);
     enableAdminDialogDismiss("admin-tariff-dialog", () => closeTariffDialog());
     enableAdminDialogDismiss("admin-coupon-dialog", () => closeCouponDialog());
     enableModalDismiss("admin-export-dialog", closeAdminExportDialog);
-    // : Tarif- & Gutschein-Verwaltung (nur Cloud-Edition sichtbar).
-    // : In der Community-Edition sind diese Tabs aus dem HTML entfernt -> null-sicher anbinden.
+    // : tariff & coupon management (visible only in the cloud edition).
+    // : in the Community edition these tabs are removed from the HTML -> bind null-safely.
     const tariffsTabBtn = document.getElementById("admin-tab-tariffs-btn");
     if (tariffsTabBtn) tariffsTabBtn.addEventListener("click", () => switchAdminTab("tariffs"));
     const couponsTabBtn = document.getElementById("admin-tab-coupons-btn");
     if (couponsTabBtn) couponsTabBtn.addEventListener("click", () => switchAdminTab("coupons"));
-    // : Billing-Tab (nur Cloud).
+    // : billing tab (cloud only).
     const billingTabBtn = document.getElementById("admin-tab-billing-btn");
     if (billingTabBtn) billingTabBtn.addEventListener("click", () => switchAdminTab("billing"));
-    // : Zeitraum-Filter der Dashboard-Verlaufsgraphen.
+    // : time-range filter for the dashboard trend charts.
     document.querySelectorAll(".admin-range-btn").forEach(btn => {
         btn.addEventListener("click", () => {
             _adminChartRange = btn.dataset.range || "7d";
@@ -1604,7 +1597,7 @@ function setupEventListeners() {
             loadDashboardTimeseries();
         });
     });
-    //  (-Feedback): Dashboard-Diagramme manuell neu laden (Cache verwerfen + frisch ziehen).
+    //  (feedback): reload the dashboard charts manually (discard cache + fetch fresh).
     const chartRefreshBtn = document.getElementById("admin-chart-refresh-btn");
     if (chartRefreshBtn) {
         chartRefreshBtn.addEventListener("click", () => {
@@ -1612,37 +1605,37 @@ function setupEventListeners() {
             fetchAdminStats(true);
         });
     }
-    //  (#A): "My Vault"-Tab-Bar-Buttons (Szenarios ist disabled -> kein Handler nötig).
+    //  (#A): "My Vault" tab-bar buttons (Scenarios is disabled -> no handler needed).
     ["playbooks", "devices", "presets", "scenarios"].forEach(t => {
         const b = document.getElementById(`vault-tab-${t}-btn`);
         if (b) b.addEventListener("click", () => switchVaultTab(t));
     });
-    // : Szenario-Formular (Anlegen/Bearbeiten/Abbrechen)
+    // : scenario form (create/edit/cancel)
     const scSave = document.getElementById("scenario-save-btn");
     if (scSave) scSave.addEventListener("click", saveScenario);
     const scCancel = document.getElementById("scenario-cancel-btn");
-    if (scCancel) scCancel.addEventListener("click", closeScenarioDialog);  // : Dialog schließen
-    // : Szenario-Freigabe-Dialog
+    if (scCancel) scCancel.addEventListener("click", closeScenarioDialog);  // : close the dialog
+    // : scenario share dialog
     const scShareSave = document.getElementById("scenario-share-save");
     if (scShareSave) scShareSave.addEventListener("click", saveScenarioShares);
     const scShareCancel = document.getElementById("scenario-share-cancel");
     if (scShareCancel) scShareCancel.addEventListener("click", closeScenarioShareDialog);
-    // : Tarif-/Gutschein-Dialoge sind in der Community-Edition aus dem HTML entfernt -> null-sicher.
+    // : tariff/coupon dialogs are removed from the HTML in the Community edition -> null-safe.
     const tariffForm = document.getElementById("admin-tariff-form");
     if (tariffForm) tariffForm.addEventListener("submit", handleTariffSubmit);
-    // : „Abbrechen" schließt jetzt den Dialog (Formular liegt im Modal).
+    // : "Cancel" now closes the dialog (the form lives in the modal).
     const tariffReset = document.getElementById("admin-tariff-reset");
     if (tariffReset) tariffReset.addEventListener("click", closeTariffDialog);
     const couponForm = document.getElementById("admin-coupon-form");
     if (couponForm) couponForm.addEventListener("submit", handleCouponSubmit);
     const couponReset = document.getElementById("admin-coupon-reset");
     if (couponReset) couponReset.addEventListener("click", closeCouponDialog);
-    // : Gutschein-Eingabefeld auf der Preisseite entfernt (Rabattcodes im Stripe-Checkout).
+    // : coupon input field on the pricing page removed (discount codes in the Stripe checkout).
     // : GoBD-Finanzamt-Export
     const gobdBtn = document.getElementById("gobd-export-btn");
     if (gobdBtn) gobdBtn.addEventListener("click", handleGobdExport);
 
-    // Admin user search + sort (community-strip : gesamter Benutzer-Tab in Community gestrippt -> null-sicher)
+    // Admin user search + sort (community-strip : the entire users tab is stripped in Community -> null-safe)
     document.getElementById("admin-user-search")?.addEventListener("input", renderAdminUsers);
     document.getElementById("admin-user-sort")?.addEventListener("change", renderAdminUsers);
 
@@ -1671,7 +1664,7 @@ function setupEventListeners() {
     if (fileInput) {
         fileInput.addEventListener("change", _cpbUpdateLbl);
     }
-    // : Auswahl der Playbook-Datei zurücksetzen (stopPropagation -> nicht den Dateidialog öffnen).
+    // : reset the playbook file selection (stopPropagation -> don't open the file dialog).
     if (cpbReset && fileInput) {
         cpbReset.addEventListener("click", (e) => { e.stopPropagation(); fileInput.value = ""; _cpbUpdateLbl(); });
     }
@@ -1680,14 +1673,14 @@ function setupEventListeners() {
         uploadForm.addEventListener("submit", handleCustomPlaybookUpload);
     }
 
-    //: CSP-Haertung – statt Inline-onclick-Handlern Event-Delegation verwenden,
-    // damit script-src ohne 'unsafe-inline' auskommt.
+    //: CSP hardening – use event delegation instead of inline onclick handlers,
+    // so script-src can do without 'unsafe-inline'.
     const cpbDropzone = document.getElementById("custom-playbook-dropzone");
     if (cpbDropzone && fileInput) {
         cpbDropzone.addEventListener("click", () => fileInput.click());
     }
 
-    //: Logo-Upload-Box (Dropzone) – Klick, Datei-Label und Drag&Drop, analog zur YML-Box.
+    //: logo upload box (dropzone) – click, file label and drag & drop, analogous to the YML box.
     const iconInput = document.getElementById("custom-pb-icon-file");
     const iconDropzone = document.getElementById("custom-pb-icon-dropzone");
     const iconReset = document.getElementById("custom-pb-icon-reset");
@@ -1698,7 +1691,7 @@ function setupEventListeners() {
         if (iconReset) iconReset.classList.toggle("hidden", !has);
     };
     if (iconInput) iconInput.addEventListener("change", updateIconLbl);
-    // : Auswahl des Logos zurücksetzen.
+    // : reset the logo selection.
     if (iconReset && iconInput) {
         iconReset.addEventListener("click", (e) => { e.stopPropagation(); iconInput.value = ""; updateIconLbl(); });
     }
@@ -1721,7 +1714,7 @@ function setupEventListeners() {
         });
     }
 
-    //: Logo-Upload-Box (Dropzone) im Bearbeiten-Dialog – analog zum Erstellen-Formular.
+    //: logo upload box (dropzone) in the edit dialog – analogous to the create form.
     const editIconInput = document.getElementById("custom-pb-edit-icon-file");
     const editIconDropzone = document.getElementById("custom-pb-edit-icon-dropzone");
     if (editIconInput) editIconInput.addEventListener("change", updateEditIconLbl);
@@ -1758,7 +1751,7 @@ function setupEventListeners() {
         });
     }
 
-    // : Teams-Tabs, FAB + Erstellen-Dialog.
+    // : Teams tabs, FAB + create dialog.
     const teamUsersBtn = document.getElementById("team-tab-users-btn");
     if (teamUsersBtn) teamUsersBtn.addEventListener("click", () => switchTeamsTab("users"));
     const teamActivityBtn = document.getElementById("team-tab-activity-btn");
@@ -1768,19 +1761,19 @@ function setupEventListeners() {
     const guestCreateCancel = document.getElementById("guest-create-cancel");
     if (guestCreateCancel) guestCreateCancel.addEventListener("click", closeGuestCreateDialog);
     enableModalDismiss("guest-create-dialog", closeGuestCreateDialog);
-    // : Bearbeiten-Dialog.
+    // : edit dialog.
     const guestEditCancel = document.getElementById("guest-edit-cancel");
     if (guestEditCancel) guestEditCancel.addEventListener("click", closeGuestEditDialog);
     const guestEditSave = document.getElementById("guest-edit-save");
     if (guestEditSave) guestEditSave.addEventListener("click", saveGuestEdit);
     enableModalDismiss("guest-edit-dialog", closeGuestEditDialog);
-    // : Szenario-Freigabe-Dialog je Teammitglied.
+    // : scenario share dialog per team member.
     const guestScenCancel = document.getElementById("guest-scenarios-cancel");
     if (guestScenCancel) guestScenCancel.addEventListener("click", closeGuestScenariosDialog);
     const guestScenSave = document.getElementById("guest-scenarios-save");
     if (guestScenSave) guestScenSave.addEventListener("click", saveGuestScenarios);
     enableModalDismiss("guest-scenarios-dialog", closeGuestScenariosDialog);
-    // : Aktivitäten-Dialog je Teammitglied.
+    // : activities dialog per team member.
     const guestActClose = document.getElementById("guest-activity-close");
     if (guestActClose) guestActClose.addEventListener("click", closeGuestActivityDialog);
     const guestActCopy = document.getElementById("guest-activity-copy");
@@ -1803,7 +1796,7 @@ function setupEventListeners() {
     if (cpbSave) cpbSave.addEventListener("click", saveCustomPlaybookMeta);
     enableModalDismiss("custom-pb-edit-dialog", closeEditCustomPlaybook);
 
-    //: Freigabe-Dialog
+    //: share dialog
     const pbsCancel = document.getElementById("playbook-share-cancel");
     const pbsSave = document.getElementById("playbook-share-save");
     if (pbsCancel) pbsCancel.addEventListener("click", closeShareCustomPlaybook);
@@ -1811,22 +1804,18 @@ function setupEventListeners() {
     enableModalDismiss("playbook-share-dialog", closeShareCustomPlaybook);
     enableModalDismiss("managed-device-share-dialog", closeManagedDeviceShare);
 
-    //: Gast-Playbook-Sperren-Dialog
+    //: guest playbook revoke dialog
     const grCancel = document.getElementById("guest-revoke-cancel");
     const grSave = document.getElementById("guest-revoke-save");
     if (grCancel) grCancel.addEventListener("click", closeGuestRevokeDialog);
     if (grSave) grSave.addEventListener("click", saveGuestRevoke);
     enableModalDismiss("guest-revoke-dialog", closeGuestRevokeDialog);
-    // : Geräte-Freigabe-Dialog je Gast.
+    // : device share dialog per guest.
     const gdCancel = document.getElementById("guest-devices-cancel");
     if (gdCancel) gdCancel.addEventListener("click", closeGuestDevicesDialog);
     const gdSave = document.getElementById("guest-devices-save");
     if (gdSave) gdSave.addEventListener("click", saveGuestDevicesDialog);
     enableModalDismiss("guest-devices-dialog", closeGuestDevicesDialog);
-
-    // Device forms cred type selection change
-    document.getElementById("device-cred-type").addEventListener("change", handleDeviceCredTypeChange);
-    document.getElementById("device-cancel-edit-btn").addEventListener("click", resetDeviceForm);
 
     const deviceSelect = document.getElementById("modal-device-select");
     if (deviceSelect) {
@@ -1853,7 +1842,7 @@ function setupEventListeners() {
         });
     }
 
-    // Legal-Links werden von eigenstaendigen Seiten behandelt (keine Modal-Listener mehr noetig).
+    // Legal links are handled by standalone pages (no modal listeners needed anymore).
     const closeImpressum = document.getElementById("close-impressum-modal-btn");
     const closeAgb = document.getElementById("close-agb-modal-btn");
     const closeDsgvo = document.getElementById("close-datenschutz-modal-btn");
@@ -1891,9 +1880,9 @@ function setupEventListeners() {
     
     const copyTokenBtn = document.getElementById("copy-token-btn");
     if (copyTokenBtn) {
-        //: navigator.clipboard ist NUR in Secure Contexts (HTTPS/localhost) verfuegbar; in
-        // HTTP-Deployments (On-Prem/Homelab per IP) war es undefined -> der Handler warf synchron
-        // und der Button tat scheinbar nichts. copyToClipboard() faengt das mit execCommand-Fallback.
+        //: navigator.clipboard is available ONLY in secure contexts (HTTPS/localhost); in
+        // HTTP deployments (On-Prem/homelab via IP) it was undefined -> the handler threw synchronously
+        // and the button appeared to do nothing. copyToClipboard() catches this with an execCommand fallback.
         copyTokenBtn.addEventListener("click", async () => {
             const text = document.getElementById("generated-token-text").textContent;
             const ok = await copyToClipboard(text);
@@ -1905,8 +1894,8 @@ function setupEventListeners() {
     if (guestSubmitBtn) {
         guestSubmitBtn.addEventListener("click", handleGuestSubmit);
     }
-    //: kein manueller "Aktualisieren"-Knopf mehr - loadAuditLog() laeuft beim
-    // Oeffnen der /teams-Seite (routePage).
+    //: no manual "Refresh" button anymore - loadAuditLog() runs on
+    // opening the /teams page (routePage).
 
     const tokenSubmitBtn = document.getElementById("token-submit-btn");
     if (tokenSubmitBtn) {
@@ -1929,16 +1918,16 @@ function getSessionId() {
     return id;
 }
 
-//: Robustes Kopieren in die Zwischenablage. navigator.clipboard funktioniert nur in
-// Secure Contexts (HTTPS/localhost); in HTTP-Deployments fehlt es. Dann Fallback auf ein
-// temporaeres <textarea> + document.execCommand("copy"). Gibt true bei Erfolg zurueck.
+//: robust copy to the clipboard. navigator.clipboard works only in
+// secure contexts (HTTPS/localhost); in HTTP deployments it is missing. Then fall back to a
+// temporary <textarea> + document.execCommand("copy"). Returns true on success.
 async function copyToClipboard(text) {
     try {
         if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
             return true;
         }
-    } catch (e) { /* faellt unten auf execCommand zurueck */ }
+    } catch (e) { /* falls through to execCommand below */ }
     try {
         const ta = document.createElement("textarea");
         ta.value = text;
@@ -2019,13 +2008,13 @@ async function fetchTimezone() {
 // Fetch all presets
 async function fetchPresets() {
     try {
-        //: ?lang -> Server liefert zweisprachige Playbook-Beschreibungen in der UI-Sprache.
+        //: ?lang -> the server returns bilingual playbook descriptions in the UI language.
         const response = await fetch(`/api/presets?lang=${encodeURIComponent(getLanguage())}`);
         if (response.ok) {
             allPresets = await response.json();
         } else {
-            //: bei Fehler nicht die (ggf. fremden) alten Presets behalten -> leeren,
-            // damit nach einem Logout nie der Katalog des Vorgaengers stehen bleibt.
+            //: on error don't keep the (possibly foreign) old presets -> clear them,
+            // so that after a logout the previous user's catalog never remains.
             allPresets = [];
         }
     } catch (e) {
@@ -2035,13 +2024,13 @@ async function fetchPresets() {
 }
 
 // Fetch all available playbooks from directory
-// : vom Nutzer erstellte/freigegebene Presets fuer Katalog-Kacheln (eigene + geteilte).
+// : presets created/shared by the user for catalog tiles (own + shared).
 let userCustomPresets = [];
 async function fetchUserCustomPresets() {
-    // : KEIN Admin-Ausschluss mehr. Admins (und der Community-Single-User mit role=admin)
-    // dürfen eigene Presets anlegen (Premium-Ausnahme); /api/profile/presets liefert sie scoped auf
-    // den User. Vorher lud nur loadPresets (Vault-Tab) sie ohne Guard, fetchUserCustomPresets aber
-    // nicht -> die Startseiten-Kacheln erschienen erst nach Besuch des Presets-Tabs. Jetzt konsistent.
+    // : NO more admin exclusion. Admins (and the community single user with role=admin)
+    // may create their own presets (premium exception); /api/profile/presets returns them scoped to
+    // the user. Previously only loadPresets (vault tab) loaded them without a guard, but fetchUserCustomPresets
+    // did not -> the home-page tiles only appeared after visiting the presets tab. Now consistent.
     if (!currentUser) { userCustomPresets = []; return; }
     try {
         const r = await fetch("/api/profile/presets");
@@ -2049,7 +2038,7 @@ async function fetchUserCustomPresets() {
     } catch (e) { userCustomPresets = []; }
 }
 
-// : eigene + freigegebene Szenarien für den Startseiten-Abschnitt "Szenarios".
+// : own + shared scenarios for the home-page "Scenarios" section.
 let userScenarios = [];
 async function fetchUserScenarios() {
     if (!currentUser) { userScenarios = []; return; }
@@ -2064,8 +2053,8 @@ async function fetchPlaybooks() {
         const response = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`, { cache: "no-store" });
         if (!response.ok) throw new Error("Fehler beim Laden");
         allPlaybooks = await response.json();
-        await fetchUserCustomPresets();  //: eigene/freigegebene Presets fuer Kacheln laden
-        await fetchUserScenarios();       //: Szenarien-Kacheln
+        await fetchUserCustomPresets();  //: load own/shared presets for tiles
+        await fetchUserScenarios();       //: scenario tiles
         renderPlaybooks();
     } catch (err) {
         playbooksList.innerHTML = `
@@ -2079,10 +2068,10 @@ async function fetchPlaybooks() {
 function renderSinglePlaybookItem(pb) {
     const item = document.createElement("label");
     item.className = "playbook-item";
-    //: Suchindex (Name, Kategorie, Beschreibung) fuer das Sichtbarkeits-Filtern.
+    //: search index (name, category, description) for the visibility filtering.
     item.dataset.search = `${pb.name || ""} ${pb.category || ""} ${pb.description || ""}`.toLowerCase();
-    //: exakter Kategorie-Schluessel (deutscher index.yml-Wert) fuer den Kategorie-Filter.
-    // Presets/Szenarien/Custom-Kacheln tragen KEIN data-category -> sie umgehen den Filter.
+    //: exact category key (German index.yml value) for the category filter.
+    // Presets/scenarios/custom tiles carry NO data-category -> they bypass the filter.
     item.dataset.category = (pb.category && pb.category.trim()) ? pb.category.trim() : "";
 
     let requiresHtml = "";
@@ -2098,8 +2087,8 @@ function renderSinglePlaybookItem(pb) {
     
     let iconHtml = "";
     let iconSrc = "";
-    //: Custom-Playbooks haben ein hochgeladenes/verknuepftes Logo (icon_value:
-    // data-URI oder https-URL) -> dieses bevorzugt anzeigen, statt des Platzhalters.
+    //: custom playbooks have an uploaded/linked logo (icon_value:
+    // data URI or https URL) -> prefer showing it instead of the placeholder.
     if (pb.icon_value) {
         iconSrc = pb.icon_value;
     } else if (pb.icon) {
@@ -2114,19 +2103,19 @@ function renderSinglePlaybookItem(pb) {
         const img = document.createElement("img");
         img.className = "playbook-item-icon-img";
         img.alt = pb.name || 'Playbook';
-        img.src = iconSrc; // als Property gesetzt -> keine HTML-Injection ueber data-URI
+        img.src = iconSrc; // set as a property -> no HTML injection via the data URI
         iconHtml = img.outerHTML;
     } else {
         iconHtml = `<span class="material-symbols-outlined playbook-item-icon">${escapeHtml(pb.icon || 'settings')}</span>`;
     }
     
-    //: Premium-Kennzeichnung nur in der Cloud-Edition (on-prem/community: alles frei).
-    // Badge am Namen + Akzentfarben-Hintergrund der ganzen Kachel (Klasse playbook-item--premium).
+    //: premium marking only in the cloud edition (on-prem/community: everything free).
+    // Badge on the name + accent-color background of the whole tile (class playbook-item--premium).
     let premiumHtml = "";
     const isPremium = pb.premium && currentEdition === "cloud";
-    // : Premium-Playbooks erfordern eine aktive Premium-Laufzeit. Nicht
-    // berechtigte Nutzer (nicht eingeloggt oder ohne aktives Abo) sehen die Kachel
-    // ausgegraut und deaktiviert; ein Klick fuehrt zum Abo-/Upsell-Flow.
+    // : premium playbooks require an active premium runtime. Non-
+    // eligible users (not logged in or without an active subscription) see the tile
+    // grayed out and disabled; a click leads to the subscription/upsell flow.
     const entitled = !!(currentUser && currentUser.is_subscription_active);
     const locked = isPremium && !entitled;
     if (isPremium) {
@@ -2138,7 +2127,7 @@ function renderSinglePlaybookItem(pb) {
         item.classList.add("playbook-item--locked");
     }
 
-    // : Hersteller-Info nur fuer systemseitige Playbooks mit hinterlegten vendor_urls.
+    // : vendor info only for system playbooks with configured vendor_urls.
     let vendorHtml = "";
     const hasVendor = !pb.custom && Array.isArray(pb.vendor_urls) && pb.vendor_urls.length > 0;
     if (hasVendor) {
@@ -2166,7 +2155,7 @@ function renderSinglePlaybookItem(pb) {
         const trigger = item.querySelector(".playbook-vendor-trigger");
         if (trigger) {
             trigger.addEventListener("click", (e) => {
-                // Verhindert, dass der Klick die Kachel-Checkbox (Label) toggelt.
+                // Prevents the click from toggling the tile checkbox (label).
                 e.preventDefault();
                 e.stopPropagation();
                 openVendorDialog(pb);
@@ -2175,7 +2164,7 @@ function renderSinglePlaybookItem(pb) {
     }
 
     if (locked) {
-        // Auswahl unterbinden und stattdessen den Upsell-Dialog oeffnen.
+        // Prevent selection and open the upsell dialog instead.
         item.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -2185,8 +2174,8 @@ function renderSinglePlaybookItem(pb) {
     return item;
 }
 
-// : Hersteller-Info-Dialog. Zeigt die offiziellen Hersteller-/Autoren-URLs eines
-// systemseitigen Playbooks als anklickbare Links (oeffnen in neuem Tab, rel=noopener).
+// : vendor info dialog. Shows the official vendor/author URLs of a
+// system playbook as clickable links (open in a new tab, rel=noopener).
 function openVendorDialog(pb) {
     const dialog = document.getElementById("playbook-vendor-dialog");
     if (!dialog) return;
@@ -2214,20 +2203,20 @@ function closeVendorDialog() {
     if (dialog) dialog.classList.add("hidden");
 }
 
-// : Upsell-Dialog fuer gesperrte Premium-Playbooks - gestyltes Modal im
-// Seitenstil statt window.confirm. Rollenabhaengiger Text; CTA fuehrt zur Preisseite.
+// : upsell dialog for locked premium playbooks - styled modal in the
+// page style instead of window.confirm. Role-dependent text; the CTA leads to the pricing page.
 
 
 
 
-// : Zentraler Einstieg in den Preis-/Abo-Flow -> dedizierte Preisseite.
-// In Nicht-Cloud-Editionen oder fuer Gaeste/Admins faellt /pricing in routePage()
-// auf die Startseite zurueck; dort greift dann der bestehende Abo-Flow im Profil.
+// : central entry point into the pricing/subscription flow -> dedicated pricing page.
+// In non-cloud editions or for guests/admins, /pricing falls back in routePage()
+// to the home page; there the existing subscription flow in the profile takes over.
 
 
 // ===========================================================================
-// : Preisseite /pricing — Tabs (Tarif-Gruppen), Hochkant-Kacheln
-// (Optionen), Laufzeit-Dropdown (Intervalle), Buchen-Flow.
+// : pricing page /pricing — tabs (tariff groups), portrait tiles
+// (options), term dropdown (intervals), purchase flow.
 // ===========================================================================
 
 
@@ -2244,13 +2233,13 @@ function closeVendorDialog() {
 
 
 
-//: Gutscheincode auf der Preisseite pruefen (UX-Feedback; das Backend
-// validiert erneut beim Checkout).
+//: check the coupon code on the pricing page (UX feedback; the backend
+// validates again at checkout).
 
 
 function renderPlaybooks() {
-    // : Gast-Accounts mit aktivem Host-Abo erhalten einen dezenten
-    // Premium-Hinweis (Premium-Playbooks werden serverseitig bereits gefiltert).
+    // : guest accounts with an active host subscription get a subtle
+    // premium hint (premium playbooks are already filtered server-side).
     const guestHint = document.getElementById("guest-premium-hint");
     if (guestHint) {
         const showHint = !!(currentUser && currentUser.role === "guest" && currentUser.is_subscription_active);
@@ -2264,9 +2253,9 @@ function renderPlaybooks() {
     // Put standalone playbooks in the map first
     allPlaybooks.forEach(pb => {
         playbookNameMap[pb.file] = pb.name;
-        //: icon_value (Custom-Playbook-Logo) mitfuehren, damit auch das Run-Modal
-        // und das Konfig-Akkordeon das hochgeladene Logo anzeigen.
-        //: service_group fuer die Port-Kollisionspruefung.
+        //: carry icon_value (custom playbook logo) along, so that the run modal
+        // and the config accordion also show the uploaded logo.
+        //: service_group for the port collision check.
         playbookMetadataMap[pb.file] = { name: pb.name, icon: pb.icon, icon_value: pb.icon_value, service_group: pb.service_group };
     });
     
@@ -2293,14 +2282,14 @@ function renderPlaybooks() {
         return;
     }
     
-    //: Immer ALLE Presets/Playbooks rendern. Die Suche filtert anschliessend nur die
-    // Sichtbarkeit (applyPlaybookSearch am Funktionsende), damit die getroffene Auswahl
-    // (Checkboxen im DOM) beim Tippen vollstaendig erhalten bleibt.
+    //: always render ALL presets/playbooks. The search then only filters
+    // visibility (applyPlaybookSearch at the end of the function), so that the current selection
+    // (checkboxes in the DOM) is fully preserved while typing.
     const presetsToShow = allPresets || [];
     const playbooksToShow = allPlaybooks || [];
 
-    // : Szenarios-Abschnitt (eigene + freigegebene) mit Raketen-Icon. Klick = 1-Klick-Run.
-    // : Szenarios stehen jetzt VOR den verfügbaren Presets (eigene Inhalte zuerst).
+    // : scenarios section (own + shared) with a rocket icon. Click = 1-click run.
+    // : scenarios now come BEFORE the available presets (own content first).
     const _scenarios = Array.isArray(userScenarios) ? userScenarios.filter(s => s.valid !== false) : [];
     if (_scenarios.length > 0) {
         const scHeader = document.createElement("div");
@@ -2315,7 +2304,7 @@ function renderPlaybooks() {
             tile.className = "playbook-item scenario-tile";
             tile.style.cursor = "pointer";
             const badge = !s.is_owner ? `<span class="playbook-desc">${s.permission === "flexible" ? t("core.sharedFlexible") : t("core.sharedStrict")}</span>` : "";
-            // : Kachel-Subtitel nur „→ Zielgerät" (kein Preset-Name); gerätelos -> „beim Ausführen festlegen".
+            // : tile subtitle just "→ target device" (no preset name); deviceless -> "set at run time".
             tile.innerHTML = `<span class="material-symbols-outlined playbook-item-icon">rocket_launch</span>` +
                 `<div class="playbook-info"><span class="playbook-name">${escapeHtml(s.name)}</span>` +
                 `<span class="playbook-desc">→ ${escapeHtml(scenarioTargetLabel(s))}</span>${badge}</div>`;
@@ -2324,30 +2313,30 @@ function renderPlaybooks() {
         });
     }
 
-    // : Eigene/freigegebene Presets als startbare Kacheln. Auch fuer Gaeste,
-    // damit freigegebene Presets ausgefuehrt werden koennen. Klick -> launchPreset (Server
-    // erzwingt Berechtigung + Premium).
-    // 1. Render Preset Header & Tiles — : eigene/freigegebene Presets gehören in
-    // "Verfügbare Presets" (keine separate "Eigene Presets"-Kategorie mehr).
-    //: Presets ausblenden, aus denen bereits ein Szenario erstellt wurde (das Preset ist
-    // dann über das Szenario repräsentiert; Löschen/Logik bleibt intakt, nur die Anzeige entfällt).
-    // Nur GÜLTIGE Szenarien (_scenarios, valid !== false) zählen — ein Szenario mit gelöschtem
-    // Gerät erscheint nicht in der Szenarien-Liste und darf sein Preset nicht mit-verstecken.
+    // : own/shared presets as launchable tiles. Also for guests,
+    // so that shared presets can be executed. Click -> launchPreset (the server
+    // enforces permission + premium).
+    // 1. Render preset header & tiles — : own/shared presets belong in
+    // "Available presets" (no separate "Own presets" category anymore).
+    //: hide presets from which a scenario has already been created (the preset is
+    // then represented by the scenario; delete/logic stays intact, only the display is dropped).
+    // Only VALID scenarios (_scenarios, valid !== false) count — a scenario with a deleted
+    // device does not appear in the scenarios list and must not also hide its preset.
     const _scenarioPresetIds = new Set(_scenarios.map(s => s.preset_id).filter(Boolean));
     const _customPresets = (Array.isArray(userCustomPresets) ? userCustomPresets : []).filter(p => !_scenarioPresetIds.has(p.id));
     if (presetsToShow.length > 0 || _customPresets.length > 0) {
         const presetHeader = document.createElement("div");
         presetHeader.className = "category-main-title grid-row-header";
-        // : Abstand zum darüberliegenden Szenarios-Abschnitt (falls vorhanden).
+        // : spacing to the scenarios section above (if present).
         if (_scenarios.length > 0) presetHeader.style.marginTop = "24px";
-        // : gleiches Icon wie der Presets-Tab (tune).
+        // : same icon as the presets tab (tune).
         presetHeader.innerHTML = `
             <span class="material-symbols-outlined">tune</span>
             ${t("core.availablePresets")}
         `;
         playbooksList.appendChild(presetHeader);
 
-        // Eigene/freigegebene Presets zuerst (klickbare Kacheln; Klick -> launchPreset).
+        // Own/shared presets first (clickable tiles; click -> launchPreset).
         _customPresets.forEach(p => {
             const tile = document.createElement("div");
             tile.className = "playbook-item custom-preset-tile";
@@ -2373,7 +2362,7 @@ function renderPlaybooks() {
             const tile = document.createElement("div");
             tile.className = "playbook-item preset-tile";
             tile.dataset.presetName = preset.name;
-            //: Suchindex (Name, Beschreibung, enthaltene Playbook-Namen).
+            //: search index (name, description, contained playbook names).
             tile.dataset.search = `${preset.name || ""} ${preset.description || ""} ${(preset.playbooks || []).map(p => p.name).join(" ")}`.toLowerCase();
             
             // Resolve preset icon path
@@ -2405,7 +2394,7 @@ function renderPlaybooks() {
     }
 
     // 2. Render Standalone Playbooks Header & Tiles
-    //    Gaeste sehen den Standardkatalog ebenfalls (hebt auf).
+    //    Guests see the default catalog as well (supersedes).
     if (playbooksToShow.length > 0) {
         const pbHeader = document.createElement("div");
         pbHeader.className = "category-main-title grid-row-header";
@@ -2432,7 +2421,7 @@ function renderPlaybooks() {
             if (b === "Sonstige") return -1;
             return a.localeCompare(b);
         });
-        //: Filter-Dropdown mit den tatsaechlich vorhandenen Kategorien befuellen.
+        //: populate the filter dropdown with the categories actually present.
         populateCategoryFilter(catNames);
 
         catNames.forEach(catName => {
@@ -2442,7 +2431,7 @@ function renderPlaybooks() {
             subTitle.textContent = catLabel(catName);
             playbooksList.appendChild(subTitle);
             
-            //: innerhalb der Kategorie alphabetisch nach Anzeigenamen sortieren.
+            //: within the category, sort alphabetically by display name.
             grouped[catName]
                 .slice()
                 .sort((a, b) => (a.name || "").localeCompare(b.name || "", getLocale(), { sensitivity: "base" }))
@@ -2458,14 +2447,14 @@ function renderPlaybooks() {
     // Initialize preset indeterminate states
     updatePresetHighlights();
 
-    //: aktiven Suchbegriff (falls vorhanden) als reine Sichtbarkeits-Filterung anwenden.
+    //: apply the active search term (if any) as pure visibility filtering.
     applyPlaybookSearch();
 }
 
-//: Filtert NUR die Sichtbarkeit von Preset-/Playbook-Kacheln anhand des Suchfelds und
-// blendet leere Kategorie-/Unterkategorie-Ueberschriften aus. Es wird nichts neu gerendert,
-// daher bleibt die getroffene Auswahl (Checkboxen) - auch bei aktuell ausgeblendeten
-// Kacheln - vollstaendig erhalten.
+//: filters ONLY the visibility of preset/playbook tiles based on the search field and
+// hides empty category/subcategory headings. Nothing is re-rendered,
+// so the current selection (checkboxes) - even for currently hidden
+// tiles - is fully preserved.
 function applyPlaybookSearch() {
     if (!playbooksList) return;
     const searchEl = document.getElementById("playbook-search");
@@ -2490,8 +2479,8 @@ function applyPlaybookSearch() {
         }
         if (el.classList.contains("playbook-item") || el.classList.contains("preset-tile")) {
             const matchesText = !term || (el.dataset.search || "").includes(term);
-            //: Kategorie-Filter. Kacheln ohne data-category (Presets/Szenarien/Custom) bleiben
-            // sichtbar; ist kein Filter aktiv, gilt ebenfalls alles.
+            //: category filter. Tiles without data-category (presets/scenarios/custom) stay
+            // visible; if no filter is active, everything applies too.
             const cat = el.dataset.category || "";
             const matchesCat = selectedCatalogCategories.size === 0 || cat === "" || selectedCatalogCategories.has(cat);
             const vis = matchesText && matchesCat;
@@ -2502,7 +2491,7 @@ function applyPlaybookSearch() {
     finalizeSub();
     finalizeMain();
 
-    // "Keine Treffer"-Hinweis als eigenes Element (zerstoert die Kacheln nicht).
+    // "No matches" hint as its own element (does not destroy the tiles).
     let empty = document.getElementById("playbook-no-results");
     if (term && !anyVisible) {
         if (!empty) {
@@ -2573,8 +2562,8 @@ function handleSidebarSubmit(e) {
         return;
     }
 
-    // : Spam-Schutz. Ist die anonyme Ausfuehrung serverseitig deaktiviert,
-    // fordern wir nicht angemeldete Besucher zur Anmeldung/Registrierung auf.
+    // : spam protection. If anonymous execution is disabled server-side,
+    // we prompt not-logged-in visitors to sign in/register.
     if (!currentUser && !allowAnonymousRun) {
         showToast(t("core.loginToRun"));
         const dlg = document.getElementById("login-dialog");
@@ -2592,8 +2581,8 @@ const playbookDomainConfigs = {
     ],
     "create-stack-traefik.yml": [
         { label: "Traefik Domain", variable: "traefik_domain", placeholder: "traefik.local", required: true },
-        //: Dashboard-Optionen. Defaults im Playbook erhalten das bisherige Verhalten
-        // (Dashboard an, Basic-Auth an, Dashboard unter der Traefik-Domain).
+        //: dashboard options. Defaults in the playbook preserve the previous behavior
+        // (dashboard on, basic auth on, dashboard under the Traefik domain).
         { label: "Dashboard aktivieren", variable: "traefik_enable_dashboard", type: "bool", default: true, required: false, scope: "general" },
         { label: "Dashboard-Subdomain (optional, sonst Traefik-Domain)", variable: "traefik_dashboard_subdomain", placeholder: "dash.example.com", required: false, scope: "general" },
         { label: "Dashboard Basic-Auth", variable: "traefik_dashboard_basicauth_enabled", type: "bool", default: true, required: false, scope: "general" }
@@ -2617,9 +2606,9 @@ const playbookDomainConfigs = {
         { label: "Node-RED Domain", variable: "nodered_domain", placeholder: "nodered.local", required: true },
         { label: "HTTP-Port (ohne Traefik)", variable: "nodered_port", placeholder: "1880", required: false }
     ],
-    //: MQTT/Mosquitto war bisher ohne UI-Konfiguration. Defaults im Playbook
-    // erhalten das bisherige Verhalten (Auth an, Port 1883, Benutzer = SSH-User).
-    // Der Port ist KEINE Traefik-Alternative -> scope "general" (immer sichtbar).
+    //: MQTT/Mosquitto previously had no UI configuration. Defaults in the playbook
+    // preserve the previous behavior (auth on, port 1883, user = SSH user).
+    // The port is NOT a Traefik alternative -> scope "general" (always visible).
     "create-stack-mqtt.yml": [
         { label: "MQTT-Port", variable: "mqtt_port", placeholder: "1883", required: false, scope: "general" },
         { label: "Authentifizierung aktivieren", variable: "mqtt_enable_auth", type: "bool", default: true, required: false, scope: "general" },
@@ -2645,8 +2634,8 @@ const playbookDomainConfigs = {
         { label: "DB-Benutzer", variable: "postgres_user", placeholder: "appuser", required: false },
         { label: "DB-Passwort (leer = zufällig generiert)", variable: "postgres_password", placeholder: "Passwort", type: "password", required: false },
         { label: "Datenbankname", variable: "postgres_db", placeholder: "appdb", required: false },
-        //: DB-Port ist KEINE Traefik-Alternative (PostgreSQL laeuft nicht hinter Traefik)
-        // -> immer sichtbar/konfigurierbar, unabhaengig vom Traefik-Schalter.
+        //: the DB port is NOT a Traefik alternative (PostgreSQL does not run behind Traefik)
+        // -> always visible/configurable, independent of the Traefik toggle.
         { label: "Port", variable: "postgres_port", placeholder: "5432", required: false, scope: "general" },
         { label: "Bind-Adresse (127.0.0.1 = nur lokal)", variable: "postgres_bind", placeholder: "127.0.0.1", required: false }
     ],
@@ -2794,7 +2783,7 @@ const playbookDomainConfigs = {
         { label: "Modell-Verzeichnis auf dem Host", variable: "llama_models_dir", placeholder: "/srv/models", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "llama_cpp_port", placeholder: "8097", required: false }
     ],
-    // Playbook Roadmap (Premium) – Batch 2 (RustDesk hat keine konfigurierbaren Variablen)
+    // Playbook roadmap (premium) – batch 2 (RustDesk has no configurable variables)
     "create-stack-crowdsec.yml": [
         { label: "CrowdSec LAPI Domain (bei Traefik)", variable: "crowdsec_domain", placeholder: "crowdsec.local", required: false },
         { label: "Collections (durch Leerzeichen getrennt)", variable: "crowdsec_collections", placeholder: "crowdsecurity/linux", required: false },
@@ -2996,13 +2985,13 @@ function showCredentialsModal() {
     const checkedBoxes = playbooksList.querySelectorAll('input[name="playbooks"]:checked');
     const checkedPlaybooks = Array.from(checkedBoxes).map(cb => cb.value);
     const uniqueCheckedPlaybooks = [...new Set(checkedPlaybooks)];
-    //: dieselbe Rangfolge wie der Backend-Runner (Voraussetzungen -> install-* -> create-stack-*).
+    //: the same ordering as the backend runner (prerequisites -> install-* -> create-stack-*).
     uniqueCheckedPlaybooks.sort((a, b) => playbookOrderRank(a) - playbookOrderRank(b));
     
-    //: Die Box "Gewählte Playbooks" wurde entfernt; uniqueCheckedPlaybooks wird
-    // weiterhin fuer die HTTPS-/Port-Warnungen und die Konfig-Akkordeons benoetigt.
+    //: the "Selected playbooks" box was removed; uniqueCheckedPlaybooks is
+    // still needed for the HTTPS/port warnings and the config accordions.
 
-    //: Warnhinweis, wenn ein gewaehltes Playbook HTTPS voraussetzt.
+    //: warning when a selected playbook requires HTTPS.
     const httpsWarn = document.getElementById("modal-https-warning");
     const httpsWarnText = document.getElementById("modal-https-warning-text");
     if (httpsWarn && httpsWarnText) {
@@ -3021,7 +3010,7 @@ function showCredentialsModal() {
         }
     }
 
-    //: Konfigurations-Felder pro Playbook gruppieren (fuer das Akkordeon).
+    //: group configuration fields per playbook (for the accordion).
     const configGroups = [];
     let totalConfigs = 0;
     uniqueCheckedPlaybooks.forEach(pbPath => {
@@ -3029,8 +3018,8 @@ function showCredentialsModal() {
         const cfgs = playbookDomainConfigs[baseName];
         if (cfgs && cfgs.length) {
             const meta = playbookMetadataMap[pbPath] || playbookMetadataMap[baseName] || { name: baseName };
-            //: Service-Gruppe (Varianten desselben Diensts kollidieren nicht);
-            // ohne explizite Gruppe ist jedes Playbook seine eigene Gruppe.
+            //: service group (variants of the same service don't collide);
+            // without an explicit group, each playbook is its own group.
             const serviceGroup = meta.service_group || baseName;
             configGroups.push({ name: meta.name || baseName, icon: meta.icon, configs: cfgs, serviceGroup });
             totalConfigs += cfgs.length;
@@ -3052,8 +3041,8 @@ function showCredentialsModal() {
             Object.assign(activeVariables, preset.variables);
         }
     });
-    // : Variablen aktiver eigener/freigegebener Presets ergänzen (alle ihre Playbooks
-    // gewählt), damit die gespeicherten Einstellungen sichtbar in die Felder geladen werden.
+    // : add variables of active own/shared presets (all their playbooks
+    // selected), so the saved settings are visibly loaded into the fields.
     (userCustomPresets || []).forEach(p => {
         const ids = p.playbook_ids || [];
         if (!ids.length || !p.variables) return;
@@ -3063,8 +3052,8 @@ function showCredentialsModal() {
         });
         if (allSelected) Object.assign(activeVariables, p.variables);
     });
-    // base_dir/timezone liegen ausserhalb der Domains-Sektion -> hier sichtbar vorbefüllen
-    // (die Domain/Port-Felder ziehen ihren Wert weiter unten direkt aus activeVariables).
+    // base_dir/timezone live outside the domains section -> pre-fill them visibly here
+    // (the domain/port fields pull their value further down directly from activeVariables).
     if (activeVariables.base_dir) {
         modalBaseDirInput.value = activeVariables.base_dir;
         modalBaseDirInput.dataset.edited = "true";
@@ -3083,17 +3072,17 @@ function showCredentialsModal() {
     
     if (totalConfigs > 0) {
         traefikContainer.classList.remove("hidden");
-        //: Sektion ist sichtbar, sobald es Felder gibt (nicht mehr nur im Traefik-Modus).
+        //: the section is visible as soon as there are fields (no longer only in Traefik mode).
         domainsSection.classList.remove("hidden");
 
-        //: Felder je Playbook in ein einklappbares Akkordeon (standardmaessig zu).
+        //: fields per playbook in a collapsible accordion (closed by default).
         configGroups.forEach(group => {
             const details = document.createElement("details");
             details.className = "modal-config-accordion";
             const summary = document.createElement("summary");
             summary.className = "modal-config-accordion-summary";
-            //: Playbook-Logo links neben dem Titel; Anzahl wird in
-            // applyScopeVisibility anhand der tatsaechlich sichtbaren Felder gesetzt.
+            //: playbook logo to the left of the title; the count is set in
+            // applyScopeVisibility based on the fields actually visible.
             summary.innerHTML =
                 `<span class="modal-config-accordion-label">${playbookIconHtml({ icon: group.icon })}<span>${escapeHtml(group.name)}</span></span>` +
                 `<span class="modal-config-accordion-count"></span>`;
@@ -3102,27 +3091,27 @@ function showCredentialsModal() {
             body.className = "modal-config-accordion-body";
 
             group.configs.forEach(cfg => {
-                //: Geltungsbereich je Feld – Domains nur mit Traefik, HTTP-Ports nur ohne
-                // Traefik, alle uebrigen Einstellungen immer. Ein expliziter cfg.scope hat Vorrang
-                // (z.B. der DB-Port postgres_port ist KEINE Traefik-Alternative -> 'general').
+                //: scope per field – domains only with Traefik, HTTP ports only without
+                // Traefik, all other settings always. An explicit cfg.scope takes precedence
+                // (e.g. the DB port postgres_port is NOT a Traefik alternative -> 'general').
                 let scope = cfg.scope
                     || (cfg.variable.endsWith("_domain") ? "domain"
                         : (cfg.variable.endsWith("_port") ? "port" : "general"));
                 const div = document.createElement("div");
                 div.dataset.scope = scope;
-                //: Service-Gruppe am Feld hinterlegen (Port-Kollisionspruefung).
+                //: store the service group on the field (port collision check).
                 div.dataset.serviceGroup = group.serviceGroup;
                 if (cfg.type === "bool") {
-                    //: Wahrheitswerte als Umschalt-Checkbox statt Freitext "true/false".
-                    // Vorbelegung aus dem aktiven Preset, sonst der Playbook-Default (cfg.default).
+                    //: boolean values as a toggle checkbox instead of free-text "true/false".
+                    // Prefilled from the active preset, otherwise the playbook default (cfg.default).
                     const prefill = activeVariables[cfg.variable];
                     const checked = (prefill !== undefined) ? (prefill === true || prefill === "true") : !!cfg.default;
                     div.className = "config-field bool-field";
                     div.innerHTML =
                         `<label class="checkbox-label bool-field-label"><input type="checkbox" class="styled-checkbox" id="variable-${cfg.variable}" data-variable="${cfg.variable}" data-scope="${scope}"${checked ? " checked" : ""}><span>${escapeHtml(cfg.label)}</span></label>`;
                 } else {
-                    //: Beispielwert als grauer HTML-Placeholder (Label schwebt via .config-field
-                    // dauerhaft oben, damit es den Placeholder nicht überlagert).
+                    //: example value as a gray HTML placeholder (the label floats via .config-field
+                    // permanently at the top, so it doesn't overlap the placeholder).
                     const defaultValue = activeVariables[cfg.variable] || "";
                     const type = cfg.type || "text";
                     const requiredAttr = cfg.required ? "required" : "";
@@ -3140,8 +3129,8 @@ function showCredentialsModal() {
 
         const hasPrefilled = Object.keys(activeVariables).length > 0;
 
-        //: Felder je nach Traefik-Modus ein-/ausblenden; Akkordeons ohne
-        // sichtbares Feld komplett ausblenden.
+        //: show/hide fields depending on Traefik mode; accordions without
+        // a visible field are hidden entirely.
         const applyScopeVisibility = () => {
             const traefik = useTraefikCheckbox.checked;
             let anyVisible = false;
@@ -3156,27 +3145,27 @@ function showCredentialsModal() {
                     if (inp) inp.required = visible && inp.dataset.required === "true";
                 });
                 acc.style.display = visibleCount > 0 ? "" : "none";
-                //: Anzahl an die tatsaechlich sichtbaren Felder anpassen.
+                //: adjust the count to the fields actually visible.
                 const countEl = acc.querySelector(".modal-config-accordion-count");
                 if (countEl) countEl.textContent = `${visibleCount} ${visibleCount === 1 ? t("run.settingSg") : t("run.settingPl")}`;
             });
-            //: Die Sektion enthaelt jetzt die Traefik-Checkbox und muss erreichbar bleiben,
-            // solange es ueberhaupt Konfig-Felder gibt (totalConfigs > 0) - daher NICHT mehr
-            // anhand sichtbarer Felder ausblenden. Die Unter-Ueberschrift wird nur eingeblendet,
-            // wenn tatsaechlich Felder sichtbar sind.
+            //: the section now contains the Traefik checkbox and must stay reachable
+            // as long as there are any config fields at all (totalConfigs > 0) - so no longer
+            // hide it based on visible fields. The subheading is only shown
+            // when fields are actually visible.
             domainsSection.classList.remove("hidden");
             const fieldsSubtitle = domainsSection.querySelector(".section-subtitle");
             if (fieldsSubtitle) fieldsSubtitle.style.display = anyVisible ? "" : "none";
-            //: nach jeder Sichtbarkeitsaenderung Port-Kollisionen pruefen.
+            //: check port collisions after every visibility change.
             checkPortCollisions();
         };
 
-        //: Port-Kollisionen auch bei jeder Eingabe in den Port-Feldern live pruefen.
+        //: also check port collisions live on every input in the port fields.
         domainsInputsContainer.addEventListener("input", checkPortCollisions);
 
         useTraefikCheckbox.onchange = applyScopeVisibility;
-        // : use_traefik aus dem aktiven Preset übernehmen, falls gespeichert; sonst Default
-        // (true, wenn das Preset überhaupt Variablen mitbringt).
+        // : take use_traefik from the active preset if saved; otherwise default
+        // (true if the preset brings any variables at all).
         useTraefikCheckbox.checked = (activeVariables.use_traefik !== undefined)
             ? (activeVariables.use_traefik === true || activeVariables.use_traefik === "true")
             : hasPrefilled;
@@ -3188,29 +3177,29 @@ function showCredentialsModal() {
         useTraefikCheckbox.onchange = null;
     }
     
-    //  (#E): "Als Preset speichern"-Controls nur fuer aktive Nicht-Gaeste (oder Admins) zeigen.
-    // Das Server-Gate in create_custom_preset ist die eigentliche Grenze; dies ist nur Komfort.
-    //  (Community): in der Community-Edition komplett ausblenden+deaktivieren.
+    //  (#E): show the "Save as preset" controls only for active non-guests (or admins).
+    // The server gate in create_custom_preset is the real boundary; this is only for convenience.
+    //  (Community): hide + disable entirely in the Community edition.
     const canSavePreset = currentEdition !== "community" && !!currentUser && currentUser.role !== "guest" && (currentUser.is_subscription_active || currentUser.role === "admin");
     const savePresetRow = document.getElementById("modal-save-preset-row");
     if (savePresetRow) savePresetRow.style.display = canSavePreset ? "" : "none";
     const savePresetBtn = document.getElementById("modal-save-preset-btn");
-    // : "Nur als Preset speichern" startet deaktiviert (erst ab eingegebenem Namen aktiv).
+    // : "Save as preset only" starts disabled (enabled only once a name has been entered).
     if (savePresetBtn) { savePresetBtn.style.display = canSavePreset ? "" : "none"; savePresetBtn.disabled = true; }
     const savePresetCb = document.getElementById("modal-save-preset-cb");
     if (savePresetCb) savePresetCb.checked = false;
     const modalPresetName = document.getElementById("modal-preset-name");
     if (modalPresetName) modalPresetName.value = "";
 
-    //: frischer Dialog -> keine ungespeicherten Aenderungen.
+    //: fresh dialog -> no unsaved changes.
     modalDirty = false;
     credentialsDialog.classList.remove("hidden");
     modalTargetHost.focus();
 }
 
-// : Das Vorbefüllen der Preset-Einstellungen läuft jetzt zentral in showCredentialsModal
-// (activeVariables inkl. userCustomPresets) — eine separate applyPresetVariablesToModal-Funktion
-// ist nicht mehr nötig.
+// : prefilling the preset settings now runs centrally in showCredentialsModal
+// (activeVariables incl. userCustomPresets) — a separate applyPresetVariablesToModal function
+// is no longer needed.
 
 function hideCredentialsModal() {
     credentialsDialog.classList.add("hidden");
@@ -3220,19 +3209,19 @@ function hideCredentialsModal() {
     modalPasswordInput.disabled = false;
     const deviceSelect = document.getElementById("modal-device-select");
     if (deviceSelect) deviceSelect.value = "";
-    // : aktive Preset-Bindung loesen, damit ein folgender normaler Lauf sie nicht erbt.
+    // : release the active preset binding, so a subsequent normal run does not inherit it.
     window._activePresetId = null;
-    //  (#E): Preset-Speichern-Controls zuruecksetzen.
+    //  (#E): reset the save-as-preset controls.
     const _spCb = document.getElementById("modal-save-preset-cb"); if (_spCb) _spCb.checked = false;
     const _spName = document.getElementById("modal-preset-name"); if (_spName) _spName.value = "";
     const _spBtn = document.getElementById("modal-save-preset-btn"); if (_spBtn) _spBtn.disabled = true;
 }
 
-// : wiederverwendbarer, gestylter Bestätigungsdialog (#app-confirm-dialog) als Ersatz
-// fuer natives window.confirm() — v. a. bei Lösch-Bestätigungen (Geräte, Presets, Playbooks, …).
-// Gibt ein Promise<boolean> zurueck (true = bestaetigt). ESC/Backdrop/Abbrechen -> false.
-// : `messageHtml` erlaubt formatierten Inhalt (fette Namen, Akzentfarben). Aufrufer
-// MÜSSEN dynamische Werte darin selbst via escapeHtml() entschärfen; `message` bleibt reiner Text.
+// : reusable, styled confirmation dialog (#app-confirm-dialog) as a replacement
+// for the native window.confirm() — especially for delete confirmations (devices, presets, playbooks, …).
+// Returns a Promise<boolean> (true = confirmed). ESC/backdrop/cancel -> false.
+// : `messageHtml` allows formatted content (bold names, accent colors). Callers
+// MUST sanitize dynamic values in it themselves via escapeHtml(); `message` stays plain text.
 function showConfirmDialog({ title = t("common.confirm"), message = "", messageHtml = null, confirmLabel = t("common.confirm"), cancelLabel = t("common.cancel") } = {}) {
     return new Promise(resolve => {
         const dlg = document.getElementById("app-confirm-dialog");
@@ -3267,22 +3256,22 @@ function showConfirmDialog({ title = t("common.confirm"), message = "", messageH
     });
 }
 
-//: benutzerinitiiertes Schliessen (ESC/Backdrop/Abbrechen) mit Warnung bei
-// ungespeicherten Eingaben. Nach erfolgreichem Start ruft handleModalSubmit
-// hideCredentialsModal() direkt auf (ohne Nachfrage).
+//: user-initiated close (ESC/backdrop/cancel) with a warning on
+// unsaved input. After a successful start, handleModalSubmit calls
+// hideCredentialsModal() directly (without asking).
 function closeCredentialsModalGuarded() {
     if (modalDirty) {
-        // : gestylte Bestätigung im Webseiten-Stil statt nativem window.confirm.
+        // : styled confirmation in the site style instead of the native window.confirm.
         const dlg = document.getElementById("discard-confirm-dialog");
         if (dlg) { dlg.classList.remove("hidden"); return; }
     }
     hideCredentialsModal();
 }
 
-//: Port-Kollisionspruefung. Warnt, wenn derselbe Host-Port von Feldern
-// UNTERSCHIEDLICHER Dienste (service_group) belegt wird. Varianten desselben
-// Diensts (gleiche service_group) kollidieren bewusst nicht. Nur sichtbare
-// Port-Felder (im veroeffentlichten-Ports-Modus relevant) zaehlen.
+//: port collision check. Warns when the same host port is used by fields
+// of DIFFERENT services (service_group). Variants of the same
+// service (same service_group) deliberately do not collide. Only visible
+// port fields (relevant in published-ports mode) count.
 function checkPortCollisions() {
     const warn = document.getElementById("modal-port-warning");
     const warnText = document.getElementById("modal-port-warning-text");
@@ -3308,13 +3297,13 @@ function checkPortCollisions() {
     }
 }
 
-//  (#E): Playbook-/Variablen-Sammlung aus dem Run-Dialog ausfaktorisiert, damit der Run-Pfad
-// (handleModalSubmit) UND das Preset-Speichern byte-gleiche Werte verwenden.
+//  (#E): playbook/variable collection factored out of the run dialog, so the run path
+// (handleModalSubmit) AND the preset save use byte-identical values.
 function collectModalPlaybooks() {
     const checkedBoxes = playbooksList.querySelectorAll('input[name="playbooks"]:checked');
     const playbooks = Array.from(checkedBoxes).map(cb => cb.value);
     const uniquePlaybooks = [...new Set(playbooks)];
-    //: dieselbe Rangfolge wie der Backend-Runner (Voraussetzungen -> install-* -> create-stack-*).
+    //: the same ordering as the backend runner (prerequisites -> install-* -> create-stack-*).
     uniquePlaybooks.sort((a, b) => playbookOrderRank(a) - playbookOrderRank(b));
     return uniquePlaybooks;
 }
@@ -3335,8 +3324,8 @@ function collectModalVariables(baseDir) {
         if (field.style.display === "none") return;
         const inp = field.querySelector("input");
         if (!inp || !inp.dataset.variable) return;
-        //: Bool-Checkbox liefert immer einen expliziten true/false-String; Textfelder
-        // wie bisher nur, wenn befüllt (leer = Playbook-Default greift).
+        //: a bool checkbox always yields an explicit true/false string; text fields
+        // as before, only when filled (empty = the playbook default applies).
         if (inp.type === "checkbox") {
             variables[inp.dataset.variable] = inp.checked ? "true" : "false";
         } else if (inp.value.trim()) {
@@ -3346,8 +3335,8 @@ function collectModalVariables(baseDir) {
     return variables;
 }
 
-//  (#E): aktuelle Run-Konfiguration als Preset speichern (Premium; Server erzwingt das Gate
-// erneut, das UI-Gating ist nur Komfort). opts.silent unterdrueckt den Erfolgs-Toast.
+//  (#E): save the current run configuration as a preset (premium; the server enforces the gate
+// again, the UI gating is only for convenience). opts.silent suppresses the success toast.
 async function saveModalPreset(opts) {
     opts = opts || {};
     const nameEl = document.getElementById("modal-preset-name");
@@ -3355,20 +3344,20 @@ async function saveModalPreset(opts) {
     const playbook_ids = collectModalPlaybooks();
     if (!name) { showToast(t("job.presetNameRequired")); if (nameEl) nameEl.focus(); return false; }
     if (!playbook_ids.length) { showToast(t("job.selectPlaybook")); return false; }
-    // base_dir wie im echten Run aufloesen (gleiche Fallback-Logik).
+    // resolve base_dir like in the real run (same fallback logic).
     const username = modalUsernameInput.value.trim();
     let baseDir = modalBaseDirInput.value.trim();
     if (!baseDir && username && !document.getElementById("modal-device-select").value) {
         baseDir = username === "root" ? "/root" : `/home/${username}`;
     }
-    // Preset-Variablen sind Strings (Backend-Schema Dict[str,str]); use_traefik (bool) etc.
-    // stringifizieren. Der Run-Pfad (/api/run) bleibt unveraendert mit den Rohwerten.
+    // preset variables are strings (backend schema Dict[str,str]); use_traefik (bool) etc.
+    // stringify them. The run path (/api/run) stays unchanged with the raw values.
     const _vars = collectModalVariables(baseDir);
     const variables = {};
     Object.keys(_vars).forEach(k => { variables[k] = String(_vars[k]); });
     try {
-        // : Ein Preset bündelt NUR Playbooks + deren Einstellungen — keine Gerätedaten
-        // bzw. Geräte-Bindung (Geräte werden separat verwaltet). device_group_id bleibt leer.
+        // : a preset bundles ONLY playbooks + their settings — no device data
+        // or device binding (devices are managed separately). device_group_id stays empty.
         const res = await fetch("/api/profile/presets", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ name, playbook_ids, variables, device_ids: [], shares: [] })
@@ -3377,7 +3366,7 @@ async function saveModalPreset(opts) {
         if (res.ok) {
             if (!opts.silent) showToast(t("job.presetSaved"));
             if (typeof fetchUserCustomPresets === "function") await fetchUserCustomPresets();
-            //: Katalog-Kacheln auf der Startseite ohne Reload aktualisieren.
+            //: update the catalog tiles on the home page without a reload.
             if (typeof renderPlaybooks === "function" && Array.isArray(allPlaybooks) && allPlaybooks.length) renderPlaybooks();
             if (typeof loadPresets === "function" && document.querySelector("#vault-tab-presets #presets-list") && document.body.classList.contains("tab-vault")) loadPresets();
             return true;
@@ -3387,7 +3376,7 @@ async function saveModalPreset(opts) {
     } catch (e) { showToast(t("job.networkErrorSaving")); return false; }
 }
 
-// "Nur als Preset speichern" — speichert ohne Run und schliesst den Dialog bei Erfolg.
+// "Save as preset only" — saves without a run and closes the dialog on success.
 async function handleSavePresetFromDialog() {
     const ok = await saveModalPreset();
     if (ok) hideCredentialsModal();
@@ -3395,7 +3384,7 @@ async function handleSavePresetFromDialog() {
 
 // Final Submit from Modal dialog
 async function handleModalSubmit() {
-    //: vorherige Fehlermeldung im Dialog zuruecksetzen.
+    //: reset the previous error message in the dialog.
     const modalErrEl = document.getElementById("modal-error");
     if (modalErrEl) modalErrEl.classList.add("hidden");
     const targetHost = modalTargetHost.value.trim();
@@ -3415,11 +3404,11 @@ async function handleModalSubmit() {
     const uniquePlaybooks = collectModalPlaybooks();
 
     const deviceSelect = document.getElementById("modal-device-select");
-    // (Device-Flatten): das Dropdown liefert direkt eine device_id (kein group:-Praefix mehr).
+    // (device flatten): the dropdown directly yields a device_id (no more group: prefix).
     const deviceId = deviceSelect ? deviceSelect.value : "";
 
-    // Bei einem gebundenen Preset loest der Server die Zielgeraete (device_ids) auf -> keine
-    // manuelle Host-Eingabe erzwingen (das Einzel-Dropdown kann Multi-Host nicht abbilden).
+    // For a bound preset the server resolves the target devices (device_ids) -> don't
+    // force manual host input (the single dropdown cannot represent multi-host).
     if (!deviceId && !window._activePresetId) {
         if (!targetHost) {
             showToast(t("job.targetRequired"));
@@ -3438,14 +3427,14 @@ async function handleModalSubmit() {
         }
     }
     
-    //: Dialog NICHT vorab schliessen - erst nach erfolgreichem Start (s. unten).
-    // Bei Server-Fehler bleibt er offen und zeigt die Meldung inline, damit die
-    // bereits gemachten Eingaben erhalten bleiben.
+    //: do NOT close the dialog beforehand - only after a successful start (see below).
+    // On a server error it stays open and shows the message inline, so the
+    // input already entered is preserved.
     // Disable run button and start execution
     runButton.disabled = true;
     runButton.innerHTML = `<span class="spinner"></span> ${t("job.executingBtn")}`;
     
-    // Prepare variables payload (#E: ausfaktorisiert -> byte-gleich zum Preset-Speichern).
+    // Prepare variables payload (#E: factored out -> byte-identical to the preset save).
     const variables = collectModalVariables(baseDir);
     
     const payload = {
@@ -3453,8 +3442,8 @@ async function handleModalSubmit() {
         session_id: sessionId,
         variables: variables
     };
-    // : Preset-Ausfuehrung -> der Server loest Playbooks/Variablen/Gruppe auf und
-    // erzwingt Berechtigung (strict/flexible) + Premium-Gate.
+    // : preset execution -> the server resolves playbooks/variables/group and
+    // enforces permission (strict/flexible) + premium gate.
     if (window._activePresetId) {
         payload.custom_preset_id = window._activePresetId;
     }
@@ -3466,7 +3455,7 @@ async function handleModalSubmit() {
         payload.username = username;
         payload.password = password;
     }
-    //: optionales Sudo-/Become-Passwort mitsenden (überschreibt ein am Gerät hinterlegtes).
+    //: send an optional sudo/become password (overrides one stored on the device).
     const becomeEl = document.getElementById("modal-become-password");
     if (becomeEl && becomeEl.value) {
         payload.become_password = becomeEl.value;
@@ -3486,11 +3475,11 @@ async function handleModalSubmit() {
         }
         
         const result = await response.json();
-        //  (#E): "Als Preset speichern" angehakt -> Run-Konfiguration zusaetzlich als Preset sichern.
-        //  (Community): in der Community-Edition nie speichern (Controls dort ausgeblendet).
+        //  (#E): "Save as preset" ticked -> also save the run configuration as a preset.
+        //  (Community): never save in the Community edition (the controls are hidden there).
         const _savePresetCb = document.getElementById("modal-save-preset-cb");
         if (currentEdition !== "community" && _savePresetCb && _savePresetCb.checked) { await saveModalPreset({ silent: true }); }
-        hideCredentialsModal();   //: erst nach erfolgreichem Start schliessen
+        hideCredentialsModal();   //: only close after a successful start
         showToast(t("job.queued"));
         
         // Temporarily enable history button immediately since a job is created
@@ -3507,12 +3496,12 @@ async function handleModalSubmit() {
 
         // Refresh history immediately
         await refreshHistory();
-        //: Falls die Poll-Schleife nach einem Logout pausiert wurde, hier wieder
-        // anstossen, damit auch ein anonymer Lauf live verfolgt werden kann. Idempotent.
+        //: if the poll loop was paused after a logout, restart it
+        // here, so that an anonymous run can also be followed live. Idempotent.
         startHistoryPolling();
     } catch (err) {
-        //: Fehler NUR im weiterhin offenen Dialog anzeigen (kein zusaetzlicher Toast;
-        // Eingaben bleiben erhalten). Toast nur als Fallback, falls das Element fehlt.
+        //: show the error ONLY in the still-open dialog (no additional toast;
+        // input is preserved). Toast only as a fallback if the element is missing.
         if (modalErrEl) { modalErrEl.textContent = err.message; modalErrEl.classList.remove("hidden"); }
         else { showToast(err.message); }
     } finally {
@@ -3521,8 +3510,8 @@ async function handleModalSubmit() {
     }
 }
 
-//: Läuft der Job noch? Entscheidet, ob ein beendeter Log-Stream als "fertig" gilt oder
-// ein vorzeitiger Abbruch war, der einen Reconnect erfordert.
+//: is the job still running? Decides whether an ended log stream counts as "finished" or
+// was a premature abort that requires a reconnect.
 async function jobIsActive(jobId) {
     try {
         const r = await fetch(`/api/jobs/${encodeURIComponent(jobId)}?session_id=${encodeURIComponent(sessionId)}`);
@@ -3535,9 +3524,9 @@ async function jobIsActive(jobId) {
 }
 
 // Stream logs in real-time from server using ReadableStream.
-//: robust gegen Verbindungsabbrüche – Server sendet Heartbeats (NUL-Bytes) gegen den
-// Idle-Timeout von Proxys/Browser; der Client filtert diese heraus und reconnectet bei einem
-// Abbruch automatisch ab dem zuletzt gelesenen Byte-Offset (kein Duplikat, keine Lücke).
+//: robust against connection drops – the server sends heartbeats (NUL bytes) against the
+// idle timeout of proxies/browser; the client filters them out and reconnects on a
+// drop automatically from the last read byte offset (no duplicate, no gap).
 async function streamLogs(jobId) {
     if (currentlyStreamingJobId === jobId && logController) {
         return; // Already streaming this job!
@@ -3555,10 +3544,10 @@ async function streamLogs(jobId) {
     activeJobIdBadge.textContent = jobId;
     consoleOutput.textContent = "";
     copyLogsBtn.disabled = true;
-    logUserScrolledUp = false; //: neuer Stream -> wieder am Ende verankern
+    logUserScrolledUp = false; //: new stream -> anchor at the end again
 
-    //: Scroll-Listener einmalig anhängen – pausiert Auto-Scroll, sobald der Nutzer
-    // hochscrollt, und nimmt es wieder auf, sobald er zurück ans Ende scrollt.
+    //: attach the scroll listener once – pauses auto-scroll as soon as the user
+    // scrolls up, and resumes it as soon as they scroll back to the end.
     if (!logScrollListenerAttached) {
         consoleOutput.addEventListener("scroll", () => {
             const atBottom = consoleOutput.scrollTop + consoleOutput.clientHeight >= consoleOutput.scrollHeight - 24;
@@ -3567,9 +3556,9 @@ async function streamLogs(jobId) {
         logScrollListenerAttached = true;
     }
 
-    // bytesReceived zählt NUR echte Logdatei-Bytes (Heartbeat-NULs werden herausgefiltert und
-    // NICHT mitgezählt) -> der Server macht nach einem Reconnect exakt an der richtigen Stelle
-    // weiter. attempt begrenzt Endlos-Reconnects, wird bei echtem Fortschritt zurückgesetzt.
+    // bytesReceived counts ONLY real log-file bytes (heartbeat NULs are filtered out and
+    // NOT counted) -> after a reconnect the server picks up again at exactly the right
+    // place. attempt limits endless reconnects and is reset on real progress.
     let bytesReceived = 0;
     let attempt = 0;
 
@@ -3577,7 +3566,7 @@ async function streamLogs(jobId) {
         const chunk = decoder.decode(bytes, { stream: !done });
         if (!chunk) return;
         consoleOutput.textContent += chunk;
-        //: Auto-Scroll nur, wenn aktiviert UND der Nutzer nicht selbst hochgescrollt hat.
+        //: auto-scroll only when enabled AND the user hasn't scrolled up themselves.
         if (autoscrollBtn.classList.contains("active") && !logUserScrolledUp) {
             requestAnimationFrame(() => {
                 consoleOutput.scrollTop = consoleOutput.scrollHeight;
@@ -3590,13 +3579,13 @@ async function streamLogs(jobId) {
         const decoder = new TextDecoder("utf-8");
         let cleanEof = false;
         try {
-            // : session_id mitsenden, damit anonyme Betrachter ihren EIGENEN anonymen
-            // Lauf sehen.: offset = bereits gelesene Logdatei-Bytes (Reconnect-Resume).
+            // : send session_id along, so anonymous viewers see their OWN anonymous
+            // run.: offset = log-file bytes already read (reconnect resume).
             const url = `/api/jobs/${encodeURIComponent(jobId)}/logs?session_id=${encodeURIComponent(sessionId)}&offset=${bytesReceived}`;
             const response = await fetch(url, { signal: myController.signal });
 
             if (!response.ok) {
-                // 404/403 sind endgültig -> nicht reconnecten.
+                // 404/403 are final -> don't reconnect.
                 if (response.status === 404 || response.status === 403) {
                     if (bytesReceived === 0) consoleOutput.textContent += `\n[${t("job.logUnavailable")}]`;
                     return;
@@ -3611,14 +3600,14 @@ async function streamLogs(jobId) {
                 const { value, done: readerDone } = await reader.read();
                 done = readerDone;
                 if (value && value.length) {
-                    //: Heartbeat-NUL-Bytes herausfiltern (Anzeige) und von der Offset-Zählung
-                    // ausnehmen, damit der Reconnect-Offset exakt der Logdatei-Position entspricht.
+                    //: filter out heartbeat NUL bytes (for display) and exclude them from the offset count,
+                    // so the reconnect offset matches the log-file position exactly.
                     let hasNul = false;
                     for (let i = 0; i < value.length; i++) { if (value[i] === 0) { hasNul = true; break; } }
                     const bytes = hasNul ? value.filter(b => b !== 0) : value;
                     if (bytes.length) {
                         bytesReceived += bytes.length;
-                        attempt = 0; // echter Fortschritt -> Reconnect-Zähler zurücksetzen
+                        attempt = 0; // real progress -> reset the reconnect counter
                         appendChunk(bytes, decoder, done);
                     }
                 }
@@ -3628,15 +3617,15 @@ async function streamLogs(jobId) {
             if (err.name === 'AbortError' || myController.signal.aborted) {
                 return; // Clean cancellation when switching logs
             }
-            // sonst: Netzwerkabbruch -> unten reconnecten
+            // otherwise: network drop -> reconnect below
         }
 
         if (myController.signal.aborted || currentlyStreamingJobId !== jobId) return;
 
-        // Sauberes Stream-Ende: der Server beendet den Stream nur, wenn der Job fertig ist. Läuft
-        // der Job laut Status noch, hat vermutlich ein Proxy die Verbindung geschlossen -> reconnect.
+        // Clean stream end: the server ends the stream only when the job is finished. If
+        // the job is still running per its status, a proxy probably closed the connection -> reconnect.
         if (cleanEof && !(await jobIsActive(jobId))) {
-            return; // Job fertig, Log vollständig
+            return; // job finished, log complete
         }
 
         attempt++;
@@ -3650,16 +3639,16 @@ async function streamLogs(jobId) {
 
 // Poll history list
 async function startHistoryPolling() {
-    //: Idempotent - eine zweite Schleife wuerde /api/jobs doppelt feuern.
+    //: idempotent - a second loop would fire /api/jobs twice.
     if (pollingActive) return;
     pollingActive = true;
     async function poll() {
         await refreshHistory();
 
-        //: Nach dem Logout (kein eingeloggter User) und ohne eigene Jobs/aktiven
-        // Log-Stream gibt es nichts zu pollen -> Schleife anhalten statt endlos
-        // /api/jobs?session_id=... zu feuern. Re-Arm erfolgt bei Login (checkAuthStatus)
-        // bzw. beim Starten eines neuen Laufs (handleRun).
+        //: after logout (no logged-in user) and without own jobs/an active
+        // log stream there is nothing to poll -> stop the loop instead of endlessly
+        // firing /api/jobs?session_id=.... Re-arm happens on login (checkAuthStatus)
+        // or when starting a new run (handleRun).
         if (!currentUser && allJobs.length === 0 && !logController) {
             pollingActive = false;
             pollTimeout = null;
@@ -3675,8 +3664,8 @@ async function startHistoryPolling() {
     await poll();
 }
 
-//: Polling hart stoppen (Logout). clearTimeout + Flag zuruecksetzen, damit ein
-// spaeteres startHistoryPolling() wieder anlaeuft.
+//: stop polling hard (logout). clearTimeout + reset the flag, so a
+// later startHistoryPolling() starts up again.
 function stopHistoryPolling() {
     if (pollTimeout) {
         clearTimeout(pollTimeout);
@@ -3698,28 +3687,28 @@ async function refreshHistory() {
     }
 }
 
-//: Ausführungsreihenfolge spiegelt _playbook_order_rank im Backend (install-* vor
-// create-stack-*), damit die Kachel-Reihenfolge exakt der tatsächlichen Ausführung entspricht.
+//: the execution order mirrors _playbook_order_rank in the backend (install-* before
+// create-stack-*), so the tile order matches the actual execution exactly.
 function playbookOrderRank(pb) {
     const base = String(pb || "").split("/").pop();
-    //: Paketmanager-Voraussetzungen (Docker, Flatpak) sind selbst install-* Playbooks,
-    // laufen aber VOR den uebrigen install-* (install-flatpak vor den Flatpak-Apps) -> Stufe 0.
+    //: package-manager prerequisites (Docker, Flatpak) are themselves install-* playbooks,
+    // but run BEFORE the other install-* (install-flatpak before the Flatpak apps) -> stage 0.
     if (base === "install-docker.yml" || base === "install-flatpak.yml") return 0;
     if (base.startsWith("install-")) return 1;
     if (base.startsWith("create-stack-")) return 3;
     return 2;
 }
 
-//: schöner Anzeigename für eine Kachel (Pfad/Präfix/Endung weg, Trenner -> Leerzeichen).
+//: nice display name for a tile (path/prefix/extension removed, separators -> spaces).
 function playbookDisplayName(pb) {
     let base = String(pb || "").split("/").pop().replace(/\.ya?ml$/i, "");
     base = base.replace(/^install-/, "").replace(/^create-stack-/, "");
     return base.replace(/[-_]+/g, " ").trim() || base;
 }
 
-//: Status je Playbook aus Job-Status + progress.finished ableiten (konsistent mit der
-// Fortschrittsanzeige, die dieselbe finished-Zählung nutzt). finished = abgeschlossene Plays;
-// das finished-te (0-basiert) Playbook läuft gerade / ist bei Fehler das gescheiterte.
+//: derive per-playbook status from job status + progress.finished (consistent with the
+// progress display, which uses the same finished count). finished = completed plays;
+// the finished-th (0-based) playbook is currently running / is the failed one on error.
 function deriveTileStatuses(job) {
     const pbs = [...(job.playbooks || [])].sort((a, b) => playbookOrderRank(a) - playbookOrderRank(b));
     const prog = job.progress || { finished: 0, total: pbs.length, percent: 0 };
@@ -3739,7 +3728,7 @@ function deriveTileStatuses(job) {
 
 const FLOW_STATUS_ICON = { pending: "schedule", executing: "sync", success: "check_circle", error: "error", canceled: "cancel" };
 
-//: Flow-Chart der Playbooks des ausgewählten Jobs rendern (Kacheln + Verbindungspfeile).
+//: render the flow chart of the selected job's playbooks (tiles + connector arrows).
 function renderFlowchart(job) {
     const view = document.getElementById("flowchart-view");
     if (!view) return;
@@ -3761,8 +3750,8 @@ function renderFlowchart(job) {
         const icon = document.createElement("span");
         icon.className = "flow-tile-icon material-symbols-outlined";
         icon.textContent = FLOW_STATUS_ICON[t.status] || "schedule";
-        //: zugehöriges Service-Icon des Playbooks vor dem Namen anzeigen (Logo bzw.
-        // Material-Icon aus den Playbook-Metadaten; Fallback in playbookIconHtml).
+        //: show the playbook's associated service icon before the name (logo or
+        // Material icon from the playbook metadata; fallback in playbookIconHtml).
         const svcMeta = playbookMetadataMap[t.playbook] || playbookMetadataMap[String(t.playbook).split("/").pop()] || {};
         const svcIcon = document.createElement("span");
         svcIcon.className = "flow-tile-service-icon";
@@ -3780,7 +3769,7 @@ function renderFlowchart(job) {
     view.appendChild(frag);
 }
 
-//: aktive Ansicht (Kacheln vs. Text-Log) anwenden + Umschalt-Button-Icon/Titel aktualisieren.
+//: apply the active view (tiles vs. text log) + update the toggle button icon/title.
 function applyJobViewMode() {
     const flow = document.getElementById("flowchart-view");
     const log = document.getElementById("console-output");
@@ -3797,7 +3786,7 @@ function applyJobViewMode() {
 
 function updateConsoleProgressBar() {
     const activeJob = allJobs.find(j => j.job_id === selectedJobId);
-    renderFlowchart(activeJob);   //: Kachel-Ansicht bei jedem Refresh aktualisieren (Echtzeit-Status).
+    renderFlowchart(activeJob);   //: update the tile view on every refresh (real-time status).
     const consoleJobProgress = document.getElementById("console-job-progress");
     if (activeJob && consoleJobProgress) {
         consoleJobProgress.classList.remove("hidden");
@@ -3821,14 +3810,14 @@ function updateConsoleProgressBar() {
         consoleJobProgress.classList.add("hidden");
     }
 
-    // : Abbrechen-Button nur bei laufender/wartender Auswahl zeigen (auch beim Job-Wechsel).
+    // : show the cancel button only for a running/waiting selection (also on job switch).
     const cancelBtn = document.getElementById("cancel-job-btn");
     if (cancelBtn) {
         cancelBtn.style.display = (activeJob && (activeJob.status === "running" || activeJob.status === "pending")) ? "" : "none";
     }
 }
 
-// : Laufende oder wartende Ausführung abbrechen (mit Bestätigung).
+// : abort a running or waiting run (with confirmation).
 async function cancelJob(jobId) {
     if (!jobId) return;
     const ok = await showConfirmDialog({
@@ -3852,7 +3841,7 @@ async function cancelJob(jobId) {
     }
 }
 
-// : Host-Tab schließen; Fokus auf den vorherigen (sonst nächsten) sichtbaren Tab legen.
+// : close the host tab; move focus to the previous (otherwise next) visible tab.
 function closeHostTab(host) {
     const visible = [...new Set(allJobs.map(j => j.target_host))].filter(h => !closedHosts.has(h));
     const idx = visible.indexOf(host);
@@ -3895,11 +3884,11 @@ function updateUI() {
     }
     
     // Set default active tab if none is active.
-    //: nur auf "configure" zurueckspringen, wenn KEINE gueltige Hauptseite aktiv ist.
-    // Frueher kannte der Guard nur configure/history -> der History-Poll riss Nutzer von
-    // /admin, /custom-playbooks und Rechtsseiten zurueck auf "/".
-    //: /teams und /pricing waren ebenfalls nicht gelistet -> der Poll warf Nutzer
-    // nach wenigen Sekunden von diesen Seiten zurueck auf die Startseite.
+    //: only jump back to "configure" when NO valid main page is active.
+    // Previously the guard only knew configure/history -> the history poll pulled users away from
+    // /admin, /custom-playbooks and legal pages back to "/".
+    //: /teams and /pricing were also not listed -> the poll threw users
+    // off these pages back to the home page after a few seconds.
     const activeMainTabs = ["tab-configure", "tab-history", "tab-vault", "tab-admin", "tab-legal", "tab-teams", "tab-pricing"];
     if (!activeMainTabs.some(c => document.body.classList.contains(c))) {
         setTab("configure");
@@ -3908,8 +3897,8 @@ function updateUI() {
     // Extract unique hosts
     const hosts = [...new Set(allJobs.map(j => j.target_host))];
 
-    // : vom Nutzer geschlossene Host-Tabs ausblenden (rein clientseitig, sitzungsweit).
-    // Verschwundene Hosts vergessen; ein NEUER Lauf für einen geschlossenen Host blendet ihn wieder ein.
+    // : hide host tabs closed by the user (purely client-side, session-wide).
+    // Forget vanished hosts; a NEW run for a closed host shows it again.
     for (const h of [...closedHosts]) {
         if (!hosts.includes(h)) closedHosts.delete(h);
     }
@@ -3920,7 +3909,7 @@ function updateUI() {
     const visibleHosts = hosts.filter(h => !closedHosts.has(h));
 
     if (visibleHosts.length === 0) {
-        // Alle Tabs geschlossen -> leerer Arbeitsbereich (Aktualisieren oder ein neuer Lauf bringt sie zurück).
+        // All tabs closed -> empty workspace (refreshing or a new run brings them back).
         tabsBar.innerHTML = "";
         hostHistoryList.innerHTML = "";
         if (logController) { logController.abort(); logController = null; }
@@ -3964,13 +3953,13 @@ function updateUI() {
             updateUI();
         });
 
-        // : X schließt den Host-Tab (nicht den Tab-Wechsel auslösen).
+        // : X closes the host tab (don't trigger the tab switch).
         const closeIcon = tabBtn.querySelector(".tab-close");
         if (closeIcon) {
             closeIcon.addEventListener("click", async (e) => {
                 e.stopPropagation();
-                // : Schließen bestätigen – der Tab-Fokus geht verloren (der Lauf kann im
-                // Hintergrund weiterlaufen), das lässt sich nicht rückgängig machen.
+                // : confirm closing – the tab focus is lost (the run may keep running in the
+                // background), and this cannot be undone.
                 const ok = await showConfirmDialog({
                     title: t("job.closeTabTitle"),
                     message: t("job.closeTabMsg"),
@@ -4083,7 +4072,7 @@ function updateUI() {
             ${progressHtml}
         `;
 
-        // : per-Zeile abbrechen (laufende/wartende Jobs) – ohne den Job nur auszuwählen.
+        // : cancel per row (running/waiting jobs) – without merely selecting the job.
         const rowCancelBtn = item.querySelector(".history-cancel-btn");
         if (rowCancelBtn) {
             rowCancelBtn.addEventListener("click", (e) => {
@@ -4110,8 +4099,8 @@ function updateUI() {
 
 // Global Toast Display Helper
 let toastTimeout = null;
-// Wandelt ein FastAPI-`detail` (String, ODER 422-Liste [{msg,loc}], ODER Objekt) in einen
-// lesbaren Text um - verhindert das fruehere "[object Object]" bei Validierungsfehlern.
+// Turns a FastAPI `detail` (string, OR a 422 list [{msg,loc}], OR an object) into a
+// readable text - prevents the earlier "[object Object]" on validation errors.
 function errorDetailToMessage(detail, fallback) {
     if (detail === undefined || detail === null || detail === "") return fallback;
     if (typeof detail === "string") return detail;
@@ -4140,17 +4129,17 @@ let userDevices = [];
 let loginEmail = "";
 
 async function checkAuthStatus() {
-    //: Ohne JS-lesbares Begleit-Cookie (as_auth) existiert garantiert keine Sitzung ->
-    // den /api/profile-Call (fuer Anonyme immer 401) ueberspringen und direkt den
-    // Gast-Zustand setzen. Spart einen ueberfluessigen, fehlschlagenden Request beim Laden.
+    //: without a JS-readable companion cookie (as_auth) there is guaranteed to be no session ->
+    // skip the /api/profile call (always 401 for anonymous users) and set the
+    // guest state directly. Saves a superfluous, failing request on load.
     const hasSession = document.cookie.split(";").some(c => c.trim().startsWith("as_auth="));
     if (hasSession) {
         try {
             const response = await fetch("/api/profile");
             if (response.ok) {
                 currentUser = await response.json();
-                // : Serversprache uebernehmen (falls gesetzt) + Nutzer als
-                // eingeloggt markieren, damit spaetere Wechsel serverseitig persistieren.
+                // : take over the server language (if set) + mark the user as
+                // logged in, so later switches persist server-side.
                 applyServerLanguage(currentUser.language);
                 updateAuthUI();
                 await fetchDevices();
@@ -4170,13 +4159,13 @@ async function checkAuthStatus() {
         setLoggedIn(false);
         updateAuthUI();
     }
-    // Playbook-/Preset-Katalog haengt von Login/Rolle ab -> bei Auth-Wechsel neu laden
-    // : unabhängig laden — ein Fehler in fetchPresets darf fetchPlaybooks (und damit die
-    // eigenen Preset-Kacheln) NICHT überspringen, sonst erscheinen sie erst nach einem Reload.
+    // The playbook/preset catalog depends on login/role -> reload on auth change
+    // : load independently — an error in fetchPresets must not skip fetchPlaybooks (and thus the
+    // own preset tiles), otherwise they only appear after a reload.
     try { await fetchPresets(); } catch (e) { console.warn("Preset-Reload nach Auth-Wechsel fehlgeschlagen:", e); }
     try { await fetchPlaybooks(); } catch (e) { console.warn("Playbook-Reload nach Auth-Wechsel fehlgeschlagen:", e); }
-    //: Nach Login die (ggf. nach einem vorherigen Logout pausierte) Poll-Schleife
-    // wieder anstossen, damit die Jobs des Users live aktualisiert werden. Idempotent.
+    //: after login, restart the poll loop (possibly paused after a previous logout)
+    // again, so the user's jobs are updated live. Idempotent.
     startHistoryPolling();
 }
 
@@ -4187,8 +4176,8 @@ function updateAuthUI() {
     const btnHistory = document.getElementById("nav-btn-history");
     const deviceSelectContainer = document.getElementById("modal-device-select-container");
 
-    //: Das Header-Sprachauswahl-Icon ist nur fuer nicht-eingeloggte Besucher gedacht;
-    // eingeloggte Nutzer stellen die Sprache ausschliesslich ueber die Profileinstellungen um.
+    //: the header language-selection icon is intended only for logged-out visitors;
+    // logged-in users change the language exclusively via the profile settings.
     const langWrap = document.querySelector(".lang-switch-wrap");
     if (langWrap) langWrap.classList.toggle("hidden", !!currentUser);
 
@@ -4196,7 +4185,7 @@ function updateAuthUI() {
         loggedOutView.classList.add("hidden");
         loggedInView.classList.remove("hidden");
         userDisplayName.textContent = currentUser.username;
-        // Logs-Button nur aktiv, wenn Jobs/Logs existieren (updateUI ist die Autoritaet).
+        // Logs button active only when jobs/logs exist (updateUI is the authority).
         if (btnHistory) btnHistory.disabled = !(allJobs && allJobs.length > 0);
         if (deviceSelectContainer) deviceSelectContainer.classList.remove("hidden");
         
@@ -4212,13 +4201,13 @@ function updateAuthUI() {
         // Pre-fill profile update fields
         const unameField = document.getElementById("profile-update-username");
         unameField.value = currentUser.username;
-        // : Benutzername ist unveraenderlich – nur System-Admins duerfen den
-        // eigenen Namen aendern. Fuer alle anderen ist das Feld schreibgeschuetzt.
+        // : the username is immutable – only system admins may change
+        // their own name. For everyone else the field is read-only.
         const unameImmutable = currentUser.role !== "admin";
         unameField.readOnly = unameImmutable;
         unameField.title = unameImmutable ? t("prof.usernameImmutableHint") : "";
         unameField.style.opacity = unameImmutable ? "0.6" : "";
-        // : Webhook-URL vorbelegen.
+        // : prefill the webhook URL.
         const webhookField = document.getElementById("profile-webhook-url");
         if (webhookField) webhookField.value = currentUser.webhook_url || "";
         document.getElementById("profile-update-email").value = currentUser.email;
@@ -4291,8 +4280,8 @@ function updateAuthUI() {
             }
         }
 
-        // Fetch user invoices (Gaeste haben keinen Rechnungsverlauf)
-        // Rechnungen nur in der Cloud-Edition abrufen (sonst /api/billing/* = 404).
+        // Fetch user invoices (guests have no invoice history)
+        // Fetch invoices only in the cloud edition (otherwise /api/billing/* = 404).
         if (currentUser.role !== "guest" && currentEdition === "cloud") fetchInvoices();
 
         // Show/hide admin panel button based on role
@@ -4305,30 +4294,30 @@ function updateAuthUI() {
             }
         }
 
-        //  (#A): "My Vault"-Nav-Button fuer eingeloggte Nicht-Gaeste (vereint Eigene Playbooks
-        // + Geräte + Presets). Login-only — KEIN Abo-Zwang mehr; das Abo wird pro Tab/Endpoint
-        // erzwungen (z. B. Custom-Upload, Preset-Erstellung), nicht durch Ausblenden des Vaults.
+        //  (#A): "My Vault" nav button for logged-in non-guests (unifies own playbooks
+        // + devices + presets). Login-only — NO subscription requirement anymore; the subscription is enforced per tab/endpoint
+        // (e.g. custom upload, preset creation), not by hiding the vault.
         const vaultBtn = document.getElementById("nav-btn-vault");
         if (vaultBtn) {
             vaultBtn.classList.toggle("hidden", currentUser.role === "guest");
             vaultBtn.removeAttribute("disabled");
             vaultBtn.title = "";
         }
-        // : Der Subtext "oder als Preset speichern" unter dem Ausführen-Button wurde
-        // entfernt (Element gelöscht), daher hier keine Sichtbarkeits-Steuerung mehr.
+        // : the subtext "or save as preset" under the run button was
+        // removed (element deleted), so there is no visibility control here anymore.
 
-        ///: "Teams"-Nav-Button für registrierte Nutzer UND Admins (nicht Gast,
-        // nicht ausgeloggt). In der On-Premise-Edition sind Teams-Funktionen deaktiviert.
+        ///: "Teams" nav button for registered users AND admins (not guest,
+        // not logged out). In the On-Premise edition, teams features are disabled.
         const teamsBtn = document.getElementById("nav-btn-teams");
         if (teamsBtn) {
             const showTeams = currentUser.role !== "guest" && currentEdition !== "onpremise";
             teamsBtn.classList.toggle("hidden", !showTeams);
         }
 
-        // /: Die frühere separate "Geräte"-Nav (nav-btn-devices) ist im "My Vault"-Tab
-        // aufgegangen (Geräte = Vault-Tab; siehe vaultBtn oben). Kein eigener Nav-Button mehr.
+        // /: the former separate "Devices" nav (nav-btn-devices) has merged into the "My Vault" tab
+        // (devices = vault tab; see vaultBtn above). No dedicated nav button anymore.
 
-        // Show/hide deletion warning (cloud-only : profile-delete-section in Community gestrippt -> null-sicher)
+        // Show/hide deletion warning (cloud-only : profile-delete-section stripped in Community -> null-safe)
         const delStatusCard = document.getElementById("deletion-queue-status");
         if (delStatusCard) {
             delStatusCard.classList.toggle("hidden", !currentUser.deletion_pending_at);
@@ -4360,29 +4349,29 @@ function updateAuthUI() {
             fetchTokens();
         }
 
-        // --- Rollenabhaengige Profil-Sichtbarkeit (Issue D) ---
+        // --- Role-dependent profile visibility (Issue D) ---
         const isGuest = currentUser.role === "guest";
         const isAdmin = currentUser.role === "admin";
         const setDisplay = (id, show, showVal) => {
             const el = document.getElementById(id);
             if (el) el.style.display = show ? (showVal || "") : "none";
         };
-        // Business-Tabs nur fuer normale Nutzer (nicht Gast, nicht Admin)
+        // Business tabs only for regular users (not guest, not admin)
         const showBusinessTabs = !isGuest && !isAdmin;
         setDisplay("ptab-rechnungen", showBusinessTabs);
         setDisplay("ptab-teams", showBusinessTabs);
-        // : "Geräte-Gruppen"-Profil-Tab entfernt -> eigene Seite /devices (Nav-Button).
-        // : API-Token-Tab auch für den System-Admin (passwortlose Tokens für Bots/CI in
-        // jeder Edition; Backend erlaubt Admin-Tokens). Gäste sehen ihn weiterhin nicht.
+        // : "Device groups" profile tab removed -> dedicated page /devices (nav button).
+        // : API token tab also for the system admin (passwordless tokens for bots/CI in
+        // every edition; the backend allows admin tokens). Guests still don't see it.
         setDisplay("ptab-api", !isGuest);
         setDisplay("ptab-dsgvo", showBusinessTabs);
-        // Startseite: Gast kann Benutzername/E-Mail nicht aendern; kein Abo-Tier/Datum
+        // Home: a guest cannot change username/email; no subscription tier/date
         setDisplay("profile-identity-section", !isGuest);
         setDisplay("profile-tier-row", !isGuest && !isAdmin);
         setDisplay("profile-date-row", !isGuest);
-        // Sicherheit: weder Gast noch Admin koennen sich selbst loeschen
+        // Security: neither a guest nor an admin can delete themselves
         setDisplay("profile-delete-section", !isGuest && !isAdmin);
-        // Falls ein ausgeblendeter Tab aktiv war, zurueck auf Startseite
+        // If a hidden tab was active, go back to the home page
         const activeTabBtn = document.querySelector(".profile-tab-btn.active");
         if (activeTabBtn && activeTabBtn.style.display === "none") {
             switchProfileTab("startseite");
@@ -4415,7 +4404,7 @@ function updateAuthUI() {
         if (vaultBtnOut) vaultBtnOut.classList.add("hidden");
         const runPresetHintOut = document.getElementById("run-preset-hint");
         if (runPresetHintOut) runPresetHintOut.classList.add("hidden");
-        //: Teams-Nav fuer ausgeloggte Besucher ausblenden.
+        //: hide the Teams nav for logged-out visitors.
         const teamsBtnOut = document.getElementById("nav-btn-teams");
         if (teamsBtnOut) teamsBtnOut.classList.add("hidden");
 
@@ -4425,21 +4414,21 @@ function updateAuthUI() {
         modalPasswordInput.disabled = false;
 
         // Fallback to configure tab if an auth-gated page is active after logout.
-        //: tab-admin ergaenzt (Admin-Seite ist gesperrt). tab-legal bewusst NICHT,
-        // da Rechtsseiten oeffentlich sind - sonst wuerden anonyme Besucher von /impressum
-        // & Co. auf "/" geworfen.
+        //: tab-admin added (the admin page is locked). tab-legal deliberately NOT,
+        // since legal pages are public - otherwise anonymous visitors would be thrown from /impressum
+        // & co. to "/".
         if (["tab-history", "tab-vault", "tab-admin", "tab-teams"].some(c => document.body.classList.contains(c))) {
             setTab("configure");
         }
     }
 
-    //: editionsspezifische UI-Regeln nach jedem Auth-/UI-Refresh anwenden.
+    //: apply edition-specific UI rules after every auth/UI refresh.
     applyEditionRules();
-    writeAuthCache(); //: Auth-Status cachen, um Nav-Button-Flackern beim Neuladen zu vermeiden
+    writeAuthCache(); //: cache the auth status to avoid nav-button flicker on reload
 }
 
-//: Leichter Auth-Cache, um den "Eigene Playbooks"-Nav-Button beim Neuladen sofort
-// (synchron) korrekt ein-/auszublenden, statt erst nach dem asynchronen /api/profile-Check.
+//: lightweight auth cache to show/hide the "Own playbooks" nav button immediately
+// (synchronously) on reload, instead of only after the asynchronous /api/profile check.
 const AUTH_CACHE_KEY = "ansimate_auth_cache";
 function writeAuthCache() {
     try {
@@ -4448,16 +4437,16 @@ function writeAuthCache() {
                 loggedIn: true,
                 role: currentUser.role,
                 subActive: !!currentUser.is_subscription_active,
-                edition: currentEdition,  //: Edition mitfuehren (Community blendet den Tab immer aus)
+                edition: currentEdition,  //: carry the edition along (Community always hides the tab)
             }));
         } else {
             localStorage.removeItem(AUTH_CACHE_KEY);
         }
-    } catch (e) { /* localStorage nicht verfuegbar -> kein Cache, nur (seltenes) Flackern */ }
+    } catch (e) { /* localStorage unavailable -> no cache, only (rare) flicker */ }
 }
 function applyCachedNavVisibility() {
-    //: Header-Sprachumschalter schon im Cache-Pfad ausblenden, wenn "eingeloggt" gecacht ist
-    // (kein Flackern beim Reload; die autoritative Entscheidung trifft updateAuthUI).
+    //: hide the header language switcher already in the cache path when "logged in" is cached
+    // (no flicker on reload; updateAuthUI makes the authoritative decision).
     try {
         const c = JSON.parse(localStorage.getItem(AUTH_CACHE_KEY) || "null");
         const lw = document.querySelector(".lang-switch-wrap");
@@ -4467,9 +4456,9 @@ function applyCachedNavVisibility() {
     if (!btn) return;
     let cache = null;
     try { cache = JSON.parse(localStorage.getItem(AUTH_CACHE_KEY) || "null"); } catch (e) {}
-    if (!cache) return; // kein Cache -> Default (hidden) beibehalten, async-Check entscheidet
-    //  (#A): "My Vault" ist login-only.
-    //: Auch in der Community-Edition sichtbar (eingeschraenkt) -> Edition nicht mehr ausschliessen.
+    if (!cache) return; // no cache -> keep the default (hidden), the async check decides
+    //  (#A): "My Vault" is login-only.
+    //: visible in the Community edition too (restricted) -> no longer exclude the edition.
     const showVault = cache.loggedIn && cache.role !== "guest";
     btn.classList.toggle("hidden", !showVault);
 }
@@ -4584,13 +4573,13 @@ async function handleLoginSubmit(e) {
             document.getElementById("login-dialog").classList.add("hidden");
             document.getElementById("login-form").reset();
             showToast(t("auth.loginSuccess"));
-            // : Login von der Wartungsseite aus -> neu laden, damit das Gate neu
-            // greift (Admin -> bypass/App, Nicht-Admin -> bleibt auf der Wartungsseite).
+            // : login from the maintenance page -> reload, so the gate takes
+            // effect again (admin -> bypass/app, non-admin -> stays on the maintenance page).
             const mov = document.getElementById("maintenance-overlay");
             if (mov && !mov.classList.contains("hidden")) { window.location.reload(); return; }
             await checkAuthStatus();
         } else if (response.status === 403 && data.detail && data.detail.includes("bestaetigen")) {
-            // E-Mail nicht verifiziert: Bestaetigungsmail erneut anbieten
+            // Email not verified: offer to resend the confirmation email
             showToast(errorDetailToMessage(data.detail, t("auth.actionFailed")));
             if ((await showConfirmDialog({ title: t("auth.confirmEmailTitle"), message: t("auth.confirmEmailResendMsg"), confirmLabel: t("auth.resend") }))) {
                 try {
@@ -4664,8 +4653,8 @@ function enableModalDismiss(dialogId, closeFn) {
     });
 }
 
-// : ESC/Backdrop-Schließen für Admin-Formular-Dialoge MIT Dirty-Warnung. Eingaben
-// markieren den Dialog als „dirty"; das jeweilige open*-Dialog setzt dataset.dirty zurück.
+// : ESC/backdrop close for admin form dialogs WITH a dirty warning. Input
+// marks the dialog as "dirty"; each open* dialog resets dataset.dirty.
 function enableAdminDialogDismiss(dialogId, closeFn) {
     const dlg = document.getElementById(dialogId);
     if (!dlg) return;
@@ -4908,7 +4897,7 @@ async function handleRegisterSubmit(e) {
     const captchaId = captchaRequired ? document.getElementById("register-captcha-id").value : null;
     const captchaAnswer = captchaRequired ? document.getElementById("register-captcha-answer").value.trim() : null;
 
-    // : Browser-Fingerabdruck erfassen (best effort – null bei Fehlschlag).
+    // : capture the browser fingerprint (best effort – null on failure).
     const browserFingerprint = await computeBrowserFingerprint();
 
     try {
@@ -4930,14 +4919,14 @@ async function handleRegisterSubmit(e) {
         const data = await response.json();
         if (response.ok) {
             closeRegisterModal();
-            // : einmaliger Hinweis, falls auf diesem Geraet bereits eine
-            // Testphase in Anspruch genommen wurde (keine neue Gratis-Probezeit).
+            // : one-time hint if a trial has already been
+            // used on this device (no new free trial period).
             if (data.fingerprint_seen) {
                 showToast(t("auth.registerTrialUsed"), 9000);
             } else {
                 showToast(data.message || t("auth.registerSuccess"));
             }
-            // Bei aktivierter E-Mail-Verifikation NICHT direkt zum Login leiten.
+            // With email verification enabled, do NOT redirect straight to login.
             if (!data.verification_required) {
                 document.getElementById("login-dialog").classList.remove("hidden");
             }
@@ -4949,7 +4938,7 @@ async function handleRegisterSubmit(e) {
     }
 }
 
-// Verarbeitet den E-Mail-Bestaetigungslink (/verify-email?token=...)
+// Handles the email confirmation link (/verify-email?token=...)
 async function handleVerifyEmailFromUrl() {
     if (window.location.pathname !== "/verify-email") return;
     const params = new URLSearchParams(window.location.search);
@@ -4974,9 +4963,9 @@ async function handleVerifyEmailFromUrl() {
     }
 }
 
-//: Nach dem Logout duerfen weder die Job-History weiter gepollt noch die Jobs des
-// abgemeldeten Users angezeigt werden. Polling + aktiven Log-Stream stoppen und den
-// Workspace zurueck in den Landing-Mode versetzen.
+//: after logout, neither the job history may keep being polled nor the jobs of the
+// logged-out user be shown. Stop polling + the active log stream and put the
+// workspace back into landing mode.
 function resetWorkspaceAfterLogout() {
     stopHistoryPolling();
     if (logController) {
@@ -4999,8 +4988,8 @@ async function handleLogout() {
             userDevices = [];
             resetWorkspaceAfterLogout();
             updateAuthUI();
-            //: Katalog/Presets haengen von Login & Rolle ab -> nach Logout neu laden,
-            // sonst bleiben die personalisierten Kacheln des Vorgaengers sichtbar.
+            //: catalog/presets depend on login & role -> reload after logout,
+            // otherwise the previous user's personalized tiles stay visible.
             try { await fetchPresets(); await fetchPlaybooks(); }
             catch (e) { console.warn("Katalog-Reload nach Logout fehlgeschlagen:", e); }
         }
@@ -5020,7 +5009,7 @@ async function handleLogoutAll() {
             userDevices = [];
             resetWorkspaceAfterLogout();
             updateAuthUI();
-            //: Katalog/Presets nach Logout neu laden (Gast-Katalog rendern)
+            //: reload catalog/presets after logout (render the guest catalog)
             try { await fetchPresets(); await fetchPlaybooks(); }
             catch (e) { console.warn("Katalog-Reload nach Logout fehlgeschlagen:", e); }
         }
@@ -5048,7 +5037,7 @@ async function handleNotificationToggle(e) {
     }
 }
 
-// : Webhook-URL fuer Status-Benachrichtigungen speichern.
+// : save the webhook URL for status notifications.
 async function handleWebhookSave() {
     const field = document.getElementById("profile-webhook-url");
     if (!field) return;
@@ -5213,8 +5202,8 @@ function renderDeviceGroupForm(devices, guests, selDevIds, selGuestIds, selPlayb
     }
 }
 
-// : Playbook-Mehrfachauswahl der Szenario-Vorlage rendern. Die Auswahl bleibt
-// beim Filtern erhalten (es werden nur Zeilen ein-/ausgeblendet, nie neu gerendert).
+// : render the playbook multi-selection of the scenario template. The selection stays
+// preserved while filtering (only rows are shown/hidden, never re-rendered).
 function renderDeviceGroupPlaybooks(selPlaybookIds) {
     const pc = document.getElementById("device-group-playbooks");
     if (!pc) return;
@@ -5242,7 +5231,7 @@ function renderDeviceGroupPlaybooks(selPlaybookIds) {
     });
 }
 
-// : Filter fuer die Szenario-Playbook-Liste (blendet nur Zeilen aus).
+// : filter for the scenario playbook list (only hides rows).
 function filterDeviceGroupPlaybooks(term) {
     const q = (term || "").trim().toLowerCase();
     document.querySelectorAll("#device-group-playbooks .dg-pb-row").forEach(row => {
@@ -5250,19 +5239,19 @@ function filterDeviceGroupPlaybooks(term) {
     });
 }
 
-// : Szenario starten - Playbooks der Gruppe im Katalog vorwaehlen, Gruppe als
-// Ziel setzen und das Ausfuehren-Modal oeffnen. Beschleunigt die manuelle Einrichtung.
+// : start a scenario - preselect the group's playbooks in the catalog, set the group as
+// the target and open the run modal. Speeds up manual setup.
 function launchGroupScenario(g) {
     const ids = (g && g.default_playbook_ids) || [];
     if (!ids.length) {
         showToast("Diese Gruppe hat keine Szenario-Playbooks hinterlegt.");
         return;
     }
-    // Profil-Dialog schliessen und zur Startseite wechseln (dort liegt der Katalog).
+    // Close the profile dialog and switch to the home page (that's where the catalog is).
     const profileDialog = document.getElementById("profile-dialog");
     if (profileDialog && typeof profileDialog.close === "function" && profileDialog.open) profileDialog.close();
     navigateTo("/");
-    // Auswahl im Katalog setzen (zuerst alles abwaehlen, dann Szenario aktivieren).
+    // Set the selection in the catalog (first deselect everything, then activate the scenario).
     document.querySelectorAll('#playbooks-list input[name="playbooks"]:checked').forEach(cb => { cb.checked = false; });
     let matched = 0;
     const missing = [];
@@ -5284,7 +5273,7 @@ function launchGroupScenario(g) {
     if (missing.length) {
         showToast(`${missing.length} Playbook(s) der Vorlage nicht verfügbar: ${missing.join(", ")}`);
     }
-    // Gruppe als Ziel vorwaehlen und Modal oeffnen.
+    // Preselect the group as the target and open the modal.
     showCredentialsModal();
     const deviceSelect = document.getElementById("modal-device-select");
     if (deviceSelect) {
@@ -5293,7 +5282,7 @@ function launchGroupScenario(g) {
     }
 }
 
-// CSS.escape-Fallback fuer aeltere Umgebungen (Attribut-Selektor mit Pfad-IDs absichern).
+// CSS.escape fallback for older environments (secure the attribute selector with path IDs).
 function cssEscape(value) {
     if (window.CSS && typeof window.CSS.escape === "function") return window.CSS.escape(value);
     return String(value).replace(/["\\\]]/g, "\\$&");
@@ -5319,7 +5308,7 @@ function renderDeviceGroupsList(groups) {
         div.appendChild(left);
         const actions = document.createElement("div");
         actions.style.whiteSpace = "nowrap";
-        // : Szenario direkt starten, sofern Playbooks hinterlegt sind.
+        // : start the scenario directly, provided playbooks are set.
         if (pbCount > 0) {
             const run = document.createElement("button");
             run.type = "button"; run.className = "btn btn-primary btn-small"; run.textContent = "Szenario starten"; run.style.marginRight = "6px";
@@ -5339,7 +5328,7 @@ function renderDeviceGroupsList(groups) {
     });
 }
 
-//: Standardwert-Felder der Gruppen-Form befuellen/leeren
+//: fill/clear the default-value fields of the group form
 function setDeviceGroupDefaults(g) {
     const usr = document.getElementById("device-group-default-user");
     const ctype = document.getElementById("device-group-default-credtype");
@@ -5352,10 +5341,10 @@ function setDeviceGroupDefaults(g) {
     if (!usr) return;
     usr.value = (g && g.default_ssh_user) || "";
     ctype.value = (g && g.default_credential_type) || "";
-    cred.value = "";   // Klartext wird nie zurueckgeliefert
+    cred.value = "";   // Plaintext is never returned
     base.value = (g && g.default_base_directory) || "";
     tz.value = (g && g.default_timezone) || "";
-    //: Standard-Variablen als "name=wert"-Zeilen darstellen.
+    //: represent default variables as "name=value" lines.
     const dv = document.getElementById("device-group-default-variables");
     if (dv) {
         const vars = (g && g.default_variables) || {};
@@ -5363,7 +5352,7 @@ function setDeviceGroupDefaults(g) {
     }
     const hasCred = !!(g && g.has_default_credential);
     if (hint) hint.style.display = hasCred ? "block" : "none";
-    // Lösch-Checkbox nur anbieten, wenn ein Credential gespeichert ist
+    // Offer the delete checkbox only when a credential is stored
     if (clearCb) clearCb.checked = false;
     if (clearRow) clearRow.style.display = hasCred ? "flex" : "none";
 }
@@ -5401,17 +5390,17 @@ async function saveDeviceGroup() {
     if (!name) { showToast(t("misc.enterGroupName")); return; }
     const device_ids = Array.from(document.querySelectorAll("#device-group-devices .dg-device:checked")).map(c => c.value);
     const guest_access = Array.from(document.querySelectorAll("#device-group-guests .dg-guest:checked")).map(c => c.value);
-    // : vorausgewaehlte Szenario-Playbooks mitsenden.
+    // : send the preselected scenario playbooks along.
     const default_playbook_ids = Array.from(document.querySelectorAll("#device-group-playbooks .dg-playbook:checked")).map(c => c.value);
     const payload = { name, device_ids, guest_access, default_playbook_ids };
-    //: Standardwerte mitsenden (leer = nicht gesetzt)
+    //: send default values along (empty = not set)
     const dgUser = document.getElementById("device-group-default-user");
     if (dgUser) {
         payload.default_ssh_user = dgUser.value.trim();
         payload.default_credential_type = document.getElementById("device-group-default-credtype").value;
         payload.default_base_directory = document.getElementById("device-group-default-basedir").value.trim();
         payload.default_timezone = document.getElementById("device-group-default-tz").value.trim();
-        //: Standard-Variablen aus "name=wert"-Zeilen parsen.
+        //: parse default variables from "name=value" lines.
         const dvEl = document.getElementById("device-group-default-variables");
         if (dvEl) {
             const vars = {};
@@ -5427,8 +5416,8 @@ async function saveDeviceGroup() {
         const credVal = document.getElementById("device-group-default-credential").value;
         const clearCb = document.getElementById("device-group-clear-cred");
         const wantClear = clearCb && clearCb.checked;
-        // Credential-Semantik: neues Secret -> setzen; "Entfernen" angehakt oder Neuanlage -> "" (loeschen/leer);
-        // beim Bearbeiten ohne Eingabe -> Feld weglassen (Backend behaelt bestehenden Wert + Typ unveraendert).
+        // Credential semantics: new secret -> set; "Remove" ticked or new entry -> "" (delete/empty);
+        // when editing without input -> omit the field (the backend keeps the existing value + type unchanged).
         if (credVal) payload.default_credential = credVal;
         else if (wantClear || !editingDeviceGroup) payload.default_credential = "";
     }
@@ -5449,7 +5438,7 @@ async function saveDeviceGroup() {
 }
 
 async function deleteDeviceGroupById(id, name) {
-    // : konkreten Namen fett in der Bestätigungsfrage zeigen.
+    // : show the specific name in bold in the confirmation prompt.
     const msgHtml = name ? `Möchten Sie die Geräte-Gruppe <b>${escapeHtml(name)}</b> wirklich löschen?` : "Geräte-Gruppe wirklich löschen?";
     if (!(await showConfirmDialog({ title: "Geräte-Gruppe löschen?", messageHtml: msgHtml, confirmLabel: "Löschen" }))) return;
     try {
@@ -5460,16 +5449,16 @@ async function deleteDeviceGroupById(id, name) {
     } catch (e) { showToast(t("misc.deleteNetworkError")); }
 }
 
-// =====  (#C): Verwaltete Einzelgeraete (Vault-Geraete-Tab) =====
-// Ein "Gerät" = ein Device in einer 1er-DeviceGroup (Backend devices-unified). Die Liste zeigt
-// nur managed Gruppen; Verbindungsdaten liegen am Device, Run-Defaults/Freigabe an der Gruppe.
+// =====  (#C): managed single devices (vault devices tab) =====
+// A "device" = one device in a 1-member DeviceGroup (backend devices-unified). The list shows
+// only managed groups; connection data lives on the device, run defaults/sharing on the group.
 let editingManagedDevice = null;
 
 async function loadManagedDevicesTab() {
     resetManagedDeviceForm();
     const listEl = document.getElementById("managed-devices-list");
     try {
-        // (Device-Flatten): Geraeteliste direkt aus /api/profile/devices-unified (flach).
+        // (device flatten): device list directly from /api/profile/devices-unified (flat).
         const res = await fetch("/api/profile/devices-unified");
         const devices = res.ok ? await res.json() : [];
         renderManagedDevicesList(devices);
@@ -5490,11 +5479,11 @@ function renderManagedDevicesList(devices) {
         const md = g.managed_device || {};
         const div = document.createElement("div");
         div.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02); font-size:13px;";
-        // : Linke Gruppe = Buttons (Freigeben/Bearbeiten) vor Name + Meta; rechts nur
-        // Löschen — gespiegelt von der Preset-Liste.
+        // : left group = buttons (share/edit) before name + meta; on the right only
+        // delete — mirrored from the preset list.
         const leftGroup = document.createElement("div");
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
-        //: In der Community-Edition kein „Freigeben" (keine weiteren Benutzer/Teams).
+        //: no "Share" in the Community edition (no additional users/teams).
         if (currentEdition !== "community") {
             const share = vaultActionButton(t("device.share"), "share", "primary");
             share.addEventListener("click", () => openManagedDeviceShare(g));
@@ -5506,7 +5495,7 @@ function renderManagedDevicesList(devices) {
         const info = document.createElement("div");
         info.style.minWidth = "0";
         const conn = (md.username ? md.username + "@" : "") + (md.host || "");
-        //: Freigabe-Label nur ausserhalb der Community-Edition (dort gibt es keine Freigaben).
+        //: share label only outside the Community edition (there are no shares there).
         const shareLabelHtml = currentEdition === "community"
             ? ""
             : `<div style="color:var(--text-muted); font-size:11px;">${guestShareLabel((g.guest_access || []).length)}</div>`;
@@ -5525,7 +5514,7 @@ function renderManagedDevicesList(devices) {
     });
 }
 
-// : Datei (SSH-Key) als Text einlesen.
+// : read the file (SSH key) as text.
 function readFileAsText(file) {
     return new Promise((resolve, reject) => {
         const r = new FileReader();
@@ -5547,36 +5536,36 @@ function resetManagedDeviceForm() {
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
     ["managed-device-id", "managed-device-name", "managed-device-host", "managed-device-user",
      "managed-device-credential", "managed-device-become", "managed-device-basedir"].forEach(id => set(id, ""));
-    // : Zeitzone beim Neuanlegen mit der Browser-Zeitzone vorbelegen.
+    // : prefill the timezone with the browser timezone on new entry.
     let browserTz = "";
     try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
     set("managed-device-tz", browserTz);
     _resetManagedKeyUpload();
     const title = document.getElementById("managed-device-form-title");
     if (title) title.textContent = t("device.newTitle");
-    // : Neuanlage -> Geräte-Icon (kein Stift).
+    // : new entry -> device icon (no pencil).
     const icon = document.getElementById("managed-device-form-icon");
     if (icon) icon.textContent = "devices";
-    // : Abbrechen ist im Dialog immer sichtbar (schließt den Dialog).
+    // : cancel is always visible in the dialog (closes the dialog).
     const hint = document.getElementById("managed-device-cred-hint");
     if (hint) hint.style.display = "none";
-    // : Platzhalter-Status zurücksetzen (Neuanlage = leeres Feld, kein Platzhalter).
+    // : reset the placeholder state (new entry = empty field, no placeholder).
     const credEl = document.getElementById("managed-device-credential");
     if (credEl) credEl.dataset.placeholder = "";
-    //: Sudo-Passwort-Feld + Platzhalter/Hint zurücksetzen (Neuanlage = leer).
+    //: reset the sudo password field + placeholder/hint (new entry = empty).
     const becomeEl = document.getElementById("managed-device-become");
     if (becomeEl) becomeEl.dataset.placeholder = "";
     const becomeHint = document.getElementById("managed-device-become-hint");
     if (becomeHint) becomeHint.style.display = "none";
-    // : Autofill-Sperre des Basisverzeichnisses zurücksetzen (Neuanlage = Folgemodus aktiv).
+    // : reset the base-directory autofill lock (new entry = follow mode active).
     const baseEl = document.getElementById("managed-device-basedir");
     if (baseEl) baseEl.dataset.edited = "false";
-    // : Dirty-Flag des Dialogs zurücksetzen (frischer Stand -> kein Verwerfen-Hinweis).
+    // : reset the dialog's dirty flag (fresh state -> no discard prompt).
     const dlg = document.getElementById("managed-device-dialog");
     if (dlg) dlg.dataset.dirty = "";
 }
 
-// : Platzhalter im Passwortfeld eines bearbeiteten Geräts (zeigt "Anmeldedaten hinterlegt").
+// : placeholder in the password field of an edited device (shows "Credentials stored").
 const MANAGED_CRED_PLACEHOLDER = "••••••••••";
 
 function editManagedDevice(g) {
@@ -5588,19 +5577,19 @@ function editManagedDevice(g) {
     set("managed-device-host", md.host || "");
     set("managed-device-user", md.username || "");
     set("managed-device-basedir", g.base_directory || "");
-    // : vorhandenes Basisverzeichnis als „bearbeitet" markieren, damit eine
-    // spätere Benutzer-Änderung es nicht überschreibt (leeres Feld bleibt im Folgemodus).
+    // : mark an existing base directory as "edited", so a
+    // later user change does not overwrite it (an empty field stays in follow mode).
     const baseEl = document.getElementById("managed-device-basedir");
     if (baseEl) baseEl.dataset.edited = g.base_directory ? "true" : "false";
     set("managed-device-tz", g.timezone || "");
     _resetManagedKeyUpload();
     const title = document.getElementById("managed-device-form-title");
     if (title) title.textContent = t("device.editTitle");
-    // : Bearbeiten -> Stift-Icon im Header.
+    // : edit -> pencil icon in the header.
     const icon = document.getElementById("managed-device-form-icon");
     if (icon) icon.textContent = "edit";
-    // : Platzhalter-Passwort statt Lösch-Checkbox. Unverändert -> behalten,
-    // überschreiben -> ändern, leeren -> löschen (Erkennung via dataset.placeholder).
+    // : placeholder password instead of a delete checkbox. Unchanged -> keep,
+    // overwrite -> change, clear -> delete (detected via dataset.placeholder).
     const hasCred = !!md.has_credential;
     const credEl = document.getElementById("managed-device-credential");
     if (credEl) {
@@ -5609,7 +5598,7 @@ function editManagedDevice(g) {
     }
     const hint = document.getElementById("managed-device-cred-hint");
     if (hint) hint.style.display = hasCred ? "block" : "none";
-    //: Sudo-Passwort analog per Platzhalter (hinterlegt -> Punkte, unverändert = behalten).
+    //: sudo password likewise via placeholder (stored -> dots, unchanged = keep).
     const hasBecome = !!md.has_become_credential;
     const becomeEl = document.getElementById("managed-device-become");
     if (becomeEl) {
@@ -5618,7 +5607,7 @@ function editManagedDevice(g) {
     }
     const becomeHint = document.getElementById("managed-device-become-hint");
     if (becomeHint) becomeHint.style.display = hasBecome ? "block" : "none";
-    // : Bearbeiten im Dialog öffnen.
+    // : open editing in the dialog.
     openManagedDeviceDialog();
 }
 
@@ -5633,17 +5622,17 @@ async function saveManagedDevice() {
         default_base_directory: document.getElementById("managed-device-basedir").value.trim(),
         default_timezone: document.getElementById("managed-device-tz").value.trim(),
     };
-    // : Anmeldeart aus den Feldern ableiten — hochgeladener SSH-Key => key,
-    // sonst Passwort. Kontrakt: neues Secret -> setzen; "Entfernen"/Neuanlage -> "" (loeschen);
-    // Bearbeiten ohne Eingabe -> Felder weglassen (Backend behaelt bestehenden Wert + Typ).
-    //: keine freien Standard-Variablen mehr -> default_variables wird nicht gesendet.
+    // : derive the auth method from the fields — an uploaded SSH key => key,
+    // otherwise password. Contract: new secret -> set; "Remove"/new entry -> "" (delete);
+    // editing without input -> omit the fields (the backend keeps the existing value + type).
+    //: no more free-form default variables -> default_variables is not sent.
     const keyInput = document.getElementById("managed-device-key-file");
     const keyFile = keyInput && keyInput.files && keyInput.files[0];
     const credEl = document.getElementById("managed-device-credential");
     const credVal = credEl.value;
-    // : Platzhalter-Passwort. Unangetastet (dataset.placeholder==="1") -> Secret behalten
-    // (keine Credential-Felder senden -> Backend lässt None unverändert); überschrieben -> setzen;
-    // geleert -> löschen (""). Ein hochgeladener SSH-Key hat Vorrang.
+    // : placeholder password. Untouched (dataset.placeholder==="1") -> keep the secret
+    // (send no credential fields -> the backend leaves None unchanged); overwritten -> set;
+    // cleared -> delete (""). An uploaded SSH key takes precedence.
     const credUntouched = credEl.dataset.placeholder === "1";
     if (keyFile) {
         let keyText;
@@ -5653,7 +5642,7 @@ async function saveManagedDevice() {
         payload.default_credential = keyText;
         payload.default_credential_type = "key";
     } else if (credUntouched) {
-        // Platzhalter nicht angefasst -> bestehendes Secret unverändert lassen.
+        // Placeholder not touched -> leave the existing secret unchanged.
     } else if (credVal) {
         payload.default_credential = credVal;
         payload.default_credential_type = "password";
@@ -5661,13 +5650,13 @@ async function saveManagedDevice() {
         payload.default_credential = "";
         payload.default_credential_type = null;
     }
-    //: Sudo-/Become-Passwort mit demselben Platzhalter-Kontrakt: unangetastet -> nicht senden
-    // (Backend behält bestehenden Wert), überschrieben -> setzen, geleert -> "" (löschen).
+    //: sudo/become password with the same placeholder contract: untouched -> don't send
+    // (the backend keeps the existing value), overwritten -> set, cleared -> "" (delete).
     const becomeEl = document.getElementById("managed-device-become");
     if (becomeEl) {
         const becomeVal = becomeEl.value;
         if (becomeEl.dataset.placeholder === "1") {
-            // Platzhalter unverändert -> bestehendes Sudo-Passwort behalten (Feld weglassen).
+            // Placeholder unchanged -> keep the existing sudo password (omit the field).
         } else if (becomeVal) {
             payload.default_become_password = becomeVal;
         } else {
@@ -5683,7 +5672,7 @@ async function saveManagedDevice() {
             showToast(editingManagedDevice ? t("device.updated") : t("device.created"));
             closeManagedDeviceDialog();  // 
             await loadManagedDevicesTab();
-            if (typeof fetchDevices === "function") fetchDevices();  // Run-Dropdown synchron halten
+            if (typeof fetchDevices === "function") fetchDevices();  // Keep the run dropdown in sync
         } else {
             showToast(errorDetailToMessage(data.detail, t("device.saveFailed")));
         }
@@ -5691,7 +5680,7 @@ async function saveManagedDevice() {
 }
 
 async function deleteManagedDevice(id, name) {
-    // : Gerätename fett in der Bestätigungsfrage.
+    // : device name in bold in the confirmation prompt.
     const msgHtml = name ? t("device.deleteConfirmHtml", {name: escapeHtml(name)}) : t("device.deleteConfirmGeneric");
     if (!(await showConfirmDialog({ title: t("device.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
@@ -5779,13 +5768,13 @@ async function loadPresets() {
         ]);
         const presets = presetsRes.ok ? await presetsRes.json() : [];
         window._presetGuests = guestsArr;
-        // (Device-Flatten): Zielgeraete-Auswahl aus der flachen Geraeteliste.
+        // (device flatten): target device selection from the flat device list.
         window._presetDevices = devicesRes.ok ? await devicesRes.json() : [];
         renderPresetDevices([]);
         renderPresetPlaybooks([]);
         renderPresetShares([]);
         renderPresetsList(presets);
-        //: Katalog-Kacheln synchron halten (z. B. nach Speichern/Loeschen).
+        //: keep the catalog tiles in sync (e.g. after save/delete).
         userCustomPresets = presets;
         if (typeof renderPlaybooks === "function" && allPlaybooks && allPlaybooks.length) renderPlaybooks();
     } catch (e) {
@@ -5824,7 +5813,7 @@ function filterPresetPlaybooks(term) {
 }
 
 function renderPresetDevices(selIds) {
-    // (Device-Flatten): Mehrfachauswahl der Zielgeraete (Checkboxen) statt Einzel-Gruppe.
+    // (device flatten): multi-selection of target devices (checkboxes) instead of a single group.
     const c = document.getElementById("preset-devices");
     if (!c) return;
     const sel = new Set(selIds || []);
@@ -5848,7 +5837,7 @@ function renderPresetDevices(selIds) {
     });
 }
 
-// Freigabe-Liste: pro Gast eine Checkbox + Strikt/Flexibel-Auswahl.
+// Share list: one checkbox per guest + strict/flexible choice.
 function renderPresetShares(shares) {
     const sc = document.getElementById("preset-shares");
     if (!sc) return;
@@ -5887,7 +5876,7 @@ function renderPresetsList(presets) {
     presets.forEach(p => {
         const div = document.createElement("div");
         div.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02); font-size:13px;";
-        // : Linke Gruppe = Buttons (Freigeben/Bearbeiten) vor Name + Meta; rechts nur Löschen.
+        // : left group = buttons (share/edit) before name + meta; on the right only delete.
         const leftGroup = document.createElement("div");
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
         if (p.is_owner) {
@@ -5945,8 +5934,8 @@ function resetPresetForm() {
     renderPresetShares([]);
 }
 
-//  (#D): Preset-Editor laeuft als Modal. Oeffnen im Erstell- (p=null) oder Bearbeiten-Modus;
-// Felder/IDs sind unveraendert, daher greifen editPreset/savePreset/renderPreset* wie zuvor.
+//  (#D): the preset editor runs as a modal. Open in create (p=null) or edit mode;
+// fields/IDs are unchanged, so editPreset/savePreset/renderPreset* work as before.
 function openPresetModal(p) {
     if (p) editPreset(p); else resetPresetForm();
     const dlg = document.getElementById("preset-edit-dialog");
@@ -5988,7 +5977,7 @@ async function savePreset() {
 }
 
 async function deletePresetById(id, name) {
-    // : Preset-Name fett in der Bestätigungsfrage.
+    // : preset name in bold in the confirmation prompt.
     const msgHtml = name ? t("preset.deleteConfirmNamed", { name: escapeHtml(name) }) : t("preset.deleteConfirmGeneric");
     if (!(await showConfirmDialog({ title: t("preset.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
@@ -5999,9 +5988,9 @@ async function deletePresetById(id, name) {
     } catch (e) { showToast(t("preset.deleteError")); }
 }
 
-// Preset ausfuehren: Playbooks im Katalog vorwaehlen, Geraete-Gruppe als Ziel setzen, Run-Modal
-// oeffnen. custom_preset_id wird mitgesendet -> der Server loest Playbooks/Variablen/Gruppe auf
-// und erzwingt Berechtigung (strict/flexible) + Premium-Gate.
+// Run a preset: preselect the playbooks in the catalog, set the device group as target, open the run
+// modal. custom_preset_id is sent along -> the server resolves playbooks/variables/group
+// and enforces permission (strict/flexible) + premium gate.
 function launchPreset(p) {
     const ids = p.playbook_ids || [];
     if (!ids.length) { showToast(t("preset.noPlaybooksInPreset")); return; }
@@ -6018,20 +6007,20 @@ function launchPreset(p) {
     updatePresetHighlights();
     if (!matched) { showToast(t("preset.playbooksNotInCatalog")); return; }
     if (missing.length) showToast(t("preset.playbooksUnavailable", { count: missing.length, list: missing.join(", ") }));
-    // : Eigenes Preset verhält sich wie ein System-Preset — nur Playbooks vorwählen, KEIN
-    // Dialog. Die gespeicherten Einstellungen werden beim Öffnen des Run-Dialogs übernommen
-    // (showCredentialsModal bezieht userCustomPresets in die activeVariables ein).
+    // : an own preset behaves like a system preset — only preselect playbooks, NO
+    // dialog. The saved settings are applied when the run dialog is opened
+    // (showCredentialsModal includes userCustomPresets in activeVariables).
     if (p.is_owner) {
         window._activePresetId = null;
         return;
     }
-    // Freigegebenes (fremdes) Preset: Dialog öffnen + Server-Bindung (strict/flexible-Durchsetzung).
+    // Shared (foreign) preset: open the dialog + server binding (strict/flexible enforcement).
     window._activePresetId = p.id;
     if (p.permission === "strict") showToast(t("preset.strictSharedInfo"));
     showCredentialsModal();
-    // (Device-Flatten): Bei genau EINEM gebundenen Geraet dieses im Dropdown vorwaehlen.
-    // Bei mehreren (oder keinem) loest der Server die Zielgeraete aus preset.device_ids auf
-    // (custom_preset_id wird mitgesendet) — das Einzel-Dropdown kann Multi-Host nicht abbilden.
+    // (device flatten): with exactly ONE bound device, preselect it in the dropdown.
+    // With several (or none), the server resolves the target devices from preset.device_ids
+    // (custom_preset_id is sent along) — the single dropdown cannot represent multi-host.
     const deviceSelect = document.getElementById("modal-device-select");
     const boundDevs = p.device_ids || [];
     if (deviceSelect && boundDevs.length === 1) {
@@ -6147,8 +6136,8 @@ async function fetchDevices() {
 function populateDeviceDropdown() {
     const select = document.getElementById("modal-device-select");
     if (!select) return;
-    // (Device-Flatten): ein Host pro Geraet -> das Dropdown listet Geraete direkt (device_id).
-    // Multi-Host laeuft ueber Szenarien (Mehrfachauswahl), nicht ueber dieses Einzel-Dropdown.
+    // (device flatten): one host per device -> the dropdown lists devices directly (device_id).
+    // Multi-host runs via scenarios (multi-selection), not via this single dropdown.
     select.innerHTML = '<option value="">-- Manuelle Eingabe --</option>';
     (userDevices || []).forEach(d => {
         const opt = document.createElement("option");
@@ -6156,185 +6145,6 @@ function populateDeviceDropdown() {
         opt.textContent = `${d.name} (${d.host})`;
         select.appendChild(opt);
     });
-}
-
-function renderDeviceList() {
-    const container = document.getElementById("device-items-list");
-    if (!container) return;
-
-    //  (#C): verwaltete Geraete haben ihren eigenen Vault-Tab; im Legacy-#devices-dialog ausblenden.
-    const managedDeviceIds = new Set();
-    (userDeviceGroups || []).forEach(g => { if (g.managed) (g.device_ids || []).forEach(id => managedDeviceIds.add(id)); });
-    const visibleDevices = userDevices.filter(d => !managedDeviceIds.has(d.id));
-
-    if (visibleDevices.length === 0) {
-        container.innerHTML = '<div class="no-devices-msg" style="color: var(--text-muted); text-align: center; padding: 40px 0;">Keine Geräte registriert.</div>';
-        return;
-    }
-
-    container.innerHTML = "";
-    visibleDevices.forEach(d => {
-        const card = document.createElement("div");
-        card.className = "device-item-card";
-        card.innerHTML = `
-            <div class="device-item-info">
-                <span class="device-item-label">${escapeHtml(d.name)}</span>
-                <span class="device-item-details">${escapeHtml(d.username || 'default')}@${escapeHtml(d.host)}:${d.port} (${escapeHtml(d.credential_type || 'Kein Login')})</span>
-            </div>
-            <div class="device-item-actions">
-                <button type="button" class="btn-edit-device" data-id="${d.id}" title="Bearbeiten">
-                    <span class="material-symbols-outlined">edit</span>
-                </button>
-                <button type="button" class="btn-delete-device" data-id="${d.id}" title="Löschen">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
-            </div>
-        `;
-
-        card.querySelector(".btn-edit-device").addEventListener("click", () => editDevice(d.id));
-        card.querySelector(".btn-delete-device").addEventListener("click", () => deleteDevice(d.id));
-
-        container.appendChild(card);
-    });
-}
-
-function handleDeviceCredTypeChange() {
-    const type = document.getElementById("device-cred-type").value;
-    const container = document.getElementById("device-cred-container");
-    const textarea = document.getElementById("device-credential");
-    const label = document.getElementById("device-cred-label");
-
-    if (type === "password") {
-        container.classList.remove("hidden");
-        textarea.type = "password";
-        textarea.required = true;
-        label.textContent = "SSH-Passwort";
-    } else if (type === "key") {
-        container.classList.remove("hidden");
-        textarea.type = "text";
-        textarea.required = true;
-        label.textContent = "SSH Private Key (PEM)";
-    } else {
-        container.classList.add("hidden");
-        textarea.required = false;
-        textarea.value = "";
-    }
-}
-
-function resetDeviceForm() {
-    document.getElementById("device-edit-form").reset();
-    document.getElementById("device-id-field").value = "";
-    document.getElementById("device-form-title").textContent = "Neues Gerät hinzufügen";
-    document.getElementById("device-cancel-edit-btn").classList.add("hidden");
-    document.getElementById("device-cred-container").classList.add("hidden");
-    //: Become-Feld-Placeholder aus einem evtl. vorherigen Edit zurücksetzen.
-    const becomeInput = document.getElementById("device-become-password");
-    if (becomeInput) becomeInput.placeholder = "";
-}
-
-function editDevice(id) {
-    const dev = userDevices.find(d => d.id === id);
-    if (!dev) return;
-
-    document.getElementById("device-id-field").value = dev.id;
-    document.getElementById("device-name").value = dev.name;
-    document.getElementById("device-host").value = dev.host;
-    document.getElementById("device-username").value = dev.username || "";
-    document.getElementById("device-port").value = dev.port;
-    document.getElementById("device-cred-type").value = dev.credential_type || "";
-    
-    handleDeviceCredTypeChange();
-    
-    // Credentials field does not fill with plain values for security, but allow replacing
-    const textarea = document.getElementById("device-credential");
-    if (dev.has_credential) {
-        textarea.placeholder = "Anmeldedaten verschlüsselt hinterlegt. Leer lassen, um sie nicht zu ändern.";
-        textarea.required = false;
-    } else {
-        textarea.placeholder = "";
-    }
-
-    //: Become-Passwort wird nie im Klartext zurückgegeben; nur Hinweis, ob hinterlegt.
-    const becomeInput = document.getElementById("device-become-password");
-    if (becomeInput) {
-        becomeInput.value = "";
-        becomeInput.placeholder = dev.has_become_credential
-            ? "Sudo-Passwort hinterlegt. Leer lassen, um es nicht zu ändern."
-            : "";
-    }
-
-    document.getElementById("device-form-title").textContent = "Gerät bearbeiten";
-    document.getElementById("device-cancel-edit-btn").classList.remove("hidden");
-}
-
-async function handleDeviceFormSubmit(e) {
-    e.preventDefault();
-    const id = document.getElementById("device-id-field").value;
-    const name = document.getElementById("device-name").value.trim();
-    const host = document.getElementById("device-host").value.trim();
-    const username = document.getElementById("device-username").value.trim();
-    const port = parseInt(document.getElementById("device-port").value) || 22;
-    const credentialType = document.getElementById("device-cred-type").value;
-    const credential = document.getElementById("device-credential").value;
-    const becomePassword = document.getElementById("device-become-password").value;
-
-    const payload = { name, host, username, port };
-    if (credentialType) {
-        payload.credential_type = credentialType;
-        if (credential) {
-            payload.credential = credential;
-        }
-    } else {
-        payload.credential = ""; // Clear credential
-    }
-    //: Sudo-/Become-Passwort nur senden, wenn eingegeben (leer = unverändert lassen).
-    if (becomePassword) {
-        payload.become_password = becomePassword;
-    }
-
-    try {
-        let response;
-        if (id) {
-            response = await fetch(`/api/devices/${id}`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-        } else {
-            response = await fetch("/api/devices", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            });
-        }
-
-        const data = await response.json();
-        if (response.ok) {
-            showToast(t("misc.deviceSaved"));
-            resetDeviceForm();
-            await fetchDevices();
-        } else {
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Speichern des Geräts."));
-        }
-    } catch (err) {
-        showToast(t("misc.deviceSaveNetworkError"));
-    }
-}
-
-async function deleteDevice(id) {
-    if (!(await showConfirmDialog({ title: "Gerät löschen?", message: "Möchten Sie dieses Gerät wirklich aus Ihrer Registrierung löschen?", confirmLabel: "Löschen" }))) return;
-    try {
-        const response = await fetch(`/api/devices/${id}`, { method: "DELETE" });
-        if (response.ok) {
-            showToast(t("misc.deviceDeleted"));
-            await fetchDevices();
-        } else {
-            const data = await response.json();
-            showToast(errorDetailToMessage(data.detail, "Fehler beim Löschen des Geräts."));
-        }
-    } catch (err) {
-        showToast(t("misc.deviceDeleteNetworkError"));
-    }
 }
 
 // Stripe Subscriptions & Invoices Handlers
@@ -6346,7 +6156,7 @@ async function deleteDevice(id) {
 
 // Admin Control Panel Handlers
 function openAdminDashboard() {
-    // Admin-Panel ist jetzt eine Inline-Seite (Routing in routePage); nur Tab setzen.
+    // The admin panel is now an inline page (routing in routePage); only set the tab.
     switchAdminTab("dashboard");
 }
 
@@ -6360,23 +6170,23 @@ function formatBytes(bytes) {
 
 
 
-// : Chart-Instanzen + aktiver Zeitraum-Filter für das Dashboard.
+// : chart instances + active time-range filter for the dashboard.
 const _adminCharts = {};
 let _adminChartRange = "7d";
-//  (-Feedback): Dashboard-Daten werden EINMAL geladen und gecacht. Die Snapshots
-// entstehen serverseitig nur stündlich (capture_stats_snapshot) — ein erneuter Abruf bei
-// jedem Tab-Wechsel bzw. routePage-Re-Run wäre reine Verschwendung und trug zu den
-// Rate-Limit-/IP-Sperren bei. Aktualisierung nur noch explizit über den „Aktualisieren"-Button.
+//  (feedback): dashboard data is loaded ONCE and cached. The snapshots
+// are created server-side only hourly (capture_stats_snapshot) — a re-fetch on
+// every tab switch or routePage re-run would be pure waste and contributed to the
+// rate-limit/IP blocks. Refresh only explicitly via the "Refresh" button now.
 let _adminStatsCache = null;
-const _adminTimeseriesCache = {};  // pro Zeitraum (24h/7d/30d) gecacht
+const _adminTimeseriesCache = {};  // cached per time range (24h/7d/30d)
 
 function _destroyChart(key) {
     if (_adminCharts[key]) { _adminCharts[key].destroy(); delete _adminCharts[key]; }
 }
 
-//  (-Feedback): Chart-Text/-Gitter aus den AKTIVEN Theme-Variablen lesen, damit die
-// Diagramme in Light- UND Dark-Theme lesbar sind. Vorher waren Legende/Achsen fix auf #ccc/
-// (für Dark gedacht) — im Light-Theme nahezu unsichtbar. Wird bei jedem (Neu-)Rendern gelesen.
+//  (feedback): read chart text/grid from the ACTIVE theme variables, so the
+// charts are readable in BOTH light and dark themes. Previously legend/axes were fixed at #ccc/
+// (meant for dark) — nearly invisible in the light theme. Read on every (re-)render.
 function _chartThemeColors() {
     const cs = getComputedStyle(document.body);
     const v = (name, fb) => (cs.getPropertyValue(name).trim() || fb);
@@ -6386,7 +6196,7 @@ function _chartThemeColors() {
     };
 }
 
-// Pie-Diagramme (aktueller Stand) aus den Live-Stats rendern.
+// Render pie charts (current state) from the live stats.
 function renderDashboardPies(s) {
     const tc = _chartThemeColors();
     const usersPie = document.getElementById("chart-users-pie");
@@ -6416,9 +6226,9 @@ function renderDashboardPies(s) {
     }
 }
 
-// Verlaufsgraphen (Linien) aus den Snapshots im gewählten Zeitraum.
-//  (-Feedback): pro Zeitraum gecacht — beim ersten Anzeigen einer Range einmal
-// laden, danach aus dem Cache rendern. `force` (Aktualisieren-Button) umgeht den Cache.
+// Trend charts (lines) from the snapshots in the selected time range.
+//  (feedback): cached per time range — load once when a range is first shown,
+// then render from the cache. `force` (Refresh button) bypasses the cache.
 async function loadDashboardTimeseries(force = false) {
     if (!force && _adminTimeseriesCache[_adminChartRange]) {
         renderDashboardTimeseries(_adminTimeseriesCache[_adminChartRange]);
@@ -6428,7 +6238,7 @@ async function loadDashboardTimeseries(force = false) {
     try {
         const r = await fetch(`/api/admin/stats/timeseries?range=${encodeURIComponent(_adminChartRange)}`);
         if (r.ok) rows = await r.json();
-    } catch (e) { /* leer lassen */ }
+    } catch (e) { /* leave empty */ }
     _adminTimeseriesCache[_adminChartRange] = rows;
     renderDashboardTimeseries(rows);
 }
@@ -6458,8 +6268,8 @@ function renderDashboardTimeseries(rows) {
 
 async function fetchAdminStats(force = false) {
     const cfg = document.getElementById("admin-config-status");
-    //  (-Feedback): einmal laden, danach aus dem Cache rendern — kein erneuter Abruf
-    // bei jedem Dashboard-Aufruf bzw. routePage-Re-Run. `force` = Aktualisieren-Button.
+    //  (feedback): load once, then render from the cache — no re-fetch
+    // on every dashboard visit or routePage re-run. `force` = Refresh button.
     if (!force && _adminStatsCache) {
         renderAdminStats(_adminStatsCache, false);
         return;
@@ -6477,7 +6287,7 @@ async function fetchAdminStats(force = false) {
 
 function renderAdminStats(s, force = false) {
     const cfg = document.getElementById("admin-config-status");
-    // : statische Text-Kacheln durch Diagramme ersetzt (Pies + Verlauf).
+    // : static text tiles replaced by charts (pies + trend).
     renderDashboardPies(s);
     loadDashboardTimeseries(force);
 
@@ -6489,13 +6299,13 @@ function renderAdminStats(s, force = false) {
                 <span style="font-size:13px;">${label}: <strong style="color:${color};">${txt}</strong></span></div>`;
         };
         const cf = s.config || {};
-        // : farbiger Chip mit beliebiger Ampel-Farbe (grün/gelb/rot).
+        // : colored chip with an arbitrary traffic-light color (green/yellow/red).
         const chipColored = (label, color, txt) => `<div style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px 12px;">
                 <span style="width:9px; height:9px; border-radius:50%; background:${color}; display:inline-block;"></span>
                 <span style="font-size:13px;">${label}: <strong style="color:${color};">${escapeHtml(txt)}</strong></span></div>`;
-        // : die 3 Stripe-Kacheln (Modus/Verbindung/Signaturprüfung) zu EINER Ampel
-        // konsolidiert. Grün = Live + Webhook + Verbindung ok; Gelb = ok aber Test/Webhook fehlt;
-        // Rot = Mock/keine Schlüssel oder Verbindungsfehler.
+        // : the 3 Stripe tiles (mode/connection/signature check) consolidated into ONE traffic
+        // light. Green = live + webhook + connection ok; yellow = ok but test/webhook missing;
+        // red = mock/no keys or connection error.
         const sconn = cf.stripe_connection || {};
         let stColor, stTxt;
         if (cf.stripe_mock) {
@@ -6511,26 +6321,26 @@ function renderAdminStats(s, force = false) {
         } else {
             stColor = "#e74c3c"; stTxt = t("adminDash.stripeInactiveUnknown");
         }
-        //  (Community): editionsabhängige Status-Kacheln.
-        //  - Stripe: nur Cloud (Billing existiert nur dort).
-        //  - Captcha: nur Cloud.
-        //  - E-Mail-Verifikation: Cloud + On-Premise (in Community ausgeblendet).
+        //  (Community): edition-dependent status tiles.
+        //  - Stripe: cloud only (billing exists only there).
+        //  - Captcha: cloud only.
+        //  - Email verification: Cloud + On-Premise (hidden in Community).
         let _chips = chip("SMTP", cf.smtp, t("adminDash.configured"), t("adminDash.notConfigured"));
         if (currentEdition === "cloud") _chips += chipColored("Stripe", stColor, stTxt);
         if (currentEdition === "cloud") _chips += chip("Captcha", cf.captcha, t("adminDash.on"), t("adminDash.off"));
         if (currentEdition !== "community") _chips += chip(t("adminDash.emailVerification"), cf.email_verification, t("adminDash.on"), t("adminDash.off"));
         _chips += chip("API-Docs", cf.api_docs, t("adminDash.on"), t("adminDash.off"));
         cfg.innerHTML = _chips;
-            // : Wartungsmodus-Kachel entfernt (durch Banner + Tab-Indikatoren abgedeckt).
-        //: auffaelliger Banner oben, sichtbar wenn der Stripe-Mock-/Demo-Modus aktiv ist.
-        // Stripe-/Billing-Mock-Banner nur in der Cloud-Edition; Community/On-Premise haben kein
-        // Billing (zusaetzlich blendet die .cloud-only-Klasse ihn editionsweit aus).
+            // : maintenance-mode tile removed (covered by banner + tab indicators).
+        //: prominent banner at the top, visible when the Stripe mock/demo mode is active.
+        // Stripe/billing mock banner only in the cloud edition; Community/On-Premise have no
+        // billing (additionally the .cloud-only class hides it edition-wide).
         const mockBanner = document.getElementById("admin-mock-banner");
         if (mockBanner) mockBanner.classList.toggle("hidden", !(cf.stripe_mock && currentEdition === "cloud"));
 }
 
 function switchAdminTab(tabName) {
-    //  (Community): kein Benutzer-Tab -> Auswahl auf die Startseite umleiten.
+    //  (Community): no users tab -> redirect the selection to the home page.
     if (currentEdition === "community" && tabName === "users") tabName = "dashboard";
     const contents = document.querySelectorAll(".admin-tab-content");
     contents.forEach(c => c.classList.add("hidden"));
@@ -6556,7 +6366,7 @@ function switchAdminTab(tabName) {
         activeBtn.style.borderBottom = "2px solid var(--md-sys-color-primary)";
     }
 
-    // : Admin-FAB je Tab konfigurieren (Aktion via onAdminFab).
+    // : configure the admin FAB per tab (action via onAdminFab).
     currentAdminTab = tabName;
     updateAdminFab(tabName);
 
@@ -6569,11 +6379,11 @@ function switchAdminTab(tabName) {
     } else if (tabName === "ip") {
         fetchAdminIPBlocks();
     } else if (tabName === "security") {
-        // : Tab „Protokolle" lädt beide Sektionen (Ungewöhnliche Aktivitäten + Audit-Log).
+        // : the "Logs" tab loads both sections (unusual activity + audit log).
         fetchSecurityAlerts();
         fetchAuditLog();
-        fetchAdminIPBlocks();  // : IP-Sperren-Verlauf liegt jetzt in diesem Tab.
-        prefillGobdDates();  // : GoBD-Export liegt jetzt in diesem Tab.
+        fetchAdminIPBlocks();  // : the IP block history now lives in this tab.
+        prefillGobdDates();  // : the GoBD export now lives in this tab.
     } else if (tabName === "tariffs") {
         fetchTariffs();
     } else if (tabName === "coupons") {
@@ -6583,19 +6393,19 @@ function switchAdminTab(tabName) {
     }
 }
 
-// : aktiver Admin-Tab + FAB-Steuerung (Label/Icon/Sichtbarkeit je Tab).
+// : active admin tab + FAB control (label/icon/visibility per tab).
 let currentAdminTab = "dashboard";
 
-// Pro Tab: Icon, Label und Aktion des Admin-FAB. Tabs ohne Eintrag -> FAB ausgeblendet (.fab-off).
-// labelKey: i18n-Schlüssel für die (bereits übersetzten) community-sichtbaren FABs; label = DE-Fallback.
-// Die cloud-only-Tabs (tariffs/coupons) bleiben vorerst ohne Key (Nachzug via OnPrem/Cloud-Issue).
+// Per tab: icon, label and action of the admin FAB. Tabs without an entry -> FAB hidden (.fab-off).
+// labelKey: i18n key for the (already translated) community-visible FABs; label = German fallback.
+// The cloud-only tabs (tariffs/coupons) stay without a key for now (to follow via an OnPrem/Cloud issue).
 const ADMIN_FAB_CONFIG = {
     users: { icon: "person_add", label: "Benutzer erstellen" },
     security: { icon: "download", label: "Protokolle exportieren", labelKey: "adm.export.title" },
     tariffs: { icon: "add", label: "Tarif erstellen" },
     coupons: { icon: "add", label: "Gutschein erstellen" },
     ip: { icon: "block", label: "IP-Sperre hinzufügen", labelKey: "adm.fabIpBlock" },  // 
-    config: { icon: "save", label: "Einstellungen speichern", labelKey: "adm.fabSaveConfig" },  // : speichert direkt
+    config: { icon: "save", label: "Einstellungen speichern", labelKey: "adm.fabSaveConfig" },  // : saves directly
 };
 
 function updateAdminFab(tabName) {
@@ -6616,10 +6426,10 @@ function onAdminFab() {
     else if (currentAdminTab === "tariffs") { if (typeof openTariffCreateDialog === "function") openTariffCreateDialog(); }
     else if (currentAdminTab === "coupons") { if (typeof openCouponCreateDialog === "function") openCouponCreateDialog(); }
     else if (currentAdminTab === "ip") openIpBlockDialog();  // 
-    else if (currentAdminTab === "config") handleAdminConfigSubmit({ preventDefault() {} });  // : direkt speichern
+    else if (currentAdminTab === "config") handleAdminConfigSubmit({ preventDefault() {} });  // : save directly
 }
 
-// : IP-Sperre-Dialog.
+// : IP block dialog.
 function openIpBlockDialog() {
     const f = document.getElementById("admin-ip-ban-form");
     if (f) f.reset();
@@ -6631,16 +6441,16 @@ function closeIpBlockDialog() {
     if (dlg) dlg.classList.add("hidden");
 }
 
-//  (#A): Tab-Wechsel innerhalb von "My Vault". Klon von switchAdminTab (gleiche tab-btn-
-// Inline-Style-Konvention), ABER mit history.replaceState statt rekursivem routePage-Aufruf —
-// sonst Bounce-Risiko mit dem 5s-History-Poll (vgl.). Per-Tab-Loader laden den Inhalt.
+//  (#A): tab switching within "My Vault". Clone of switchAdminTab (same tab-btn
+// inline-style convention), BUT with history.replaceState instead of a recursive routePage call —
+// otherwise a bounce risk with the 5s history poll (cf.). Per-tab loaders load the content.
 // ===========================================================================
-// : Szenarios — ein Preset (Rezept) + ein festes Zielgerät, 1-Klick-Deployment.
-// Ausgeführt über den bestehenden /api/run-Pfad (custom_preset_id + device_group_id).
+// : scenarios — a preset (recipe) + a fixed target device, 1-click deployment.
+// Executed via the existing /api/run path (custom_preset_id + device_group_id).
 // ===========================================================================
 let editingScenario = null;
 let userScenarioPresets = [];
-// (Device-Flatten): Zielgeraete-Auswahl aus der flachen Geraeteliste (statt Gruppen).
+// (device flatten): target device selection from the flat device list (instead of groups).
 let userScenarioDevices = [];
 
 async function loadScenarios() {
@@ -6659,14 +6469,14 @@ async function loadScenarios() {
         window._scenarioGuests = scenarioGuests;
         populateScenarioSelects();
         renderScenariosList(scenarios);
-        //: Startseiten-Abschnitt "Szenarios" synchron halten (nach Anlegen/Bearbeiten/Löschen).
+        //: keep the home-page "Scenarios" section in sync (after create/edit/delete).
         userScenarios = scenarios;
         if (typeof renderPlaybooks === "function" && allPlaybooks && allPlaybooks.length) renderPlaybooks();
-        //: nur das Preset ist Voraussetzung; Zielgeraete sind optional (geräteloses Szenario).
+        //: only the preset is required; target devices are optional (deviceless scenario).
         const missing = !userScenarioPresets.length;
         const hint = document.getElementById("scenario-empty-hint");
-        //: In der Community-Edition verweist der Hinweis auf den ausgeblendeten Presets-Tab und
-        // ist irrefuehrend — Szenarien entstehen dort komplett ueber den Wizard (Gerät optional). Aus.
+        //: in the Community edition the hint points to the hidden presets tab and
+        // is misleading — there scenarios are created entirely via the wizard (device optional). Off.
         if (hint) hint.classList.toggle("hidden", !missing || currentEdition === "community");
         const saveBtn = document.getElementById("scenario-save-btn");
         if (saveBtn) saveBtn.disabled = missing;
@@ -6676,7 +6486,7 @@ async function loadScenarios() {
 }
 
 function populateScenarioSelects() {
-    //: nur noch das Preset-Select (die Geraeteauswahl laeuft ueber den Wizard-Schritt 3).
+    //: only the preset select remains (device selection runs via wizard step 3).
     const pSel = document.getElementById("scenario-preset-select");
     if (pSel) {
         const cur = pSel.value;
@@ -6687,8 +6497,8 @@ function populateScenarioSelects() {
     }
 }
 
-// : Freigabe-Steuerung im Szenario-Formular (gespiegelt von renderPresetShares).
-// : Freigabe-Liste des Szenario-Freigabe-Dialogs (#scenario-share-list).
+// : share controls in the scenario form (mirrored from renderPresetShares).
+// : share list of the scenario share dialog (#scenario-share-list).
 function renderScenarioShareList(shares) {
     const sc = document.getElementById("scenario-share-list");
     if (!sc) return;
@@ -6716,7 +6526,7 @@ function renderScenarioShareList(shares) {
     });
 }
 
-// : Aktions-Button mit Icon für die My-Vault-Listen (Freigeben/Bearbeiten/Löschen).
+// : action button with icon for the My Vault lists (share/edit/delete).
 function vaultActionButton(label, icon, variant) {
     const b = document.createElement("button");
     b.type = "button";
@@ -6730,8 +6540,8 @@ function vaultActionButton(label, icon, variant) {
     return b;
 }
 
-// : einheitliches Zielgerät-Label für Liste UND Startseiten-Kacheln.
-// Gerät zugewiesen -> Gerätename; gerätelos -> „beim Ausführen festlegen".
+// : unified target-device label for the list AND the home-page tiles.
+// Device assigned -> device name; deviceless -> "set at run time".
 function scenarioTargetLabel(s) {
     return s.device_optional ? t("scenario.deviceOnRun") : (s.device_name || "?");
 }
@@ -6746,14 +6556,14 @@ function renderScenariosList(scenarios) {
     c.innerHTML = "";
     scenarios.forEach(s => {
         const div = document.createElement("div");
-        // : kein margin-bottom -> Abstand nur über den Container-gap (8px), exakt wie
-        // die Playbooks-/Geräte-Liste (sonst doppelter Abstand: gap + margin).
+        // : no margin-bottom -> spacing only via the container gap (8px), exactly like
+        // the playbooks/devices list (otherwise double spacing: gap + margin).
         div.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02); font-size:13px;";
-        // /: Freigeben (eigener Dialog) + Bearbeiten links, Löschen rechts,
-        // mit Icons. Ausführen läuft über die Startseite.
+        // /: share (own dialog) + edit on the left, delete on the right,
+        // with icons. Running goes via the home page.
         const leftGroup = document.createElement("div");
         leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
-        //: In der Community-Edition kein „Freigeben" (keine weiteren Benutzer/Teams).
+        //: no "Share" in the Community edition (no additional users/teams).
         if (currentEdition !== "community") {
             const share = vaultActionButton(t("scenario.share"), "share", "primary");
             share.addEventListener("click", () => openScenarioShareDialog(s));
@@ -6764,12 +6574,12 @@ function renderScenariosList(scenarios) {
         leftGroup.appendChild(edit);
         const info = document.createElement("div");
         info.style.minWidth = "0";
-        // : gerätelos -> "Gerät beim Ausführen" statt "?".
-        // : Subtitel nur „→ Zielgerät" (Preset-Name nicht mehr wiederholen).
+        // : deviceless -> "Device at run time" instead of "?".
+        // : subtitle just "→ target device" (no longer repeat the preset name).
         const meta = s.valid
             ? `→ ${escapeHtml(scenarioTargetLabel(s))}`
             : t("scenario.metaBroken");
-        // : kompakte Metadaten (Anzahl Playbooks/Geräte/freigegebene Benutzer) wie in anderen Listen.
+        // : compact metadata (number of playbooks/devices/shared users) as in other lists.
         const counts = [];
         if (typeof s.playbook_count === "number") counts.push(`${s.playbook_count} Playbook${s.playbook_count === 1 ? "" : "s"}`);
         if (!s.device_optional && typeof s.device_count === "number") counts.push(s.device_count === 1 ? t("scenario.deviceCountOne", { count: s.device_count }) : t("scenario.deviceCountMany", { count: s.device_count }));
@@ -6800,15 +6610,15 @@ function resetScenarioForm() {
     if (title) title.textContent = t("scenario.newScenario");
     const saveBtn = document.getElementById("scenario-save-btn");
     if (saveBtn) saveBtn.textContent = t("common.save");
-    // : Abbrechen ist im Dialog immer sichtbar (schließt den Dialog).
+    // : cancel is always visible in the dialog (closes the dialog).
 }
 
-// : Bearbeiten öffnet denselben Wizard wie das Erstellen, mit vorbefüllten Werten
-// (Name, Playbooks, Variablen, Gerät, Freigaben). Der alte #scenario-dialog wird nicht mehr genutzt.
+// : editing opens the same wizard as creating, with prefilled values
+// (name, playbooks, variables, device, shares). The old #scenario-dialog is no longer used.
 function editScenario(s) {
     if (s.valid === false && !s.preset_name) {
-        // Preset gelöscht -> Playbooks/Variablen lassen sich nicht vorbefüllen; trotzdem bearbeitbar
-        // (der Wizard legt beim Speichern ein neues Preset an).
+        // Preset deleted -> playbooks/variables cannot be prefilled; still editable
+        // (the wizard creates a new preset on save).
         showToast(t("scenario.presetMissingReselect"));
     }
     openScenarioWizard(s);
@@ -6819,10 +6629,10 @@ async function saveScenario() {
     const presetId = document.getElementById("scenario-preset-select").value;
     const deviceGroupId = document.getElementById("scenario-device-select").value;
     if (!name) { showToast(t("scenario.nameRequired")); return; }
-    // : Zielgerät optional (leer = geräteloses Szenario); nur das Preset ist Pflicht.
+    // : target device optional (empty = deviceless scenario); only the preset is required.
     if (!presetId) { showToast(t("scenario.presetRequired")); return; }
-    // : Freigaben laufen über den eigenen Freigabe-Dialog -> hier NICHT mitsenden
-    // (Backend lässt shares bei None unverändert). Beim Neuanlegen startet das Szenario ohne Freigaben.
+    // : shares go via the dedicated share dialog -> do NOT send them here
+    // (the backend leaves shares unchanged when None). On creation the scenario starts without shares.
     const payload = { name, preset_id: presetId, device_group_id: deviceGroupId || null };
     const url = editingScenario ? `/api/profile/scenarios/${editingScenario}` : "/api/profile/scenarios";
     try {
@@ -6837,7 +6647,7 @@ async function saveScenario() {
 }
 
 async function deleteScenarioById(id, name) {
-    // : Szenario-Name fett in der Bestätigungsfrage.
+    // : scenario name in bold in the confirmation prompt.
     const msgHtml = name ? t("scenario.deleteConfirmNamed", { name: escapeHtml(name) }) : t("scenario.deleteConfirm");
     if (!(await showConfirmDialog({ title: t("scenario.deleteTitle"), messageHtml: msgHtml, confirmLabel: t("common.delete") }))) return;
     try {
@@ -6851,12 +6661,12 @@ async function deleteScenarioById(id, name) {
     }
 }
 
-// /: 1-Klick-Ausführung über scenario_id — der Server löst Preset (Playbooks +
-// Variablen) und festes Zielgerät auf und erzwingt Freigabe/Berechtigung (auch für Gäste).
-// : Bestätigungs-Dialog vor dem Start;: geräteloses Szenario -> Einmal-Geräte-Dialog.
+// /: 1-click execution via scenario_id — the server resolves the preset (playbooks +
+// variables) and the fixed target device and enforces share/permission (also for guests).
+// : confirmation dialog before the start;: deviceless scenario -> one-time device dialog.
 async function runScenario(s) {
     if (s.valid === false) { showToast(t("scenario.invalidEdit")); return; }
-    // : Szenario-Name und Zielgerät in Akzentfarbe hervorheben (Werte via escapeHtml entschärft).
+    // : highlight the scenario name and target device in the accent color (values sanitized via escapeHtml).
     const accent = (txt) => `<b style="color: var(--md-sys-color-primary);">${escapeHtml(txt)}</b>`;
     const messageHtml = s.device_optional
         ? t("scenario.runConfirmDeviceless", { name: accent(s.name) })
@@ -6867,20 +6677,20 @@ async function runScenario(s) {
     await executeScenarioRun(s, {});
 }
 
-// : geräteloses Szenario -> Host/SSH einmalig erfragen (nicht persistiert) und mitsenden.
+// : deviceless scenario -> ask for host/SSH once (not persisted) and send it along.
 let scenarioRunPending = null;
 function openScenarioRunDeviceDialog(s) {
     scenarioRunPending = s;
     const t = document.getElementById("scenario-run-device-title");
     if (t) t.textContent = window.t("scenario.runDeviceTitle", { name: s.name });
     ["scenario-run-host", "scenario-run-user", "scenario-run-password", "scenario-run-basedir"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
-    // Autofill-Sperre zuruecksetzen: base_dir leitet sich wieder vom Benutzernamen ab.
+    // Reset the autofill lock: base_dir is derived from the username again.
     const _srBaseDir = document.getElementById("scenario-run-basedir");
     if (_srBaseDir) _srBaseDir.dataset.edited = "false";
     _resetScenarioRunKeyUpload();  // 
     const dlg = document.getElementById("scenario-run-device-dialog"); if (dlg) dlg.classList.remove("hidden");
 }
-// : Key-Upload des Einmal-Geräte-Dialogs zurücksetzen (Auswahl leeren + Entfernen-Button verstecken).
+// : reset the one-time device dialog's key upload (clear the selection + hide the remove button).
 function _resetScenarioRunKeyUpload() {
     const keyFile = document.getElementById("scenario-run-key-file");
     if (keyFile) keyFile.value = "";
@@ -6898,12 +6708,12 @@ async function submitScenarioRunDevice() {
     const host = (document.getElementById("scenario-run-host").value || "").trim();
     const user = (document.getElementById("scenario-run-user").value || "").trim();
     const password = document.getElementById("scenario-run-password").value || "";
-    //: optionales Sudo-/Become-Passwort für diesen Lauf.
+    //: optional sudo/become password for this run.
     const becomeEl = document.getElementById("scenario-run-become");
     const becomePassword = becomeEl ? (becomeEl.value || "") : "";
     if (!host) { showToast(t("scenario.hostRequired")); return; }
     if (!user) { showToast(t("scenario.userRequired")); return; }
-    // : optionaler SSH-Key (Vorrang vor Passwort); nur für diesen Lauf, nicht gespeichert.
+    // : optional SSH key (takes precedence over password); only for this run, not saved.
     let ssh_key = "";
     const keyInput = document.getElementById("scenario-run-key-file");
     const keyFile = keyInput && keyInput.files && keyInput.files[0];
@@ -6913,8 +6723,8 @@ async function submitScenarioRunDevice() {
         if (!ssh_key || !ssh_key.trim()) { showToast(t("scenario.keyFileEmpty")); return; }
     }
     if (!password && !ssh_key) { showToast(t("scenario.passwordOrKeyRequired")); return; }
-    // Basisverzeichnis ist optional; leer lassen wir weg, damit der Server auf das
-    // Heimatverzeichnis des SSH-Benutzers zurueckfallen kann.
+    // The base directory is optional; if empty we omit it, so the server can fall back to
+    // the SSH user's home directory.
     const baseDir = (document.getElementById("scenario-run-basedir").value || "").trim();
     const s = scenarioRunPending;
     closeScenarioRunDeviceDialog();
@@ -6923,16 +6733,16 @@ async function submitScenarioRunDevice() {
 
 async function executeScenarioRun(s, extra) {
     try {
-        // base_dir gehoert in die Run-Variablen (nicht als Top-Level-Feld); der Server merged es
-        // bei flexibler Berechtigung ueber die Preset-Variablen. Leeres base_dir weglassen, damit
-        // serverseitig der Heimatverzeichnis-Fallback greift.
+        // base_dir belongs in the run variables (not as a top-level field); the server merges it
+        // over the preset variables under flexible permission. Omit an empty base_dir, so
+        // the server-side home-directory fallback applies.
         const { base_dir, ...rest } = extra || {};
         const variables = base_dir ? { base_dir } : undefined;
         const res = await fetch("/api/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            // playbooks ist im RunRequest Pflichtfeld (Pydantic-Validierung vor dem Handler);
-            // der Server ersetzt es serverseitig durch die Playbooks des Szenario-Presets.
+            // playbooks is a required field in RunRequest (Pydantic validation before the handler);
+            // the server replaces it server-side with the playbooks of the scenario preset.
             body: JSON.stringify({ playbooks: [], scenario_id: s.id, session_id: sessionId, ...rest, ...(variables ? { variables } : {}) })
         });
         if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(errorDetailToMessage(d.detail, t("vault.startFailed"))); }
@@ -6950,7 +6760,7 @@ async function executeScenarioRun(s, extra) {
     }
 }
 
-// : eigener Freigabe-Dialog fuer ein Szenario (entkoppelt vom Bearbeiten).
+// : dedicated share dialog for a scenario (decoupled from editing).
 let sharingScenario = null;
 function openScenarioShareDialog(s) {
     sharingScenario = s;
@@ -6988,10 +6798,10 @@ async function saveScenarioShares() {
 }
 
 function switchVaultTab(tabName) {
-    // : Presets-Tab vorerst deaktiviert/ausgeblendet -> nicht mehr ansteuerbar
-    // (auch nicht über /vault/presets); Aufrufe landen auf dem Default-Tab „Szenarios".
-    //: In der Community-Edition entfaellt zusaetzlich der Playbooks-Tab (Custom-Upload
-    // Backend-gesperrt) -> nur Szenarien + Geraete sind ansteuerbar.
+    // : presets tab disabled/hidden for now -> no longer reachable
+    // (not even via /vault/presets); calls land on the default tab "Scenarios".
+    //: in the Community edition the Playbooks tab is additionally dropped (custom upload
+    // backend-locked) -> only scenarios + devices are reachable.
     const valid = currentEdition === "community" ? ["scenarios", "devices"] : ["scenarios", "playbooks", "devices"];
     if (!valid.includes(tabName)) tabName = "scenarios";
 
@@ -7013,23 +6823,23 @@ function switchVaultTab(tabName) {
         activeBtn.style.borderBottom = "2px solid var(--md-sys-color-primary)";
     }
 
-    // URL auf /vault/<tab> spiegeln, OHNE routePage erneut aufzurufen (kein Rekursions-/Bounce-Bug).
+    // Mirror the URL to /vault/<tab> WITHOUT calling routePage again (no recursion/bounce bug).
     const wanted = `/vault/${tabName}`;
     if (window.location.pathname !== wanted) history.replaceState({}, "", wanted);
 
-    // Per-Tab-Inhalt laden.
+    // Load per-tab content.
     if (tabName === "playbooks") {
         fetchCustomPlaybooks();
     } else if (tabName === "devices") {
         loadManagedDevicesTab();
     } else if (tabName === "presets") {
-        //  (#D): Eigene-Presets-Liste (jetzt im Vault) laden; Editor laeuft als Modal #preset-edit-dialog.
+        //  (#D): load the own-presets list (now in the vault); the editor runs as modal #preset-edit-dialog.
         loadPresets();
     } else if (tabName === "scenarios") {
-        // : Szenarien laden + Preset-/Geräte-Auswahl des Formulars befüllen.
+        // : load scenarios + populate the form's preset/device selection.
         loadScenarios();
     }
-    // : FAB-Beschriftung je Tab + aktiven Tab merken (für die FAB-Aktion).
+    // : FAB label per tab + remember the active tab (for the FAB action).
     currentVaultTab = tabName;
     const fabLabel = document.getElementById("vault-fab-label");
     if (fabLabel) {
@@ -7038,14 +6848,14 @@ function switchVaultTab(tabName) {
     }
 }
 
-// : aktiver My-Vault-Tab (steuert die FAB-Aktion).
+// : active My Vault tab (controls the FAB action).
 let currentVaultTab = "playbooks";
 
 function onVaultFab() {
     if (currentVaultTab === "playbooks") openCustomPbCreateDialog();
     else if (currentVaultTab === "devices") openManagedDeviceCreate();
-    else if (currentVaultTab === "presets") openPresetWizard();  // : Erstellen über den Wizard
-    else if (currentVaultTab === "scenarios") openScenarioWizard();  // : Erstellen über den Szenario-Wizard
+    else if (currentVaultTab === "presets") openPresetWizard();  // : create via the wizard
+    else if (currentVaultTab === "scenarios") openScenarioWizard();  // : create via the scenario wizard
 }
 
 // --- Playbook-Hochladen-Dialog ---
@@ -7061,19 +6871,19 @@ function closeCustomPbCreateDialog() {
     const d = document.getElementById("custom-pb-create-dialog"); if (d) d.classList.add("hidden");
 }
 
-// --- Geräte-Dialog ---
+// --- Device dialog ---
 function openManagedDeviceDialog() { const d = document.getElementById("managed-device-dialog"); if (d) d.classList.remove("hidden"); }
 function closeManagedDeviceDialog() { const d = document.getElementById("managed-device-dialog"); if (d) d.classList.add("hidden"); resetManagedDeviceForm(); }
 function openManagedDeviceCreate() { resetManagedDeviceForm(); openManagedDeviceDialog(); }
 
-// --- Szenario-Dialog ---
+// --- Scenario dialog ---
 function openScenarioDialog() { const d = document.getElementById("scenario-dialog"); if (d) d.classList.remove("hidden"); }
 function closeScenarioDialog() { const d = document.getElementById("scenario-dialog"); if (d) d.classList.add("hidden"); resetScenarioForm(); }
 function openScenarioCreate() { resetScenarioForm(); populateScenarioSelects(); openScenarioDialog(); }
 
 // ===========================================================================
-// : Preset-Erstell-Wizard — Schritt 1 Playbooks, 2 Einstellungen, 3 Freigeben.
-// Erstellen-only; Bearbeiten/Freigeben bestehender Presets läuft weiter über #preset-edit-dialog.
+// : preset creation wizard — step 1 playbooks, 2 settings, 3 sharing.
+// Create-only; editing/sharing existing presets still goes via #preset-edit-dialog.
 // ===========================================================================
 let presetWizardStep = 1;
 let presetWizardSelected = new Set();
@@ -7102,16 +6912,16 @@ function presetWizardGoTo(step) {
     const finish = document.getElementById("preset-wizard-finish"); if (finish) finish.style.display = step === 3 ? "" : "none";
 }
 
-// : Kontext-Objekte, damit Preset- und Szenario-Wizard dieselben Renderer teilen.
-// Default = Preset-Wizard -> alle bestehenden Aufrufstellen bleiben unverändert.
+// : context objects, so the preset and scenario wizards share the same renderers.
+// Default = preset wizard -> all existing call sites stay unchanged.
 function presetWizardCtx() {
     return { pb: "preset-wizard-playbooks", cfg: "preset-wizard-config", shares: "preset-wizard-shares",
              prefix: "wizard-", pbClass: "wizard-pb", selected: presetWizardSelected,
              guests: window._presetGuests || [] };
 }
 function scenarioWizardCtx() {
-    // : Szenario-Freigaben nutzen dieselbe Gästeliste wie loadScenarios (window._scenarioGuests);
-    // der Presets-Tab (der window._presetGuests füllte) ist seit ausgeblendet.
+    // : scenario shares use the same guest list as loadScenarios (window._scenarioGuests);
+    // the presets tab (which filled window._presetGuests) has been hidden since.
     return { pb: "scenario-wizard-playbooks", cfg: "scenario-wizard-config", shares: "scenario-wizard-shares",
              prefix: "scwiz-", pbClass: "scwiz-pb", selected: scenarioWizardSelected,
              guests: window._scenarioGuests || [] };
@@ -7141,7 +6951,7 @@ function renderWizardPlaybooks(filter, ctx = presetWizardCtx()) {
     });
 }
 
-// Schritt 2: aufklappbare Config-Sektionen wie im Ausführen-Dialog (gespiegelte Accordion-Logik).
+// Step 2: collapsible config sections like in the run dialog (mirrored accordion logic).
 function renderWizardConfig(ctx = presetWizardCtx()) {
     const container = document.getElementById(ctx.cfg);
     if (!container) return;
@@ -7173,11 +6983,11 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
             const div = document.createElement("div");
             div.dataset.scope = scope; div.dataset.serviceGroup = serviceGroup;
             if (cfg.type === "bool") {
-                //: Wahrheitswerte als Umschalt-Checkbox (Vorbelegung via applyWizardVariables / cfg.default).
+                //: boolean values as a toggle checkbox (prefilled via applyWizardVariables / cfg.default).
                 div.className = "config-field bool-field";
                 div.innerHTML = `<label class="checkbox-label bool-field-label"><input type="checkbox" class="styled-checkbox" id="${ctx.prefix}variable-${cfg.variable}" data-variable="${cfg.variable}" data-scope="${scope}"${cfg.default ? " checked" : ""}><span>${escapeHtml(cfg.label)}</span></label>`;
             } else {
-                //: Beispielwert als grauer HTML-Placeholder (Label schwebt via .config-field dauerhaft oben).
+                //: example value as a gray HTML placeholder (the label floats permanently at the top via .config-field).
                 const type = cfg.type || "text";
                 const ph = cfg.placeholder ? escapeHtml(cfg.placeholder) : " ";
                 div.className = "text-field config-field";
@@ -7225,15 +7035,15 @@ function collectWizardVariables(ctx = presetWizardCtx()) {
         if (field.style.display === "none") return;
         const inp = field.querySelector("input");
         if (!inp || !inp.dataset.variable) return;
-        //: Bool-Checkbox -> expliziter true/false-String; Textfeld nur wenn befüllt.
+        //: bool checkbox -> explicit true/false string; text field only when filled.
         if (inp.type === "checkbox") vars[inp.dataset.variable] = inp.checked ? "true" : "false";
         else if (inp.value.trim()) vars[inp.dataset.variable] = inp.value.trim();
     });
     return vars;
 }
 
-// : `selected` (Liste vorhandener Freigaben {guest_id, permission}) blendet bestehende
-// Freigaben beim Bearbeiten vor (Checkbox an, Berechtigung gesetzt). Beim Erstellen = null.
+// : `selected` (list of existing shares {guest_id, permission}) pre-populates existing
+// shares when editing (checkbox on, permission set). When creating = null.
 function renderWizardShares(ctx = presetWizardCtx(), selected = null) {
     const sc = document.getElementById(ctx.shares);
     if (!sc) return;
@@ -7257,8 +7067,8 @@ function renderWizardShares(ctx = presetWizardCtx(), selected = null) {
     });
 }
 
-// : gespeicherte Variablen eines Presets in die (bereits gerenderten) Wizard-Schritt-2-Felder
-// übernehmen. Muss NACH renderWizardConfig laufen.
+// : apply a preset's saved variables into the (already rendered) wizard step-2 fields.
+// Must run AFTER renderWizardConfig.
 function applyWizardVariables(ctx, vars) {
     if (!vars) return;
     const bd = document.getElementById(`${ctx.prefix}base-dir`);
@@ -7268,12 +7078,12 @@ function applyWizardVariables(ctx, vars) {
     const traefik = document.getElementById(`${ctx.prefix}use-traefik`);
     if (traefik && vars.use_traefik != null) {
         traefik.checked = String(vars.use_traefik) === "true";
-        if (typeof traefik.onchange === "function") traefik.onchange();  // Sichtbarkeit (Domain/Port) neu anwenden
+        if (typeof traefik.onchange === "function") traefik.onchange();  // Re-apply visibility (domain/port)
     }
     document.querySelectorAll(`#${ctx.cfg} .modal-config-accordion .config-field input[data-variable]`).forEach(inp => {
         const key = inp.dataset.variable;
         if (vars[key] == null) return;
-        //: gespeicherten Bool-String in den Checkbox-Zustand übernehmen.
+        //: apply the saved bool string to the checkbox state.
         if (inp.type === "checkbox") inp.checked = String(vars[key]) === "true";
         else inp.value = vars[key];
     });
@@ -7318,21 +7128,21 @@ async function presetWizardFinish() {
 }
 
 // ===========================================================================
-// : Szenario-Erstell-Wizard — Playbooks → Einstellungen → Geräte → Freigeben.
-// Legt im Hintergrund ein Preset (Schritt 1+2) an und verknüpft es als Szenario mit dem in
-// Schritt 3 gewählten Gerät (oder "kein festes Gerät" für) + Freigaben aus Schritt 4.
+// : scenario creation wizard — playbooks → settings → devices → sharing.
+// Creates a preset in the background (steps 1+2) and links it as a scenario with the
+// device chosen in step 3 (or "no fixed device" for) + shares from step 4.
 // ===========================================================================
 let scenarioWizardStep = 1;
 let scenarioWizardSelected = new Set();
-let scenarioWizardDevices = [];   //: Liste gewaehlter Device-IDs ([] = geräteloses Szenario)
-// : Bearbeiten-Modus des Szenario-Wizards.
-let scenarioWizardEditing = null;       // Szenario-ID (null = Neuanlage)
-let scenarioWizardEditPresetId = null;  // zu aktualisierendes Preset (null = neues Preset anlegen)
-let scenarioWizardEditVars = null;      // Variablen zum Vorbefüllen von Schritt 2
-let scenarioWizardEditShares = null;    // bestehende Freigaben für Schritt 4
-let scenarioWizardVarsApplied = false;  // Schritt-2-Vorbefüllung nur einmal anwenden
+let scenarioWizardDevices = [];   //: list of selected device IDs ([] = deviceless scenario)
+// : edit mode of the scenario wizard.
+let scenarioWizardEditing = null;       // scenario ID (null = new entry)
+let scenarioWizardEditPresetId = null;  // preset to update (null = create a new preset)
+let scenarioWizardEditVars = null;      // variables to prefill step 2
+let scenarioWizardEditShares = null;    // existing shares for step 4
+let scenarioWizardVarsApplied = false;  // apply the step-2 prefill only once
 
-// : Neuanlage.: mit Szenario-Objekt = Bearbeiten (Werte vorbefüllt).
+// : new entry.: with a scenario object = edit (values prefilled).
 function openScenarioWizard(s = null) {
     scenarioWizardStep = 1;
     scenarioWizardSelected = new Set();
@@ -7344,14 +7154,14 @@ function openScenarioWizard(s = null) {
     scenarioWizardVarsApplied = false;
 
     if (s) {
-        // : Bearbeiten — Name, Playbooks, Variablen, Gerät und Freigaben aus dem Szenario
-        // (bzw. dessen Preset) vorbefüllen. Das Preset liefert Playbooks + Variablen.
+        // : edit — prefill name, playbooks, variables, device and shares from the scenario
+        // (or its preset). The preset provides playbooks + variables.
         scenarioWizardEditing = s.id;
         const preset = (userScenarioPresets || []).find(p => p.id === s.preset_id) || null;
-        scenarioWizardEditPresetId = preset ? preset.id : null;  // fehlt das Preset -> beim Speichern neu anlegen
+        scenarioWizardEditPresetId = preset ? preset.id : null;  // if the preset is missing -> create a new one on save
         scenarioWizardSelected = new Set(preset ? (preset.playbook_ids || []) : []);
         scenarioWizardEditVars = preset ? (preset.variables || {}) : {};
-        //: nur noch existierende Geraete vorauswählen; unbekannte IDs (geloescht) verwerfen.
+        //: only preselect existing devices; discard unknown IDs (deleted).
         const known = new Set((userScenarioDevices || []).map(d => d.id));
         scenarioWizardDevices = (s.device_ids || []).filter(id => known.has(id));
         scenarioWizardEditShares = s.shares || [];
@@ -7365,7 +7175,7 @@ function openScenarioWizard(s = null) {
     const sh = document.getElementById("scenario-wizard-shares"); if (sh) sh.innerHTML = "";
     scenarioWizardGoTo(1);
     const dlg = document.getElementById("scenario-wizard-dialog");
-    // : Dirty-Flag zurücksetzen, damit das frisch geöffnete Dialog nicht sofort als „geändert" gilt.
+    // : reset the dirty flag, so the freshly opened dialog doesn't immediately count as "changed".
     if (dlg) { dlg.dataset.dirty = ""; dlg.classList.remove("hidden"); }
 }
 function closeScenarioWizard() {
@@ -7374,13 +7184,13 @@ function closeScenarioWizard() {
 function scenarioWizardGoTo(step) {
     scenarioWizardStep = step;
     [1, 2, 3, 4].forEach(n => { const el = document.getElementById("scenario-wizard-step-" + n); if (el) el.classList.toggle("hidden", n !== step); });
-    // : Titel/Icon/Buttons spiegeln Neuanlage vs. Bearbeiten.
+    // : title/icon/buttons reflect new entry vs. edit.
     const editing = !!scenarioWizardEditing;
     const prefix = editing ? window.t("scenario.editScenario") : window.t("scenario.newScenario");
     const titles = { 1: window.t("scenario.wizStep1", { prefix }), 2: window.t("scenario.wizStep2", { prefix }), 3: window.t("scenario.wizStep3", { prefix }), 4: window.t("scenario.wizStep4", { prefix }) };
     const t = document.getElementById("scenario-wizard-title"); if (t) t.textContent = titles[step];
     const icon = document.getElementById("scenario-wizard-icon"); if (icon) icon.textContent = editing ? "edit" : "rocket_launch";  //
-    //: In der Community-Edition entfaellt der Freigabe-Schritt (Schritt 4) — keine weiteren Benutzer.
+    //: in the Community edition the sharing step (step 4) is dropped — no additional users.
     const lastStep = currentEdition === "community" ? 3 : 4;
     const back = document.getElementById("scenario-wizard-back"); if (back) back.style.display = step > 1 ? "" : "none";
     const next = document.getElementById("scenario-wizard-next"); if (next) next.style.display = step < lastStep ? "" : "none";
@@ -7388,8 +7198,8 @@ function scenarioWizardGoTo(step) {
     if (finish) { finish.style.display = step === lastStep ? "" : "none"; finish.textContent = editing ? window.t("scenario.saveChanges") : window.t("scenario.create"); }
 }
 
-// Schritt 3: (Device-Flatten): Mehrfachauswahl der Zielgeraete (Checkboxen). Keine Auswahl
-// = geräteloses Szenario (Gerät wird beim Ausführen einmalig eingegeben).
+// Step 3: (device flatten): multi-selection of target devices (checkboxes). No selection
+// = deviceless scenario (the device is entered once at run time).
 function renderScenarioWizardDevices() {
     const c = document.getElementById("scenario-wizard-devices");
     if (!c) return;
@@ -7430,7 +7240,7 @@ function scenarioWizardNext() {
         if (!name) { showToast(t("scenario.nameRequiredWiz")); return; }
         if (!scenarioWizardSelected.size) { showToast(t("vault.selectPlaybook")); return; }
         renderWizardConfig(scenarioWizardCtx());
-        // : gespeicherte Variablen einmalig vorbefüllen (nur im Bearbeiten-Modus).
+        // : prefill saved variables once (only in edit mode).
         if (scenarioWizardEditing && !scenarioWizardVarsApplied) {
             applyWizardVariables(scenarioWizardCtx(), scenarioWizardEditVars);
             scenarioWizardVarsApplied = true;
@@ -7440,10 +7250,10 @@ function scenarioWizardNext() {
         renderScenarioWizardDevices();
         scenarioWizardGoTo(3);
     } else if (scenarioWizardStep === 3) {
-        //: In der Community-Edition ist Schritt 3 der letzte Schritt (kein Freigeben);
-        // der „Weiter"-Button ist dort ausgeblendet, dieser Guard ist die Absicherung.
+        //: in the Community edition step 3 is the last step (no sharing);
+        // the "Next" button is hidden there, this guard is the safeguard.
         if (currentEdition === "community") return;
-        // : im Bearbeiten-Modus bestehende Freigaben vorblenden.
+        // : in edit mode, pre-populate existing shares.
         renderWizardShares(scenarioWizardCtx(), scenarioWizardEditing ? scenarioWizardEditShares : null);
         scenarioWizardGoTo(4);
     }
@@ -7457,17 +7267,17 @@ async function scenarioWizardFinish() {
     const playbook_ids = Array.from(scenarioWizardSelected);
     if (!name || !playbook_ids.length) { showToast(t("vault.nameAndPlaybookRequired")); return; }
     const variables = collectWizardVariables(scenarioWizardCtx());
-    //: In der Community-Edition gibt es keinen Freigabe-Schritt -> nie Freigaben mitsenden.
+    //: the Community edition has no sharing step -> never send shares.
     const shares = currentEdition === "community" ? [] : Array.from(document.querySelectorAll("#scenario-wizard-shares .wizard-share-cb:checked")).map(cb => {
         const permEl = document.querySelector(`#scenario-wizard-shares .wizard-share-perm[data-guest="${cssEscape(cb.value)}"]`);
         return { guest_id: cb.value, permission: (permEl && permEl.value) || "strict" };
     });
     try {
-        //  Option A: aus Schritt 1+2 ein wiederverwendbares Preset (Rezept) anlegen bzw.
-        // beim Bearbeiten das bestehende Preset des Szenarios aktualisieren.
+        //  option A: create a reusable preset (recipe) from steps 1+2, or
+        // when editing update the scenario's existing preset.
         let presetId;
         if (scenarioWizardEditing && scenarioWizardEditPresetId) {
-            // Bestehende Preset-Freigaben unverändert lassen (Sharing des Szenarios läuft über Schritt 4).
+            // Leave existing preset shares unchanged (the scenario's sharing goes via step 4).
             const existingPreset = (userScenarioPresets || []).find(p => p.id === scenarioWizardEditPresetId);
             const presetShares = (existingPreset && existingPreset.shares) || [];
             const presetRes = await fetch(`/api/profile/presets/${scenarioWizardEditPresetId}`, {
@@ -7478,7 +7288,7 @@ async function scenarioWizardFinish() {
             if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, t("vault.saveFailed")));
             presetId = presetData.id;
         } else {
-            // Neuanlage – oder Bearbeiten eines Szenarios, dessen Preset zwischenzeitlich gelöscht wurde.
+            // New entry – or editing a scenario whose preset has meanwhile been deleted.
             const presetRes = await fetch("/api/profile/presets", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name, playbook_ids, variables, device_ids: [], shares: [] })
@@ -7487,7 +7297,7 @@ async function scenarioWizardFinish() {
             if (!presetRes.ok) throw new Error(errorDetailToMessage(presetData.detail, t("vault.createFailed")));
             presetId = presetData.id;
         }
-        // ... dann das Szenario, das das Preset mit dem gewählten Gerät (oder geräteslos) verknüpft.
+        // ... then the scenario that links the preset with the chosen device (or deviceless).
         const scenarioUrl = scenarioWizardEditing ? `/api/profile/scenarios/${scenarioWizardEditing}` : "/api/profile/scenarios";
         const scenarioRes = await fetch(scenarioUrl, {
             method: "POST", headers: { "Content-Type": "application/json" },
@@ -7503,14 +7313,14 @@ async function scenarioWizardFinish() {
     }
 }
 
-// : Protokoll-Export (TXT/CSV) der gerenderten Tabellen — rein clientseitig.
+// : log export (TXT/CSV) of the rendered tables — purely client-side.
 function _collectTableRows(tbodyId, colCount) {
     const tbody = document.getElementById(tbodyId);
     if (!tbody) return [];
     const rows = [];
     tbody.querySelectorAll("tr").forEach(tr => {
         const cells = tr.querySelectorAll("td");
-        if (cells.length < colCount) return; // Platzhalter-/colspan-Zeilen (Lade…/Keine Einträge) überspringen
+        if (cells.length < colCount) return; // Skip placeholder/colspan rows (Loading…/No entries)
         rows.push(Array.from(cells).slice(0, colCount).map(td => td.textContent.trim().replace(/\s+/g, " ")));
     });
     return rows;
@@ -7535,7 +7345,7 @@ function exportAdminLog(kind, format) {
         : { tbody: "admin-security-tbody", headers: ["Zuletzt", "Typ", "Fingerabdruck", "Anzahl", "Detail", "Status"], base: "ungewoehnliche-aktivitaeten" };
     const rows = _collectTableRows(cfg.tbody, cfg.headers.length);
     if (!rows.length) { showToast(t("misc.noExportEntries")); return; }
-    // Datumsstempel ohne Date.now-Verbot-Problematik (Browser-Kontext erlaubt new Date()).
+    // Date stamp without the Date.now ban issue (the browser context allows new Date()).
     const stamp = new Date().toISOString().slice(0, 10);
     let content, mime, ext;
     if (format === "csv") {
@@ -7551,7 +7361,7 @@ function exportAdminLog(kind, format) {
     _downloadTextFile(`${cfg.base}-${stamp}.${ext}`, content, mime);
 }
 
-// : zentraler Export-Dialog (Auswahl Log-Typen + Format) statt Inline-Buttons.
+// : central export dialog (select log types + format) instead of inline buttons.
 function openAdminExportDialog() {
     const dlg = document.getElementById("admin-export-dialog");
     if (dlg) dlg.classList.remove("hidden");
@@ -7599,10 +7409,10 @@ async function fetchAuditLog() {
     }
 }
 
-// : Sicherheitshinweise im Admin-Panel laden und darstellen.
+// : load and display security notices in the admin panel.
 async function fetchSecurityAlerts() {
-    // Fingerprint-/Sicherheitshinweise = Trial-Missbrauchs-Erkennung (cloud-only):
-    // in Community gestrippt, in On-Premise ausgeblendet -> nur in der Cloud laden.
+    // Fingerprint/security notices = trial abuse detection (cloud-only):
+    // stripped in Community, hidden in On-Premise -> load only in the cloud.
     if (currentEdition !== "cloud") {
         const sec = document.getElementById("admin-security-alerts-section");
         if (sec) sec.style.display = "none";
@@ -7670,7 +7480,7 @@ async function acknowledgeSecurityAlert(alertId) {
 }
 
 // ===========================================================================
-// : Tarif- & Gutschein-Verwaltung im Admin-Panel
+// : tariff & coupon management in the admin panel
 // ===========================================================================
 
 
@@ -7717,7 +7527,7 @@ function renderAdminUsers() {
     const q = (document.getElementById("admin-user-search").value || "").trim().toLowerCase();
     const sort = document.getElementById("admin-user-sort").value || "username";
 
-    // Nur registrierte Nutzer; Gaeste sind ueber die Verwaltung des Besitzers einsehbar
+    // Only registered users; guests are viewable via the owner's management
     let list = allAdminUsers.filter(u => u.role !== "guest").filter(u =>
         !q || (u.username || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q));
 
@@ -7740,7 +7550,7 @@ function renderAdminUsers() {
         const activeBadge = user.is_active
             ? `<span style="color:#2ecc71;">${t("adminUsers.yes")}</span>`
             : `<span style="color:#e74c3c;">${t("adminUsers.no")}</span>`;
-        // : „Verwalten" (Icon manage_accounts) links neben dem Namen.
+        // : "Manage" (icon manage_accounts) to the left of the name.
         const nameTd = document.createElement("td");
         nameTd.style.cssText = "padding:8px; white-space:nowrap;";
         if (!isSelf) {
@@ -7759,7 +7569,7 @@ function renderAdminUsers() {
         tr.appendChild(cell(escapeHtml(user.tier)));
         tr.appendChild(cell(escapeHtml(user.subscription_status || t("adminUsers.inactive"))));
         tr.appendChild(cell(activeBadge));
-        // : „Löschen" ganz rechts (Warndialog mit fettem Namen).
+        // : "Delete" on the far right (warning dialog with the name in bold).
         const tdAct = document.createElement("td");
         tdAct.style.cssText = "padding:8px; text-align:right; white-space:nowrap;";
         if (isSelf) {
@@ -7776,7 +7586,7 @@ function renderAdminUsers() {
     });
 }
 
-// : Benutzer-erstellen-Dialog (Admin) + Anlegen via POST /api/admin/users.
+// : create-user dialog (admin) + creation via POST /api/admin/users.
 function openAdminUserCreateDialog() {
     const f = document.getElementById("admin-user-create-form");
     if (f) f.reset();
@@ -7828,11 +7638,11 @@ async function fetchAdminUsers() {
 }
 
 let currentAdminEditUser = null;
-let currentAdminEditUserData = null;   // : zuletzt geladener Benutzer-Datensatz
-let adminLimitDefaults = null;          // : globale Standard-Limits für Platzhalter
+let currentAdminEditUserData = null;   // : most recently loaded user record
+let adminLimitDefaults = null;          // : global default limits for placeholders
 
 async function openAdminEditUser(userId) {
-    // : globale Standard-Limits einmalig laden (für Limit-Platzhalter)
+    // : load the global default limits once (for limit placeholders)
     if (adminLimitDefaults == null) {
         try {
             const sr = await fetch("/api/admin/settings");
@@ -7862,15 +7672,15 @@ async function openAdminEditUser(userId) {
         toggleBtn.textContent = u.is_active ? t("adminUsers.deactivate") : t("adminUsers.activate");
         toggleBtn.dataset.active = u.is_active ? "1" : "0";
 
-        // : Rolle-Dropdown vorbelegen
+        // : prefill the role dropdown
         const roleSel = document.getElementById("admin-edit-role");
         if (roleSel) roleSel.value = u.role;
 
-        // : Benutzername vorbelegen (im Admin-Panel editierbar).
+        // : prefill the username (editable in the admin panel).
         const unameInput = document.getElementById("admin-edit-username");
         if (unameInput) unameInput.value = u.username || "";
 
-        // : Individuelle Limits — Platzhalter zeigt den globalen Standard
+        // : individual limits — the placeholder shows the global default
         const defs = adminLimitDefaults || {};
         const setLimit = (id, val, defKey, unit) => {
             const el = document.getElementById(id);
@@ -7881,14 +7691,14 @@ async function openAdminEditUser(userId) {
         setLimit("admin-limit-storage", u.storage_quota_mb, "storage_quota_mb", " MB");
         setLimit("admin-limit-playbooks", u.max_custom_playbooks, "max_custom_playbooks", "");
         setLimit("admin-limit-guests", u.max_guest_accounts, "max_guest_accounts", "");
-        //: In der Community-Edition gibt es keine Per-Benutzer-Limits -> Abschnitt ausblenden.
+        //: the Community edition has no per-user limits -> hide the section.
         const limitsSection = document.getElementById("admin-edit-limits-section");
         if (limitsSection) limitsSection.style.display = (currentEdition === "community") ? "none" : "";
 
         const fmt = (d) => d ? new Date(d).toLocaleString() : "-";
         const fmtDate = (d) => d ? new Date(d).toLocaleDateString() : "-";
 
-        // : Kopf-Badges — Verifizierung, Konto-Status, Premium
+        // : header badges — verification, account status, premium
         const badge = (txt, color, icon) =>
             `<span style="display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; padding:3px 9px; border-radius:99px; background:${color}22; color:${color}; border:1px solid ${color}55;">` +
             (icon ? `<span class="material-symbols-outlined" style="font-size:14px;">${icon}</span>` : "") + `${txt}</span>`;
@@ -7903,7 +7713,7 @@ async function openAdminEditUser(userId) {
             `<div style="font-size:17px; font-weight:700; margin-bottom:8px;">${escapeHtml(u.username)}</div>` +
             `<div style="display:flex; flex-wrap:wrap; gap:8px;">${verifyBadge}${statusBadge}${premiumBadge}</div>`;
 
-        // : Konto-Informationen — Rolle (nicht Tarif), 2FA als Icon neben E-Mail
+        // : account info — role (not tariff), 2FA as an icon next to the email
         const twofaIcon = u.two_factor_enabled
             ? `<span class="material-symbols-outlined" title="${t("adminUsers.twofaActive")}" style="font-size:15px; color:#2ecc71; vertical-align:middle;">lock</span>`
             : `<span class="material-symbols-outlined" title="${t("adminUsers.twofaInactive")}" style="font-size:15px; color:var(--text-muted); vertical-align:middle;">no_encryption</span>`;
@@ -7915,14 +7725,14 @@ async function openAdminEditUser(userId) {
             `<div><strong>${t("adminUsers.labelDevices")}:</strong> ${u.device_count} &middot; <strong>${t("adminUsers.labelGuests")}:</strong> ${u.guest_count} &middot; <strong>${t("adminUsers.labelApiTokens")}:</strong> ${u.token_count}</div>` +
             (u.avv_accepted_at ? `<div><strong>${t("adminUsers.labelAvv")}:</strong> ${escapeHtml(u.avv_company || '')} ${t("adminUsers.avvOn")} ${fmt(u.avv_accepted_at)}</div>` : "");
 
-        // : Aktueller Tarif — Abo-Status, Laufzeitende, Stripe-Kunden-ID
+        // : current tariff — subscription status, term end, Stripe customer ID
         const endDate = u.subscription_ends_at || u.trial_ends_at;
         document.getElementById("admin-edit-user-tariff").innerHTML =
             `<div><strong>${t("adminUsers.labelSubStatus")}:</strong> ${escapeHtml(u.subscription_status || '-')}${u.is_subscription_active ? ' (' + t("adminUsers.active") + ')' : ''}</div>` +
             `<div><strong>${t("adminUsers.labelEndDate")}:</strong> ${fmtDate(endDate)}${u.cancels_at_period_end ? t("adminUsers.endsAtPeriodEnd") : ''}</div>` +
             `<div><strong>${t("adminUsers.labelStripeCustomerId")}:</strong> ${u.stripe_customer_id ? escapeHtml(u.stripe_customer_id) : '-'}</div>`;
 
-        // Verknuepfte Gast-Accounts
+        // Linked guest accounts
         const gc = document.getElementById("admin-edit-user-guests");
         if (gc) {
             const guests = u.guests || [];
@@ -7940,7 +7750,7 @@ async function openAdminEditUser(userId) {
         document.getElementById("admin-edit-user-info").innerHTML = `<p style="color:var(--md-sys-color-error); margin:0;">${t("adminUsers.networkError")}</p>`;
     }
 
-    // Rechnungen laden (: nur die letzten 30 Tage)
+    // Load invoices (: only the last 30 days)
     try {
         const ir = await fetch(`/api/admin/users/${userId}/invoices`);
         let invoices = ir.ok ? await ir.json() : [];
@@ -7957,7 +7767,7 @@ async function openAdminEditUser(userId) {
     }
 }
 
-// : Speichert Rolle + individuelle Limits in einem Schritt.
+// : saves role + individual limits in one step.
 async function adminSaveChanges() {
     if (!currentAdminEditUser) return;
     const parseOrNull = (id) => {
@@ -7966,7 +7776,7 @@ async function adminSaveChanges() {
     };
     let ok = true;
 
-    // 1) Rolle (nur wenn geändert; Server verbietet Selbst-Änderung)
+    // 1) role (only if changed; the server forbids self-change)
     const roleSel = document.getElementById("admin-edit-role");
     const newRole = roleSel ? roleSel.value : null;
     const cur = currentAdminEditUserData || {};
@@ -7981,7 +7791,7 @@ async function adminSaveChanges() {
         } catch (e) { ok = false; showToast(t("adminUsers.roleChangeNetworkError")); }
     }
 
-    // : Benutzername (nur wenn geändert).
+    // : username (only if changed).
     const unameInput = document.getElementById("admin-edit-username");
     const newUsername = unameInput ? unameInput.value.trim() : null;
     if (newUsername && newUsername !== cur.username) {
@@ -8044,7 +7854,7 @@ async function adminToggleActive() {
     } catch (e) { showToast(t("adminUsers.networkError")); }
 }
 
-// : Benutzer direkt aus der Liste löschen (Warndialog mit fettem Namen).
+// : delete a user directly from the list (warning dialog with the name in bold).
 async function deleteAdminUserById(id, name) {
     const ok = await showConfirmDialog({ title: t("adminUsers.deleteUserTitle"), messageHtml: t("adminUsers.deleteUserConfirm", { name: escapeHtml(name) }), confirmLabel: t("adminUsers.deletePermanently") });
     if (!ok) return;
@@ -8085,29 +7895,29 @@ async function fetchAdminConfig() {
             document.getElementById("admin-cfg-max-history-age").value = settings.max_history_age || "";
             document.getElementById("admin-cfg-storage-quota").value = settings.storage_quota_mb || "";
             document.getElementById("admin-cfg-max-playbooks").value = settings.max_custom_playbooks || "";
-            // Fingerprint-Alert-Schwellen (cloud-only; in Community gestrippt -> null-sicher).
+            // Fingerprint alert thresholds (cloud-only; stripped in Community -> null-safe).
             const fpAlertCount = document.getElementById("admin-cfg-fp-alert-count");
             if (fpAlertCount) fpAlertCount.value = settings.fingerprint_alert_threshold_count || "";
             const fpAlertHours = document.getElementById("admin-cfg-fp-alert-hours");
             if (fpAlertHours) fpAlertHours.value = settings.fingerprint_alert_threshold_hours || "";
-            // : Standard-Timeout (Default 3600, falls noch nicht gesetzt).
+            // : default timeout (default 3600 if not yet set).
             document.getElementById("admin-cfg-job-timeout").value = settings.default_job_timeout || "3600";
-            //: Verbindungs-/Sudo-Prompt-Timeout (Default 30, falls noch nicht gesetzt).
+            //: connection/sudo prompt timeout (default 30 if not yet set).
             document.getElementById("admin-cfg-connection-timeout").value = settings.default_connection_timeout || "30";
             // : Passwortregeln.
             document.getElementById("admin-cfg-pw-min-length").value = settings.password_min_length || "8";
             document.getElementById("admin-cfg-pw-special").checked = String(settings.password_require_special || "false").toLowerCase() === "true";
             document.getElementById("admin-cfg-pw-case").checked = String(settings.password_require_case || "false").toLowerCase() === "true";
             document.getElementById("admin-cfg-pw-digit").checked = String(settings.password_require_digit || "false").toLowerCase() === "true";
-            // : Wartungsmodus + Notiz.
+            // : maintenance mode + note.
             const maintCb = document.getElementById("admin-cfg-maintenance-mode");
             if (maintCb) maintCb.checked = String(settings.maintenance_mode || "false").toLowerCase() === "true";
             const maintNote = document.getElementById("admin-cfg-maintenance-note");
             if (maintNote) maintNote.value = settings.maintenance_note || "";
-            // : Registrierungs-Schalter (Default an, falls noch nie gesetzt).
+            // : registration toggle (default on if never set).
             const regCb = document.getElementById("admin-cfg-registration-enabled");
             if (regCb) regCb.checked = String(settings.registration_enabled || "true").toLowerCase() === "true";
-            //: Enterprise-Tarif (cloud-only; Felder in der Community-Edition gestrippt -> null-sicher).
+            //: enterprise tariff (cloud-only; fields stripped in the Community edition -> null-safe).
             const entEnabledCb = document.getElementById("admin-cfg-enterprise-enabled");
             if (entEnabledCb) entEnabledCb.checked = String(settings.enterprise_tier_enabled || "true").toLowerCase() !== "false";
             const entTitle = document.getElementById("admin-cfg-enterprise-title");
@@ -8122,9 +7932,9 @@ async function fetchAdminConfig() {
     } catch (err) {
         showToast(t("adminCfg.loadNetworkError"));
     }
-    //: In der Community-Edition gelten weder Quota-/Limit- noch Fingerprint-Alert-
-    // Einstellungen — die zugehörigen Felder ausblenden (Wrapper .text-field). handleAdminConfigSubmit
-    // sendet sie dann nicht mit (Backend behandelt sie als optional), kein 422.
+    //: in the Community edition neither quota/limit nor fingerprint-alert
+    // settings apply — hide the corresponding fields (wrapper .text-field). handleAdminConfigSubmit
+    // then doesn't send them (the backend treats them as optional), no 422.
     if (currentEdition === "community") {
         ["admin-cfg-max-guests", "admin-cfg-max-tokens", "admin-cfg-storage-quota", "admin-cfg-max-playbooks"].forEach(id => {
             const el = document.getElementById(id);
@@ -8132,11 +7942,11 @@ async function fetchAdminConfig() {
             if (wrap) wrap.style.display = "none";
         });
     }
-    // : GoBD-Datumsfelder werden jetzt beim Öffnen des Protokolle-Tabs vorbelegt.
+    // : the GoBD date fields are now prefilled when the Logs tab is opened.
     prefillGobdDates();
 }
 
-// : Test-E-Mail zur SMTP-Verifizierung senden.
+// : send a test email for SMTP verification.
 async function sendAdminTestEmail() {
     const addr = (document.getElementById("admin-test-email-addr").value || "").trim();
     if (!addr) { showToast(t("adminCfg.enterRecipientEmail")); return; }
@@ -8157,7 +7967,7 @@ async function sendAdminTestEmail() {
     }
 }
 
-// /: GoBD-Export-Datumsfelder mit dem laufenden Wirtschaftsjahr vorbelegen.
+// /: prefill the GoBD export date fields with the current fiscal year.
 function prefillGobdDates() {
     const gStart = document.getElementById("gobd-start-date");
     const gEnd = document.getElementById("gobd-end-date");
@@ -8168,7 +7978,7 @@ function prefillGobdDates() {
     }
 }
 
-// : GoBD-Export als ZIP herunterladen (GET-Download mit Session-Cookie).
+// : download the GoBD export as a ZIP (GET download with a session cookie).
 function handleGobdExport() {
     const start = document.getElementById("gobd-start-date").value;
     const end = document.getElementById("gobd-end-date").value;
@@ -8189,10 +7999,10 @@ async function handleAdminConfigSubmit(e) {
     const max_history_age = document.getElementById("admin-cfg-max-history-age").value;
     const storage_quota_mb = document.getElementById("admin-cfg-storage-quota").value;
     const max_custom_playbooks = document.getElementById("admin-cfg-max-playbooks").value;
-    // Fingerprint-Alert-Schwellen (cloud-only; in Community gestrippt -> null-sicher, unten bedingt gesendet).
+    // Fingerprint alert thresholds (cloud-only; stripped in Community -> null-safe, sent conditionally below).
     const fpAlertCountEl = document.getElementById("admin-cfg-fp-alert-count");
     const fpAlertHoursEl = document.getElementById("admin-cfg-fp-alert-hours");
-    // : Standard-Timeout für Ausführungen.
+    // : default timeout for runs.
     const default_job_timeout = document.getElementById("admin-cfg-job-timeout").value;
     //: Verbindungs-/Sudo-Prompt-Timeout.
     const default_connection_timeout = document.getElementById("admin-cfg-connection-timeout").value;
@@ -8201,13 +8011,13 @@ async function handleAdminConfigSubmit(e) {
     const password_require_special = document.getElementById("admin-cfg-pw-special").checked ? "true" : "false";
     const password_require_case = document.getElementById("admin-cfg-pw-case").checked ? "true" : "false";
     const password_require_digit = document.getElementById("admin-cfg-pw-digit").checked ? "true" : "false";
-    // /: Wartungsmodus + Notiz + Registrierungs-Schalter. In der Community
-    // build-gestrippt (community-strip) -> null-sicher und unten nur bedingt gesendet, sonst wuerde
-    // die Community diese (dort inerten) Werte bei jedem Speichern unnoetig auf "false" setzen.
+    // /: maintenance mode + note + registration toggle. In Community
+    // build-stripped (community-strip) -> null-safe and sent only conditionally below, otherwise
+    // Community would needlessly set these (there inert) values to "false" on every save.
     const maintCb = document.getElementById("admin-cfg-maintenance-mode");
     const maintNoteEl = document.getElementById("admin-cfg-maintenance-note");
     const regCb = document.getElementById("admin-cfg-registration-enabled");
-    //: Enterprise-Tarif-Felder (cloud-only; in der Community-Edition gestrippt -> null-sicher).
+    //: enterprise tariff fields (cloud-only; stripped in the Community edition -> null-safe).
     const entEnabledCb = document.getElementById("admin-cfg-enterprise-enabled");
     const entTitleEl = document.getElementById("admin-cfg-enterprise-title");
     const entDescEl = document.getElementById("admin-cfg-enterprise-desc");
@@ -8230,21 +8040,21 @@ async function handleAdminConfigSubmit(e) {
         password_require_case,
         password_require_digit
     };
-    //: In der Community-Edition sind diese Felder ausgeblendet (Quota/Limits,
-    // Fingerprint-Alerts) — nicht mitsenden (Backend lässt sie unverändert), sonst 422.
+    //: in the Community edition these fields are hidden (quota/limits,
+    // fingerprint alerts) — don't send them (the backend leaves them unchanged), otherwise 422.
     if (currentEdition === "community") {
         ["max_active_api_tokens", "max_guest_accounts", "storage_quota_mb", "max_custom_playbooks"].forEach(k => delete payload[k]);
     }
-    //: Enterprise-Felder nur mitsenden, wenn vorhanden (cloud).
+    //: only send enterprise fields when present (cloud).
     if (entEnabledCb) payload.enterprise_tier_enabled = entEnabledCb.checked ? "true" : "false";
     if (entTitleEl) payload.enterprise_tier_title = entTitleEl.value;
     if (entDescEl) payload.enterprise_tier_description = entDescEl.value;
     if (entContactEl) payload.enterprise_contact_email = entContactEl.value;
-    // Fingerprint-Alert-Schwellen nur mitsenden, wenn vorhanden (cloud).
+    // Only send the fingerprint alert thresholds when present (cloud).
     if (fpAlertCountEl) payload.fingerprint_alert_threshold_count = fpAlertCountEl.value;
     if (fpAlertHoursEl) payload.fingerprint_alert_threshold_hours = fpAlertHoursEl.value;
-    // Wartungsmodus/-Notiz + Registrierungs-Schalter nur mitsenden, wenn vorhanden (cloud/onprem;
-    // in der Community build-gestrippt -> Werte bleiben unveraendert, kein unnoetiges "false").
+    // Only send maintenance mode/note + registration toggle when present (cloud/onprem;
+    // build-stripped in Community -> the values stay unchanged, no needless "false").
     if (maintCb) payload.maintenance_mode = maintCb.checked ? "true" : "false";
     if (maintNoteEl) payload.maintenance_note = maintNoteEl.value;
     if (regCb) payload.registration_enabled = regCb.checked ? "true" : "false";
@@ -8260,7 +8070,7 @@ async function handleAdminConfigSubmit(e) {
         const data = await response.json();
         if (response.ok) {
             showToast(t("adminCfg.saved"));
-            updateMaintenanceBanner();  // : Banner sofort nach Wartungsmodus-Änderung aktualisieren.
+            updateMaintenanceBanner();  // : update the banner immediately after a maintenance-mode change.
         } else {
             showToast(errorDetailToMessage(data.detail, t("adminCfg.saveError")));
         }
@@ -8285,7 +8095,7 @@ async function fetchAdminIPBlocks() {
             if (data.blocks.length === 0) {
                 activeTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 10px; color: var(--text-muted);">${t("adminCfg.noActiveBans")}</td></tr>`;
             } else {
-                // DOM-Aufbau statt String-Interpolation: kein onclick aus dem (spoofbaren) IP-Wert
+                // DOM construction instead of string interpolation: no onclick from the (spoofable) IP value
                 activeTbody.innerHTML = "";
                 data.blocks.forEach(b => {
                     const expiryStr = b.expires_at ? new Date(b.expires_at).toLocaleString() : 'Permanent';
@@ -8385,8 +8195,8 @@ async function releaseIPBan(ip) {
 // Custom Playbooks Handlers
 let customPlaybooksData = {};
 
-// : Hello-World-Beispiel-Playbook als YAML-Download generieren, damit Nutzer das
-// geforderte Format (hosts: all auf oberster Ebene + einfache Tasks) direkt sehen.
+// : generate the Hello World example playbook as a YAML download, so users see the
+// required format (hosts: all at the top level + simple tasks) directly.
 function downloadExamplePlaybook() {
     const yaml = [
         "---",
@@ -8422,8 +8232,8 @@ async function fetchCustomPlaybooks() {
     listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px;">${t("customPb.loading")}</p>`;
 
     try {
-        // : kein HTTP-Cache -> nach Login/Upload sofort die aktuellen eigenen Playbooks
-        // (eine vor dem Login gecachte Antwort ohne Custom-Einträge wird nicht wiederverwendet).
+        // : no HTTP cache -> show the current own playbooks immediately after login/upload
+        // (a response cached before login without custom entries is not reused).
         const response = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`, { cache: "no-store" });
         if (!response.ok) {
             listEl.innerHTML = `<p style="color: var(--md-sys-color-error); font-size: 13px;">${t("customPb.loadError")}</p>`;
@@ -8442,10 +8252,10 @@ async function fetchCustomPlaybooks() {
         listEl.innerHTML = "";
         custom.forEach(pb => {
             const row = document.createElement("div");
-            // : Abstände exakt wie die Geräte-Liste -> kein margin-bottom (Spacing nur via Container-gap),
-            // sonst doppelter Abstand (gap + margin) und unruhigeres Layout als bei "Geräte".
+            // : spacing exactly like the devices list -> no margin-bottom (spacing only via container gap),
+            // otherwise double spacing (gap + margin) and a more restless layout than "Devices".
             row.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02); font-size:13px;";
-            // : Linke Gruppe = Freigeben + Bearbeiten + Logo/Name/Meta (Layout wie).
+            // : left group = share + edit + logo/name/meta (layout like).
             const leftGroup = document.createElement("div");
             leftGroup.style.cssText = "display:flex; align-items:center; gap:8px; min-width:0;";
             const shareBtn = vaultActionButton(t("customPb.share"), "share", "primary");
@@ -8499,13 +8309,13 @@ async function openEditCustomPlaybook(filename) {
     document.getElementById("custom-pb-edit-desc").value = pb.description || "";
     document.getElementById("custom-pb-edit-icon-url").value = (pb.icon_type === "url" ? (pb.icon_value || "") : "");
     document.getElementById("custom-pb-edit-icon-file").value = "";
-    updateEditIconLbl();   //: Datei-Label der Dropzone zuruecksetzen
+    updateEditIconLbl();   //: reset the dropzone's file label
 
-    //: Freigaben sind ausgelagert in den dedizierten Freigabe-Dialog.
+    //: shares are moved out into the dedicated share dialog.
     document.getElementById("custom-pb-edit-dialog").classList.remove("hidden");
 }
 
-//: Datei-Label der Logo-Dropzone im Bearbeiten-Dialog aktualisieren.
+//: update the file label of the logo dropzone in the edit dialog.
 function updateEditIconLbl() {
     const editIconInput = document.getElementById("custom-pb-edit-icon-file");
     const lbl = document.getElementById("custom-pb-edit-icon-filename-lbl");
@@ -8517,7 +8327,7 @@ function closeEditCustomPlaybook() {
     editingCustomPlaybook = null;
 }
 
-//: dedizierter Freigabe-Dialog (entkoppelt vom Bearbeiten)
+//: dedicated share dialog (decoupled from editing)
 let sharingCustomPlaybook = null;
 
 async function openShareCustomPlaybook(filename) {
@@ -8563,7 +8373,7 @@ function closeShareCustomPlaybook() {
 async function saveShareCustomPlaybook() {
     if (!sharingCustomPlaybook) return;
     const checked = Array.from(document.querySelectorAll("#playbook-share-guests .pb-share-guest:checked")).map(c => c.value);
-    // Nur Freigaben aktualisieren - Name/Beschreibung/Icon bleiben unberuehrt (entkoppelt).
+    // Only update shares - name/description/icon stay untouched (decoupled).
     const fd = new FormData();
     fd.append("filename", sharingCustomPlaybook);
     fd.append("guest_access", JSON.stringify(checked));
@@ -8593,7 +8403,7 @@ async function saveCustomPlaybookMeta() {
     if (iconUrl) fd.append("icon_url", iconUrl);
     const iconFile = document.getElementById("custom-pb-edit-icon-file").files[0];
     if (iconFile) fd.append("icon", iconFile);
-    //: guest_access wird hier NICHT mehr gesendet (eigener Freigabe-Dialog).
+    //: guest_access is NO longer sent here (dedicated share dialog).
 
     try {
         const res = await fetch("/api/playbooks/custom-meta", { method: "POST", body: fd });
@@ -8641,12 +8451,12 @@ async function handleCustomPlaybookUpload(e) {
             showToast(t("customPb.uploaded"));
             document.getElementById("custom-playbook-upload-form").reset();
             document.getElementById("custom-playbook-filename-lbl").textContent = t("customPb.noFileSelected");
-            //: Logo-Upload-Box-Label ebenfalls zuruecksetzen.
+            //: reset the logo upload box label too.
             const iconLbl = document.getElementById("custom-pb-icon-filename-lbl");
             if (iconLbl) iconLbl.textContent = t("customPb.noFileSelected");
-            // : Reset-Buttons der Dropzones nach erfolgreichem Upload wieder ausblenden.
+            // : hide the dropzones' reset buttons again after a successful upload.
             ["custom-playbook-reset", "custom-pb-icon-reset"].forEach(id => { const b = document.getElementById(id); if (b) b.classList.add("hidden"); });
-            closeCustomPbCreateDialog();  // : Hochladen-Dialog nach Erfolg schließen
+            closeCustomPbCreateDialog();  // : close the upload dialog after success
 
             await fetchCustomPlaybooks();
             await fetchPlaybooks();
@@ -8659,7 +8469,7 @@ async function handleCustomPlaybookUpload(e) {
 }
 
 async function deleteCustomPlaybook(filename, name) {
-    // : Playbook-Anzeigename (Fallback Dateiname) fett in der Bestätigungsfrage.
+    // : playbook display name (fallback file name) in bold in the confirmation prompt.
     const label = name || filename;
     if (!(await showConfirmDialog({ title: t("customPb.deleteTitle"), messageHtml: t("customPb.deleteConfirm", { label: escapeHtml(label) }), confirmLabel: t("common.delete") }))) return;
 
@@ -8680,7 +8490,7 @@ async function deleteCustomPlaybook(filename, name) {
     }
 }
 
-// Legal & Privacy Helper Functions (: keine window-Bindings noetig – siehe Event-Delegation)
+// Legal & Privacy Helper Functions (: no window bindings needed – see event delegation)
 function closeLegalModal(type) {
     const modal = document.getElementById(`${type}-modal`);
     if (modal) modal.classList.add("hidden");
@@ -8773,9 +8583,9 @@ let telemetryInitialized = false;
 function initializeTelemetry() {
     console.log("[Telemetry] Initialisiere anonymisierte Nutzungsstatistiken (opt-in gewährt)...");
 
-    //: Kein dynamisch injiziertes <script> mehr (wurde von der gehärteten CSP
-    // script-src 'self' blockiert,). Der Mock-Tracking-Hinweis wird direkt aus dem
-    // bereits geladenen JS heraus geloggt – CSP-konform und idempotent.
+    //: no more dynamically injected <script> (it was blocked by the hardened CSP
+    // script-src 'self',). The mock tracking notice is logged directly from the
+    // already loaded JS – CSP-compliant and idempotent.
     if (!telemetryInitialized) {
         telemetryInitialized = true;
         console.log("[Telemetry] Mock-Tracking-Dienst läuft im Hintergrund.");
@@ -8785,7 +8595,7 @@ function initializeTelemetry() {
 // Collaboration and API Tokens Controllers
 let guestsData = {};   //: id -> guest (inkl. revoked_playbooks)
 
-// : menschenlesbare Bezeichnungen fuer die Audit-Aktionscodes.
+// : human-readable labels for the audit action codes.
 const AUDIT_ACTION_LABELS = {
     "playbook.run": "audit.act.playbookRun",
     "device_group.create": "audit.act.deviceGroupCreate",
@@ -8801,7 +8611,7 @@ const AUDIT_ACTION_LABELS = {
     "scenario.delete": "audit.act.scenarioDelete",
 };
 
-// : kompakte, sichere Detail-Darstellung (nur Schlüssel/Anzahl, keine Secrets).
+// : compact, safe detail rendering (only keys/counts, no secrets).
 function formatAuditDetails(action, details) {
     if (!details || typeof details !== "object") return "";
     const parts = [];
@@ -8862,9 +8672,9 @@ async function loadAuditLog() {
     }
 }
 
-// Community sperrt /api/profile/guests bewusst (404, kein Mehrbenutzer-/Teammitglieder-Scope).
-// Dort den Request gar nicht erst absetzen (sonst 404-Rauschen in der Browser-Konsole),
-// sondern eine leere Liste liefern. In Cloud/On-Premise normal abrufen.
+// Community deliberately locks /api/profile/guests (404, no multi-user/team-member scope).
+// Don't even issue the request there (otherwise 404 noise in the browser console),
+// but return an empty list. In Cloud/On-Premise fetch normally.
 async function fetchGuestList() {
     if (currentEdition === "community") return [];
     try {
@@ -8874,7 +8684,7 @@ async function fetchGuestList() {
 }
 
 async function fetchGuests() {
-    // Community: keine Teammitglieder -> Endpoint nicht anfragen (404 by design).
+    // Community: no team members -> don't request the endpoint (404 by design).
     if (currentEdition === "community") { guestsData = {}; return; }
     try {
         const res = await fetch("/api/profile/guests");
@@ -8888,11 +8698,11 @@ async function fetchGuests() {
                     listEl.innerHTML = `<p style="color: var(--text-muted); font-size: 13px; margin:0;">${t("team.noMembers")}</p>`;
                 } else {
                     listEl.innerHTML = guests.map(g => {
-                        // : Freigabe-Zähler je Typ (Playbooks/Geräte/Szenarien) als kurzer Überblick.
+                        // : share counts per type (playbooks/devices/scenarios) as a quick overview.
                         const sh = g.shares || {};
                         const fmt = (o) => o ? `${o.shared}/${o.total}` : "0/0";
                         const counts = `Playbooks ${fmt(sh.playbooks)} · ${t("team.devices")} ${fmt(sh.devices)} · ${t("team.scenarios")} ${fmt(sh.scenarios)}`;
-                        // : Freigabe- & Verwaltungs-Buttons + Name/Mail neben Freigaben.
+                        // : share & management buttons + name/email next to the shares.
                         return `
                         <div class="team-member-row" style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px; border:1px solid rgba(255,255,255,0.06); border-radius:6px; background:rgba(255,255,255,0.02);">
                             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex-wrap:wrap;">
@@ -8932,8 +8742,8 @@ async function fetchGuests() {
     }
 }
 
-// : Geräte-Freigabe je Teammitglied — zeigt die Geräte(-Gruppen) des Besitzers mit
-// Checkbox (angehakt = für diesen Gast freigegeben) und setzt die guest_access serverseitig.
+// : device sharing per team member — shows the owner's devices (groups) with
+// a checkbox (ticked = shared with this guest) and sets guest_access server-side.
 let sharingDevicesGuestId = null;
 async function openGuestDevicesDialog(guestId) {
     const guest = guestsData[guestId];
@@ -8944,7 +8754,7 @@ async function openGuestDevicesDialog(guestId) {
     container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.loadingDevices")}</p>`;
     document.getElementById("guest-devices-dialog").classList.remove("hidden");
     try {
-        // (Device-Flatten): Freigabe je Geraet (flache Geraeteliste).
+        // (device flatten): sharing per device (flat device list).
         const res = await fetch("/api/profile/devices-unified");
         const devices = res.ok ? await res.json() : [];
         if (!devices.length) {
@@ -8984,17 +8794,17 @@ async function saveGuestDevicesDialog() {
         if (res.ok) {
             showToast(t("team.deviceShareSaved"));
             closeGuestDevicesDialog();
-            await fetchGuests();  // Zähler aktualisieren
+            await fetchGuests();  // update the counter
         } else {
             showToast(errorDetailToMessage(data.detail, t("msg.saveFailed")));
         }
     } catch (e) { showToast(t("msg.networkErrorSaving")); }
 }
 
-//: Dialog - Besitzer entzieht einem Gast selektiv Playbooks
+//: dialog - the owner selectively revokes playbooks from a guest
 let revokingGuestId = null;
 
-// : kleines Playbook-Logo/-Icon fuer Listen wie den Freigabe-Dialog.
+// : small playbook logo/icon for lists like the share dialog.
 function playbookIconHtml(pb) {
     let iconSrc = "";
     //: hochgeladenes/verknuepftes Custom-Logo bevorzugen.
@@ -9025,8 +8835,8 @@ async function openGuestRevokeDialog(guestId) {
     try {
         const res = await fetch(`/api/playbooks?lang=${encodeURIComponent(getLanguage())}`);
         const all = res.ok ? await res.json() : [];
-        // Custom-Playbooks werden ueber ihren eigenen Freigabe-Dialog verwaltet;
-        // dieser Dialog steuert den Standardkatalog (Free + Premium).
+        // Custom playbooks are managed via their own share dialog;
+        // this dialog controls the default catalog (free + premium).
         const playbooks = all.filter(pb => !pb.custom);
         if (!playbooks.length) {
             container.innerHTML = `<p style="color: var(--text-muted); margin:0;">${t("team.noPlaybooks")}</p>`;
@@ -9036,7 +8846,7 @@ async function openGuestRevokeDialog(guestId) {
         const shared = new Set(guest.shared_premium_playbooks || []);
         container.innerHTML = "";
 
-        //: nach Kategorien gruppieren (analog zur Startseite), "Sonstige" zuletzt.
+        //: group by categories (analogous to the home page), "Sonstige" last.
         const grouped = {};
         playbooks.forEach(pb => {
             const cat = (pb.category && pb.category.trim()) ? pb.category.trim() : "Sonstige";
@@ -9055,8 +8865,8 @@ async function openGuestRevokeDialog(guestId) {
             container.appendChild(h);
             grouped[cat].forEach(pb => {
                 const isPremium = !!pb.premium;
-                //: einheitliche Semantik -> angehakt = Zugriff gewaehrt.
-                // Standard: Zugriff, solange NICHT entzogen; Premium: nur bei expliziter Freigabe.
+                //: uniform semantics -> ticked = access granted.
+                // Standard: access as long as NOT revoked; premium: only with an explicit share.
                 const checked = isPremium ? shared.has(pb.file) : !revoked.has(pb.file);
                 //: Zeilenlayout [Checkbox] -> [Logo] -> [Titel]
                 const row = document.createElement("label");
@@ -9090,8 +8900,8 @@ function closeGuestRevokeDialog() {
 
 async function saveGuestRevoke() {
     if (!revokingGuestId) return;
-    // : angehakt = Zugriff. Standard-Playbooks ohne Haken werden entzogen
-    // (revoked); Premium-Playbooks mit Haken werden freigegeben (shared).
+    // : ticked = access. Standard playbooks without a tick are revoked
+    // (revoked); premium playbooks with a tick are shared.
     const cbs = Array.from(document.querySelectorAll("#guest-revoke-list .guest-access-cb"));
     const revoked = cbs.filter(c => c.dataset.premium !== "1" && !c.checked).map(c => c.value);
     const sharedPremium = cbs.filter(c => c.dataset.premium === "1" && c.checked).map(c => c.value);
@@ -9142,11 +8952,11 @@ async function fetchTokens() {
                 } else {
                     tbody.innerHTML = tokens.map(tok => {
                         const scopesBadges = tok.scopes.map(s => {
-                            //: run_playbook -> "run", alles andere (read_logs/manage_*) -> "read"-Stil.
+                            //: run_playbook -> "run", everything else (read_logs/manage_*) -> "read" style.
                             const scopeClass = s === "run_playbook" ? "run" : "read";
                             return `<span class="scope-badge ${scopeClass}">${escapeHtml(s)}</span>`;
                         }).join('');
-                        //: Ablaufdatum anzeigen (falls gesetzt), sonst „unbegrenzt".
+                        //: show the expiry date (if set), otherwise "unlimited".
                         const expiryLabel = tok.expires_at
                             ? escapeHtml(new Date(tok.expires_at).toLocaleDateString(getLocale()))
                             : `<span style="color: var(--text-muted);">${t("tokens.unlimited")}</span>`;
@@ -9227,10 +9037,10 @@ async function handleGuestSubmit() {
 }
 
 // ===========================================================================
-// : Teams-UX — Tabs, Erstellen-/Bearbeiten-/Szenario-/Aktivitäten-Dialoge
+// : Teams UX — tabs, create/edit/scenario/activities dialogs
 // ===========================================================================
 
-// : Tab-Umschaltung Benutzer/Aktivitäten (Muster wie switchVaultTab).
+// : tab switching users/activities (pattern like switchVaultTab).
 function switchTeamsTab(tabName) {
     if (tabName !== "activity") tabName = "users";
     document.querySelectorAll(".team-tab-content").forEach(c => c.classList.add("hidden"));
@@ -9249,12 +9059,12 @@ function switchTeamsTab(tabName) {
         btn.style.color = "var(--md-sys-color-primary)";
         btn.style.borderBottom = "2px solid var(--md-sys-color-primary)";
     }
-    // FAB nur auf dem Benutzer-Tab (CSS: body.tab-teams.team-activity-tab #team-fab { display:none }).
+    // FAB only on the users tab (CSS: body.tab-teams.team-activity-tab #team-fab { display:none }).
     document.body.classList.toggle("team-activity-tab", tabName === "activity");
     if (tabName === "activity") loadAuditLog();
 }
 
-// : Erstellen-Dialog öffnen/schließen.
+// : open/close the create dialog.
 function openGuestCreateDialog() {
     ["guest-username", "guest-email", "guest-password"].forEach(id => {
         const el = document.getElementById(id); if (el) el.value = "";
@@ -9267,7 +9077,7 @@ function closeGuestCreateDialog() {
     if (dlg) dlg.classList.add("hidden");
 }
 
-// : Teammitglied bearbeiten.
+// : edit a team member.
 function openGuestEditDialog(guestId) {
     const g = guestsData[guestId];
     if (!g) return;
@@ -9308,8 +9118,8 @@ async function saveGuestEdit() {
     }
 }
 
-// : Szenario-Freigabe je Teammitglied. Listet die Szenarien des Besitzers mit
-// Checkbox (angehakt = für diesen Gast freigegeben) und schreibt die shares pro Szenario.
+// : scenario sharing per team member. Lists the owner's scenarios with
+// a checkbox (ticked = shared with this guest) and writes the shares per scenario.
 let sharingScenariosGuestId = null;
 let _guestScenariosCache = [];
 async function openGuestScenariosDialog(guestId) {
@@ -9376,7 +9186,7 @@ async function saveGuestScenarios() {
     fetchGuests();
 }
 
-// : Aktivitätsprotokoll eines Teammitglieds (Dialog mit Kopieren & TXT-Export).
+// : activity log of a team member (dialog with copy & TXT export).
 let _guestActivityEntries = [];
 let _guestActivityName = "";
 async function openGuestActivityDialog(guestId) {
@@ -9433,7 +9243,7 @@ async function copyGuestActivity() {
         await navigator.clipboard.writeText(text);
         showToast(t("team.logsCopied"));
     } catch (e) {
-        // Fallback ohne Clipboard-API (z. B. unsicherer Kontext).
+        // Fallback without the Clipboard API (e.g. insecure context).
         const ta = document.createElement("textarea");
         ta.value = text; document.body.appendChild(ta); ta.select();
         try { document.execCommand("copy"); showToast(t("team.logsCopiedShort")); }
@@ -9463,7 +9273,7 @@ async function handleTokenSubmit() {
     const scopes = [];
     if (document.getElementById("token-scope-run").checked) scopes.push("run_playbook");
     if (document.getElementById("token-scope-read").checked) scopes.push("read_logs");
-    //: granulare Scopes für Agent-Verwaltung von Geräten/Szenarien.
+    //: granular scopes for agent management of devices/scenarios.
     if (document.getElementById("token-scope-devices").checked) scopes.push("manage_devices");
     if (document.getElementById("token-scope-scenarios").checked) scopes.push("manage_scenarios");
 
@@ -9513,25 +9323,25 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
-///: Freigabe-Hinweis mit allgemeiner Bezeichnung "Benutzer". Da "Benutzer" im
-// Singular wie im Plural identisch ist, entfällt die frühere Gast/Gäste-Pluralisierung.
+///: share hint with the generic term "user". Using "user" as a
+// single generic label drops the earlier guest/guests pluralization.
 function guestShareLabel(count) {
     const n = Number(count) || 0;
     return t("customPb.sharedWith", { n });
 }
 
-//: Keine window-Bindings mehr noetig – die ehemaligen Inline-onclick-Handler
-// (deleteGuest/deleteToken/openGuestRevokeDialog) laufen jetzt ueber Event-Delegation.
+//: no more window bindings needed – the former inline onclick handlers
+// (deleteGuest/deleteToken/openGuestRevokeDialog) now run via event delegation.
 
 
 // ---------------------------------------------------------------------------
 // : Browser-Fingerprinting
-// Leichtgewichtige Vanilla-JS-Loesung ohne externe Abhaengigkeit. Kombiniert stabile,
-// geraetespezifische Signale (User-Agent, Sprache, Zeitzone, Bildschirm, Canvas, WebGL …)
-// zu einem SHA-256-Hash. Dient ausschliesslich der Erschwerung von Trial-Missbrauch –
-// keine 100%ige Eindeutigkeit, aber stabil genug, um wiederholte Gratis-Testphasen
-// auf demselben Geraet zu erkennen. Jeder Teilschritt ist gekapselt, damit eine
-// blockierte API (z. B. Canvas-Schutz im Browser) die Erfassung nicht verhindert.
+// Lightweight vanilla-JS solution without an external dependency. Combines stable,
+// device-specific signals (user agent, language, timezone, screen, canvas, WebGL …)
+// into a SHA-256 hash. Serves solely to make trial abuse harder –
+// not 100% unique, but stable enough to detect repeated free trials
+// on the same device. Each sub-step is encapsulated, so a
+// blocked API (e.g. canvas protection in the browser) does not prevent the capture.
 // ---------------------------------------------------------------------------
 function _canvasFingerprint() {
     try {
@@ -9568,14 +9378,14 @@ function _webglFingerprint() {
 }
 
 async function _sha256Hex(str) {
-    // Bevorzugt SubtleCrypto (nur in sicheren Kontexten/HTTPS verfuegbar).
+    // Prefer SubtleCrypto (available only in secure contexts/HTTPS).
     if (window.crypto && window.crypto.subtle && window.isSecureContext) {
         try {
             const buf = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
             return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
-        } catch (e) { /* Fallback unten */ }
+        } catch (e) { /* fallback below */ }
     }
-    // Fallback: einfacher, stabiler 53-Bit-Hash (cyrb53) als Hex – ausreichend als Kennung.
+    // Fallback: simple, stable 53-bit hash (cyrb53) as hex – sufficient as an identifier.
     let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
     for (let i = 0; i < str.length; i++) {
         const ch = str.charCodeAt(i);
@@ -9608,7 +9418,7 @@ async function computeBrowserFingerprint() {
         ];
         return await _sha256Hex(signals.join("||"));
     } catch (e) {
-        // Erfassung fehlgeschlagen -> kein Fingerabdruck (Backend behandelt dies als "unbekannt").
+        // Capture failed -> no fingerprint (the backend treats this as "unknown").
         return null;
     }
 }
@@ -9617,5 +9427,5 @@ async function computeBrowserFingerprint() {
 
 
 
-// : Core-State/Helfer fuer das Billing-Modul (Live-Bindings).
+// : core state/helpers for the billing module (live bindings).
 export { _numOrNull, checkAuthStatus, currentEdition, currentUser, errorDetailToMessage, escapeHtml, fmtPrice, navigateTo, openProfileDialog, showConfirmDialog, showToast };

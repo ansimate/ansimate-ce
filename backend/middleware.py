@@ -15,20 +15,20 @@ DEFAULT_BAN_DURATION = 86400  # 24 hours in seconds
 request_history = {}
 violation_history = {}
 
-#: Obergrenzen + periodische Bereinigung gegen unbegrenztes Dict-Wachstum (DoS)
+#: upper bounds + periodic cleanup against unbounded dict growth (DoS)
 MAX_TRACKED_KEYS = 50000
-_last_state_cleanup = [0.0]  # Liste als veraenderbarer Container fuer den Zeitstempel
+_last_state_cleanup = [0.0]  # list as a mutable container for the timestamp
 
 def _safe_int(value, default: int) -> int:
-    #: nicht-numerische Settings duerfen die Middleware nicht zum Absturz bringen.
+    #: non-numeric settings must not crash the middleware.
     try:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return default
 
 def _prune_state(now_ts: float):
-    # Entfernt Schluessel, deren Zeitstempel-Listen abgelaufen sind (lazy GC),
-    # hoechstens einmal pro 60s. Verhindert unbegrenzten Speicherverbrauch.
+    # Removes keys whose timestamp lists have expired (lazy GC),
+    # at most once per 60s. Prevents unbounded memory consumption.
     if now_ts - _last_state_cleanup[0] < 60:
         return
     _last_state_cleanup[0] = now_ts
@@ -42,12 +42,12 @@ def _prune_state(now_ts: float):
             del violation_history[ip]
 
 def get_client_ip(request: Request) -> str:
-    #: X-Real-IP wird von unserem nginx aus der echten Client-IP gesetzt
-    # (proxy_set_header X-Real-IP $remote_addr; nginx ueberschreibt einen ggf. vom
-    # Client mitgeschickten Header) und ist daher vertrauenswuerdig. Den linkesten
-    # X-Forwarded-For-Eintrag NICHT mehr bevorzugen: er ist client-kontrolliert
-    # (Traefik haengt die echte IP nur an, statt sie zu ueberschreiben), sodass ein
-    # Angreifer sonst Bans umgehen oder fremde IPs gezielt sperren lassen koennte.
+    #: X-Real-IP is set by our nginx from the real client IP
+    # (proxy_set_header X-Real-IP $remote_addr; nginx overwrites any header possibly
+    # sent by the client) and is therefore trustworthy. No longer prefer the
+    # leftmost X-Forwarded-For entry: it is client-controlled
+    # (Traefik only appends the real IP instead of overwriting it), so that an
+    # attacker could otherwise bypass bans or get foreign IPs deliberately blocked.
     real_ip = request.headers.get("X-Real-IP")
     if real_ip and is_valid_ip(real_ip.strip()):
         return real_ip.strip()
@@ -86,10 +86,10 @@ def get_db_setting(key: str, default_val: str) -> str:
     return os.environ.get(env_key, default_val)
 
 def _ip_blocked_response(expires_at=None, reason=None) -> JSONResponse:
-    #: Das Frontend zeigt einen Vollbild-Sperrbildschirm mit Countdown/Freigabezeit.
-    # Dafuer expires_at (+ reason) mitgeben. expires_at ist eine naive UTC-datetime
-    # (oder None = permanent) und wird als ISO-8601 mit 'Z'-Suffix (UTC) ausgeliefert,
-    # damit der Browser sie korrekt als UTC interpretiert.
+    #: The frontend shows a full-screen block screen with countdown/release time.
+    # For that we pass expires_at (+ reason). expires_at is a naive UTC datetime
+    # (or None = permanent) and is delivered as ISO-8601 with a 'Z' suffix (UTC),
+    # so the browser interprets it correctly as UTC.
     return JSONResponse(
         status_code=403,
         content={
@@ -111,7 +111,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
         # 2. Manual IP Blacklist check
         manual_blacklist = get_manual_blacklist()
         if client_ip in manual_blacklist:
-            # Manuelle Blacklist (IP_BLACKLIST env): dauerhaft, kein Ablauf.
+            # Manual blacklist (IP_BLACKLIST env): permanent, no expiry.
             return _ip_blocked_response(reason="Manuelle IP-Sperre")
             
         # 3. Database IP Block check & auto-release
@@ -134,7 +134,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
                         db.add(history_entry)
                         db.commit()
                     else:
-                        # Still blocked -> mit Ablaufzeit/Grund fuer den Sperrbildschirm.
+                        # Still blocked -> with expiry time/reason for the block screen.
                         return _ip_blocked_response(expires_at=block.expires_at, reason=block.reason)
         except Exception as e:
             print(f"Error checking blocked IPs in middleware: {e}")
@@ -146,7 +146,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             
         limit_key = f"user_{user_id}" if user_id else f"ip_{client_ip}"
         
-        # Determine current limit (: robust gegen nicht-numerische Settings)
+        # Determine current limit (: robust against non-numeric settings)
         if user_id:
             limit_val = _safe_int(get_db_setting("rate_limit_user_ip", str(DEFAULT_USER_LIMIT)), DEFAULT_USER_LIMIT)
         else:
@@ -154,11 +154,11 @@ class SecurityMiddleware(BaseHTTPMiddleware):
 
         now_ts = time.time()
 
-        #: periodische Bereinigung + harte Obergrenze gegen Memory-Exhaustion
+        #: periodic cleanup + hard upper bound against memory exhaustion
         _prune_state(now_ts)
         if limit_key not in request_history and len(request_history) >= MAX_TRACKED_KEYS:
-            # Tracking-Tabelle ist voll (vermutlich X-Forwarded-For-Flooding): neue,
-            # noch unbekannte Schluessel nicht mehr anlegen, aber Request normal bedienen.
+            # Tracking table is full (probably X-Forwarded-For flooding): don't create
+            # new, still-unknown keys anymore, but serve the request normally.
             return await call_next(request)
 
         # Initialize or clean history
@@ -175,7 +175,7 @@ class SecurityMiddleware(BaseHTTPMiddleware):
             
             # Check for dynamic ban (5 violations in 10 mins)
             if len(violation_history[client_ip]) >= 5 and is_valid_ip(client_ip):
-                # Nur valide IPs persistieren (X-Forwarded-For ist spoofbar -> kein Stored-XSS/Muelldaten)
+                # Only persist valid IPs (X-Forwarded-For is spoofable -> no stored XSS/garbage data)
                 ban_duration = _safe_int(get_db_setting("ip_ban_duration", str(DEFAULT_BAN_DURATION)), DEFAULT_BAN_DURATION)
                 ban_expires = datetime.utcnow() + timedelta(seconds=ban_duration)
 

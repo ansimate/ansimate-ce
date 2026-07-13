@@ -1,14 +1,14 @@
-//  (Region 2): Woerterbuch fuer die statischen UI-Texte der Admin-Karte
-// (#admin-card) in index.html — Tab-Beschriftungen, Dashboard/Statistik-Kacheln,
-// Zeitraum-Buttons, System-Einstellungen (Feldlabels + Hilfetexte), IP-Sperren,
-// Protokolle/Audit/GoBD-Export, Tarife, Gutscheine, Billing sowie deren Tabellenkoepfe
-// und Leerzustaende. Namespace: "adm.".
-// Wird von index.js automatisch via import.meta.glob eingesammelt.
-// Konvention: flache, namespaced Keys; de-Wert = Originaltext, en-Wert = Uebersetzung.
-// Haeufige Buttons (Speichern/Abbrechen/…) referenzieren im HTML die common.*-Keys aus core.js.
+//  (Region 2): dictionary for the static UI texts of the admin card
+// (#admin-card) in index.html — tab labels, dashboard/statistics tiles,
+// time-range buttons, system settings (field labels + help texts), IP bans,
+// logs/audit/GoBD export, plans, coupons, billing as well as their table headers
+// and empty states. Namespace: "adm.".
+// Collected automatically by index.js via import.meta.glob.
+// Convention: flat, namespaced keys; de value = original text, en value = translation.
+// Common buttons (Save/Cancel/…) reference the common.* keys from core.js in the HTML.
 export default {
     de: {
-        // Tab-Navigation
+        // Tab navigation
         "adm.tabDashboard": "Startseite",
         "adm.tabUsers": "Benutzer",
         "adm.tabBilling": "Billing",
@@ -17,24 +17,24 @@ export default {
         "adm.tariffs": "Tarife",
         "adm.coupons": "Gutscheine",
         "adm.ipBans": "IP-Sperren",
-        // Dashboard: Mock-Banner
+        // Dashboard: mock banner
         "adm.mockBannerTitle": "Stripe-Mock-Modus aktiv",
         "adm.mockBannerText": " — Es sind keine vollständigen Stripe-Live-Zugangsdaten (Secret-Key & Webhook-Secret) hinterlegt. Zahlungen/Rechnungen sind Beispieldaten ohne reale Auswirkungen.",
-        // Dashboard: Uebersicht + Zeitraum
+        // Dashboard: overview + range
         "adm.overview": "Übersicht",
         "adm.range24h": "24h",
         "adm.range7d": "7 Tage",
         "adm.range30d": "30 Tage",
         "adm.chartRefreshTitle": "Diagramme neu laden",
         "adm.refresh": "Aktualisieren",
-        // Dashboard: Diagramm-Titel
+        // Dashboard: chart titles
         "adm.accounts": "Konten",
         "adm.accountsHistory": "Konten – Verlauf",
         "adm.ipBansHistory": "IP-Sperren – Verlauf",
         "adm.storageHistory": "Playbook-Speicher – Verlauf",
         "adm.configState": "Konfigurationszustand",
         "adm.loading": "Lade...",
-        // Benutzer-Tab
+        // Users tab
         "adm.userSearchPlaceholder": "Suche Benutzer/E-Mail...",
         "adm.sortName": "Name (A-Z)",
         "adm.sortEmail": "E-Mail (A-Z)",
@@ -48,7 +48,7 @@ export default {
         "adm.colActive": "Aktiv",
         "adm.colActions": "Aktionen",
         "adm.loadingUsers": "Lade Benutzer...",
-        // Einstellungen: Kategorie Benutzer
+        // Settings: User category
         "adm.catUser": "Benutzer",
         "adm.maxTeamMembers": "Max. Teammitglieder",
         "adm.maxApiTokens": "Max. API Tokens",
@@ -60,7 +60,7 @@ export default {
         "adm.maxHistoryAge": "Max. Job-Historie Alter (Tage)",
         "adm.storageQuota": "Speicher-Quota Standard (MB)",
         "adm.maxPlaybooks": "Max. Custom-Playbooks (Standard)",
-        // Einstellungen: Kategorie Security
+        // Settings: Security category
         "adm.catSecurity": "Security",
         "adm.globalLimit": "Global Rate Limit (IP/Min)",
         "adm.globalLimitHelp": "Begrenzt die Anfragen an das gesamte System pro Minute.",
@@ -74,31 +74,31 @@ export default {
         "adm.pwSpecial": "Sonderzeichen erforderlich",
         "adm.pwCase": "Groß- und Kleinbuchstaben erforderlich",
         "adm.pwDigit": "Mindestens eine Ziffer erforderlich",
-        // Einstellungen: Kategorie System
+        // Settings: System category
         "adm.catSystem": "System",
         "adm.maintenanceModeTitle": "Wartungsmodus aktivieren",
         "adm.maintenanceModeDesc": " — nur Administratoren können die App nutzen; alle anderen sehen die Wartungsseite.",
         "adm.registrationTitle": "Benutzerregistrierung erlauben",
         "adm.registrationDesc": " — ist dies deaktiviert, können sich keine neuen Benutzer registrieren; der Registrieren-Button wird ausgeblendet.",
         "adm.maintenanceNote": "Wartungsnotiz",
-        // Einstellungen: SMTP-Test
+        // Settings: SMTP test
         "adm.smtpTest": "SMTP-Test",
         "adm.recipientEmail": "Empfänger-E-Mail",
         "adm.sendTestEmail": "Test-E-Mail senden",
-        // Einstellungen: Enterprise-Tarif (Preisseite)
+        // Settings: Enterprise plan (pricing page)
         "adm.enterpriseTariff": "Enterprise-Tarif (Preisseite)",
         "adm.enterpriseCardTitle": "Enterprise-/Custom-Karte anzeigen",
         "adm.enterpriseCardDesc": ' — als letzte Karte auf der Preisseite mit „Contact Us"-Button.',
         "adm.enterpriseTitle": "Enterprise-Titel",
         "adm.enterpriseContact": "Kontakt-E-Mail (Contact Us)",
         "adm.enterpriseDesc": "Enterprise-Beschreibung",
-        // IP-Sperren-Tab
+        // IP bans tab
         "adm.activeIpBans": "Aktive IP-Sperren",
         "adm.colReason": "Grund",
         "adm.colExpiry": "Ablauf",
         "adm.colAction": "Aktion",
         "adm.noActiveBans": "Keine aktiven Sperren.",
-        // Protokolle-Tab: Ungewoehnliche Aktivitaeten
+        // Logs tab: unusual activity
         "adm.unusualActivity": "Ungewöhnliche Aktivitäten",
         "adm.unusualActivityDesc": 'Warnungen bei auffälligen Registrierungsmustern (z. B. mehrfache Konten mit identischem Browser-Fingerabdruck). Schwellenwerte unter „System-Config" anpassbar.',
         "adm.colLast": "Zuletzt",
@@ -107,36 +107,36 @@ export default {
         "adm.colCount": "Anzahl",
         "adm.colDetail": "Detail",
         "adm.colStatus": "Status",
-        // Protokolle-Tab: Audit-Log
+        // Logs tab: audit log
         "adm.auditLog": "Audit-Log (letzte 200 Einträge)",
         "adm.colTime": "Zeit",
         "adm.colUser": "Benutzer",
         "adm.colTarget": "Ziel",
-        // Protokolle-Tab: IP-Sperren-Verlauf
+        // Logs tab: IP ban history
         "adm.ipBansHistoryHeading": "IP-Sperren Verlauf",
         "adm.colReleasedAt": "Freigegeben am",
         "adm.colMethod": "Methode",
         "adm.noHistory": "Keine Historie vorhanden.",
-        // Protokolle-Tab: GoBD-Export
+        // Logs tab: GoBD export
         "adm.gobdTitle": "GoBD Finanzamt",
         "adm.gobdDesc": "GoBD/GDPdU-konformer Betriebsprüfungs-Export (Z3) des unveränderbaren Buchungsjournals als ZIP (CSV + index.xml + DTD) für einen wählbaren Zeitraum.",
         "adm.gobdFrom": "Von (Wirtschaftsjahr)",
         "adm.gobdTo": "Bis",
         "adm.gobdExportBtn": "GoBD-Export generieren (ZIP)",
-        // Tarife-Tab
+        // Plans tab
         "adm.tariffsDesc": "Tarife werden mit Stripe synchronisiert. Deaktivierte oder noch genutzte Tarife bleiben als Soft-Delete erhalten.",
         "adm.colName": "Name",
         "adm.colGroup": "Gruppe",
         "adm.colPrice": "Preis",
         "adm.colInterval": "Intervall",
         "adm.colLimits": "Limits (PB/Geräte)",
-        // Gutscheine-Tab
+        // Coupons tab
         "adm.couponsDesc": "Gutscheine werden mit Stripe synchronisiert und bei Buchungen im Abrechnungsportal berücksichtigt.",
         "adm.colCode": "Code",
         "adm.colDiscount": "Rabatt",
         "adm.colRedemptions": "Einlösungen",
         "adm.colValid": "Gültig",
-        // Billing-Tab
+        // Billing tab
         "adm.bookings": "Buchungen",
         "adm.bookingsDesc": "Die letzten 50 über Stripe abgewickelten Buchungen (Rechnungen). Im Mock-Modus werden Beispieldaten angezeigt.",
         "adm.colDate": "Datum",

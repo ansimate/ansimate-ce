@@ -1,16 +1,16 @@
-//  (Region 4): Woerterbuch fuer die statischen UI-Texte der Kern-Dialoge in
-// index.html — Team-/Gast-Dialoge (Anlegen/Bearbeiten/Szenario-Freigabe/Aktivitaeten),
-// generische Bestaetigungs-Dialoge (Verwerfen/Confirm), der Ausfuehren-Dialog
-// (Verbindung & Authentifizierung), der Hersteller-Info-Dialog sowie die Auth-Dialoge
-// (Login, Passwort-vergessen, Passwort-zuruecksetzen, OTP, Registrierung).
-// Namespace: "dlgcore.". Haeufige Buttons/Titel nutzen die gemeinsamen Keys aus core.js
-// (common.* / auth.login / auth.register / common.confirm) und werden hier nicht doppelt gefuehrt.
-// Admin-/Billing-Dialoge (Protokoll-Export, Benutzer-Anlage, Premium-Upsell, Wartungs-Overlay)
-// gehoeren thematisch zu adm.* bzw. dlgpay.* und bleiben diesem Namespace fern.
-// Wird von index.js automatisch via import.meta.glob eingesammelt. de = Original, en = Uebersetzung.
+//  (Region 4): dictionary for the static UI texts of the core dialogs in
+// index.html — team/guest dialogs (create/edit/scenario share/activities),
+// generic confirmation dialogs (discard/confirm), the run dialog
+// (connection & authentication), the vendor info dialog, and the auth dialogs
+// (login, forgot password, reset password, OTP, registration).
+// Namespace: "dlgcore.". Common buttons/titles use the shared keys from core.js
+// (common.* / auth.login / auth.register / common.confirm) and are not duplicated here.
+// Admin/billing dialogs (log export, user creation, premium upsell, maintenance overlay)
+// belong thematically to adm.* or dlgpay.* and stay out of this namespace.
+// Collected automatically by index.js via import.meta.glob. de = original, en = translation.
 export default {
     de: {
-        // Gemeinsame Feld-Labels (mehrfach genutzt in Gast-/Auth-Dialogen)
+        // Common field labels (reused across guest/auth dialogs)
         "dlgcore.username": "Benutzername",
         "dlgcore.emailAddress": "E-Mail-Adresse",
         "dlgcore.password": "Passwort",
@@ -51,7 +51,7 @@ export default {
         "dlgcore.keepEditing": "Weiter bearbeiten",
         "dlgcore.discardClose": "Verwerfen & schließen",
 
-        // credentials-dialog (Ausführen)
+        // credentials-dialog (run)
         "dlgcore.credTitle": "Verbindung & Authentifizierung",
         "dlgcore.credDesc": "Gib das Zielgerät sowie die SSH-Zugangsdaten an:",
         "dlgcore.manualEntry": "-- Manuelle Eingabe --",

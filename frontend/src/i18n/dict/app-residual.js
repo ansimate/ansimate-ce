@@ -1,5 +1,5 @@
-// : Rest-Strings an Regionen-Grenzen (Profil-/Geräte-Toasts + Alt-Geräte-Gruppen), die zwischen
-// den Analyse-Regionen lagen. Eigener misc.*-Namespace -> keine Kollision mit app-r*.js.
+// : leftover strings at region boundaries (profile/device toasts + legacy device groups) that lay
+// between the analysis regions. Own misc.* namespace -> no collision with app-r*.js.
 export default {
     de: {
         "misc.scenarioPlaybooksUnavailable": "Die Szenario-Playbooks sind aktuell nicht im Katalog verfügbar.",

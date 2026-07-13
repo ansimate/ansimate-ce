@@ -1,28 +1,28 @@
 """Open-Core limits seam.
 
-Der ``LimitsProvider`` kapselt die Berechnung der effektiven Ressourcenlimits, damit der
-Core keine tarif-/billing-abhaengige Logik mehr fest verdrahtet. Editionen setzen ihren
-Provider ueber die ExtensionRegistry (``registry.set_limits_provider``); ist keiner
-registriert, waehlt der Core:
+The ``LimitsProvider`` encapsulates the computation of the effective resource limits, so that
+the core no longer hard-wires any tariff/billing-dependent logic. Editions set their
+provider via the ExtensionRegistry (``registry.set_limits_provider``); if none is
+registered, the core chooses:
 
-  * community / onpremise -> CoreLimitsProvider: User-Override -> globale Settings
-                             (kein Tarif; Geraete unbegrenzt). Das ist das heutige
-                             Verhalten ohne Tarife.
-  * cloud                 -> TariffLimitsProvider: zusaetzlich tarifgesteuerte Limits.
-                             Der Tarif-Resolver (``_active_tariff``) wird vom Core
-                             injiziert, damit dieses Modul KEINE Billing-Modelle
-                             importieren muss.  verschiebt den Tarif-Provider in das
-                             Billing-Paket.
+  * community / onpremise -> CoreLimitsProvider: user override -> global settings
+                             (no tariff; devices unlimited). This is the current
+                             behavior without tariffs.
+  * cloud                 -> TariffLimitsProvider: additionally tariff-driven limits.
+                             The tariff resolver (``_active_tariff``) is injected by
+                             the core so that this module does NOT import any billing
+                             models.  moves the tariff provider into the
+                             billing package.
 
-Open-Core-Regel: kein proprietaerer Import. Settings werden lazy ueber das Core-Modell
-``Setting`` gelesen; Tarife ausschliesslich ueber den injizierten Resolver.
+Open-Core rule: no proprietary import. Settings are read lazily via the core model
+``Setting``; tariffs exclusively via the injected resolver.
 """
 from abc import ABC, abstractmethod
 
 
 def _global_int_setting(db, key: str, default: int) -> int:
-    """Globale Integer-Einstellung lesen (Fallback = default). Identisch zur bisherigen
-    Core-Logik; Setting wird lazy importiert, um Import-Zyklen zu vermeiden."""
+    """Read a global integer setting (fallback = default). Identical to the previous
+    core logic; Setting is imported lazily to avoid import cycles."""
     from models import Setting
     s = db.query(Setting).filter(Setting.key == key).first()
     if s and s.value and str(s.value).strip().isdigit():
@@ -31,7 +31,7 @@ def _global_int_setting(db, key: str, default: int) -> int:
 
 
 class LimitsProvider(ABC):
-    """Vertrag fuer effektive Ressourcenlimits."""
+    """Contract for effective resource limits."""
 
     @abstractmethod
     def effective_storage_quota_mb(self, user, db) -> int: ...
@@ -44,18 +44,18 @@ class LimitsProvider(ABC):
 
     @abstractmethod
     def effective_max_devices(self, user, db):
-        """None = unbegrenzt."""
+        """None = unlimited."""
 
 
 
 
-#: Community-Fallback fuer die Limits-Seam. Der tariflose CoreLimitsProvider ist
-# Enterprise-only (s. o.) und wird im Community-Export entfernt; die Community braucht dennoch
-# einen gueltigen Provider. Sie ist Einzel-Admin ohne Tarife/Kontingente -> alles unbegrenzt
-# (Geraete ohne Obergrenze; Storage-/Guest-/Custom-Playbook-Limits existieren in der Community
-# ohnehin nicht). Liest nur globale Settings, greift NICHT auf Enterprise-User-Spalten zu.
+#: Community fallback for the limits seam. The tariff-less CoreLimitsProvider is
+# Enterprise-only (see above) and is removed in the Community export; the Community still needs
+# a valid provider. It is a single admin without tariffs/quotas -> everything unlimited
+# (devices without an upper bound; storage/guest/custom-playbook limits don't exist in the
+# Community anyway). Reads only global settings, does NOT access Enterprise user columns.
 class CommunityLimitsProvider(LimitsProvider):
-    """Community: keine Tarife/Kontingente, alles unbegrenzt (Einzel-Admin)."""
+    """Community: no tariffs/quotas, everything unlimited (single admin)."""
 
     def effective_storage_quota_mb(self, user, db) -> int:
         return _global_int_setting(db, "storage_quota_mb", 100)
@@ -67,22 +67,22 @@ class CommunityLimitsProvider(LimitsProvider):
         return _global_int_setting(db, "max_guest_accounts", 3)
 
     def effective_max_devices(self, user, db):
-        return None  # keine Obergrenze
+        return None  # no upper bound
 
 
-# : Der tarifgesteuerte Provider (User-Override -> Tarif -> Settings) lebt jetzt im
-# Billing-Paket (editions/billing: BillingLimitsProvider) und wird in der cloud-Edition ueber
-# die Registry gesetzt. Der Core kennt nur den tariffreien CoreLimitsProvider.
+# : The tariff-driven provider (user override -> tariff -> settings) now lives in the
+# billing package (editions/billing: BillingLimitsProvider) and is set in the cloud edition via
+# the registry. The core knows only the tariff-free CoreLimitsProvider.
 
 
-#: Default-Provider je Edition. Cloud/On-Premise nutzen den tariflosen CoreLimitsProvider
-# (Cloud ueberschreibt ihn zur Laufzeit via Registry mit dem Tarif-Provider); die Community nutzt
-# den CommunityLimitsProvider, da CoreLimitsProvider dort weggestrippt ist.
+#: Default provider per edition. Cloud/On-Premise use the tariff-less CoreLimitsProvider
+# (Cloud overrides it at runtime via the registry with the tariff provider); the Community uses
+# the CommunityLimitsProvider, since CoreLimitsProvider is stripped out there.
 def default_limits_provider() -> LimitsProvider:
     return CommunityLimitsProvider()
 
 
-# Aktiver Provider. Eine Edition-Extension kann ihn via Registry ueberschreiben.
+# Active provider. An edition extension can override it via the registry.
 _active_provider: LimitsProvider = default_limits_provider()
 
 

@@ -1,24 +1,24 @@
 // : app.js Region 1 (Boot/Navigation/Routing/Editions/Landing/renderPlaybooks).
-// Namespaces "core" / "nav". Auto-geladen via dict/*.js (import.meta.glob). Werte stabil halten.
-// Haeufige Buttons (common.*) und Header/Nav (nav.*/auth.*) liegen in core.js -> hier nicht doppeln.
+// Namespaces "core" / "nav". Auto-loaded via dict/*.js (import.meta.glob). Keep values stable.
+// Common buttons (common.*) and header/nav (nav.*/auth.*) live in core.js -> don't duplicate here.
 export default {
     de: {
-        // Editions-abhaengige Vault-Tab-Beschreibungen (Community-Override in applyEditionRules)
+        // Edition-dependent vault tab descriptions (community override in applyEditionRules)
         "core.vaultDevicesDescCommunity": "Verwalten Sie Ihre Geräte: hinterlegen Sie Verbindungsdaten und Standardwerte für die Ausführung von Playbooks.",
         "core.vaultScenariosDescCommunity": "Ein Szenario verknüpft ein Preset (Playbooks + Einstellungen) fest mit einem Zielgerät. Ausführen per Klick im Startseiten-Abschnitt „Szenarios“.",
         // Footer
         "nav.projectWebsite": "Projekt-Webseite",
-        // Rechtstexte / Agent-Anleitung (Lade-Fallbacks)
+        // Legal texts / agent instructions (load fallbacks)
         "core.legalInfoTitle": "Rechtliche Informationen",
         "core.legalLoadError": "Die rechtlichen Informationen konnten nicht geladen werden.",
         "core.llmLoadError": "Die Agent-Anleitung konnte nicht geladen werden.",
-        // Toasts: Kopieren / Datei / Token
+        // Toasts: copy / file / token
         "core.logsCopied": "Protokolle in Zwischenablage kopiert!",
         "core.copyFailed": "Kopieren fehlgeschlagen.",
         "core.noFileSelected": "Keine Datei ausgewählt",
         "core.tokenCopied": "Token in die Zwischenablage kopiert!",
         "core.copyFailedManual": "Kopieren fehlgeschlagen — bitte manuell markieren.",
-        // Playbook-Liste / renderPlaybooks (Leerzustaende, Header, Badges, Toasts)
+        // Playbook list / renderPlaybooks (empty states, headers, badges, toasts)
         "core.playbooksLoadError": "Fehler beim Laden der Playbooks",
         "core.requires": "Erfordert:",
         "core.premiumBadgeTitle": "Premium-Playbook",

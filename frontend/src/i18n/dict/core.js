@@ -1,7 +1,7 @@
-// : Kern-Woerterbuch (Header/Nav/Switcher/Profil + haeufige Buttons). Weitere Bereiche
-// liefern eigene Dateien in diesem Ordner (dict/*.js) — index.js zieht sie automatisch ein
-// (import.meta.glob), sodass parallele Content-Arbeit KEINE gemeinsame Datei anfassen muss.
-// Konvention: flache, namespaced Keys ("nav.playbooks"); Werte stabil halten.
+// : core dictionary (header/nav/switcher/profile + common buttons). Other areas
+// provide their own files in this folder (dict/*.js) — index.js pulls them in automatically
+// (import.meta.glob), so parallel content work does NOT have to touch a shared file.
+// Convention: flat, namespaced keys ("nav.playbooks"); keep values stable.
 export default {
     de: {
         // Header / Logo
@@ -17,21 +17,21 @@ export default {
         "auth.login": "Anmelden",
         "auth.register": "Registrieren",
         "auth.logout": "Abmelden",
-        // Mobiles Menue
+        // Mobile menu
         "burger.open": "Menü öffnen",
         "drawer.menu": "Menü",
         "drawer.close": "Menü schließen",
-        // Sprach-Switcher / Profil
+        // Language switcher / profile
         "lang.switch": "Sprache wechseln",
         "lang.menuLabel": "Sprache auswählen",
         "profile.appearance": "Darstellung",
         "profile.language.label": "Sprache",
         "profile.language.auto": "Automatisch (Browser)",
-        // Landing / Playbooks (Ausschnitt — Rest in)
+        // Landing / playbooks (excerpt — rest in)
         "landing.searchPlaceholder": "Durchsuchen ...",
         "landing.run": "Ausführen",
         "landing.loading": "Lade Playbooks...",
-        // Haeufige Buttons (gemeinsame Basis fuer die Content-Issues)
+        // Common buttons (shared base for the content issues)
         "common.save": "Speichern",
         "common.cancel": "Abbrechen",
         "common.delete": "Löschen",

@@ -50,7 +50,7 @@ def verify_session(db: DBSession, session_id: str) -> Optional[User]:
     if not user or not user.is_active:
         return None
 
-    #: ein Gast wird abgelehnt, wenn sein Hauptaccount fehlt oder deaktiviert ist
+    #: a guest is rejected if its main account is missing or deactivated
     if user.role == "guest":
         if not user.associated_user_id:
             return None

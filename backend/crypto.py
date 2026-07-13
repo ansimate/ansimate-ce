@@ -9,7 +9,7 @@ def _resolve_key_source() -> str:
     key_source = os.environ.get("ENCRYPTION_KEY") or os.environ.get("SECRET_KEY")
     if key_source:
         return key_source
-    # Fail-closed: kein im Quellcode hinterlegter Standardschluessel in Produktion.
+    # Fail-closed: no default key stored in the source code in production.
     if os.environ.get("ALLOW_INSECURE_CRYPTO", "false").lower() == "true":
         return _INSECURE_DEV_FALLBACK
     raise RuntimeError(
@@ -38,7 +38,7 @@ def get_fernet():
     if not enc_key:
         secret = os.environ.get("SECRET_KEY")
         if not secret:
-            secret = _resolve_key_source()  # fail-closed bzw. Dev-Fallback
+            secret = _resolve_key_source()  # fail-closed or dev fallback
         derived_key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
         return Fernet(derived_key)
     try:

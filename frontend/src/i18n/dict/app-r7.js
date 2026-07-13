@@ -1,11 +1,11 @@
-// : app.js Region 7 — Szenarios (Liste, Ausfuehren, Einmal-Geraete-Dialog,
-// Freigaben) + Vault-Tabs/FAB + geteilte Preset-/Szenario-Wizard-Bausteine.
-// Namespaces: scenario.* (szenario-spezifisch) und vault.* (Vault-Tabs/Wizard-geteilt).
-// Wiederverwendet ohne eigenen Eintrag: common.save/edit/delete, landing.run (Ausfuehren),
-// core.noFileSelected (Keine Datei ausgewaehlt).
+// : app.js Region 7 — scenarios (list, run, one-time device dialog,
+// shares) + vault tabs/FAB + shared preset/scenario wizard building blocks.
+// Namespaces: scenario.* (scenario-specific) and vault.* (vault tabs/wizard-shared).
+// Reused without their own entry: common.save/edit/delete, landing.run (run),
+// core.noFileSelected (no file selected).
 export default {
     de: {
-        // --- Szenario-Liste / Aktionen ---
+        // --- Scenario list / actions ---
         "scenario.emptyList": "Keine Szenarien angelegt.",
         "scenario.share": "Freigeben",
         "scenario.metaBroken": "Preset oder Gerät gelöscht – bitte bearbeiten",
@@ -13,7 +13,7 @@ export default {
         "scenario.deviceCountMany": "{count} Geräte",
         "scenario.sharedCountOne": "für {count} Benutzer freigegeben",
         "scenario.sharedCountMany": "für {count} Benutzer freigegeben",
-        // --- Szenario-Formular / Speichern / Löschen ---
+        // --- Scenario form / save / delete ---
         "scenario.newScenario": "Neues Szenario",
         "scenario.presetMissingReselect": "Das Preset dieses Szenarios fehlt – bitte Playbooks neu auswählen.",
         "scenario.nameRequired": "Bitte einen Namen vergeben.",
@@ -24,7 +24,7 @@ export default {
         "scenario.deleteConfirmNamed": "Möchten Sie das Szenario <b>{name}</b> wirklich löschen?",
         "scenario.deleteConfirm": "Szenario wirklich löschen?",
         "scenario.deleteTitle": "Szenario löschen?",
-        // --- Szenario ausführen ---
+        // --- Run scenario ---
         "scenario.invalidEdit": "Preset oder Gerät fehlt – bitte das Szenario bearbeiten.",
         "scenario.runConfirmDeviceless": "Szenario {name} jetzt ausführen? Das Zielgerät wird im nächsten Schritt eingegeben.",
         "scenario.runConfirmDevice": "Szenario {name} jetzt auf {device} ausführen?",
@@ -32,13 +32,13 @@ export default {
         "scenario.runTitle": "Szenario ausführen",
         "scenario.runDeviceTitle": "Szenario „{name}\" ausführen",
         "scenario.started": "Szenario „{name}\" gestartet.",
-        // --- Einmal-Geräte-Dialog ---
+        // --- One-time device dialog ---
         "scenario.hostRequired": "Bitte Host/IP angeben.",
         "scenario.userRequired": "Bitte SSH-Benutzer angeben.",
         "scenario.keyReadFailed": "SSH-Key konnte nicht gelesen werden.",
         "scenario.keyFileEmpty": "Die gewählte Key-Datei ist leer.",
         "scenario.passwordOrKeyRequired": "Bitte ein Passwort eingeben oder einen SSH-Key hochladen.",
-        // --- Szenario-Wizard ---
+        // --- Scenario wizard ---
         "scenario.editScenario": "Szenario bearbeiten",
         "scenario.wizStep1": "{prefix} – Playbooks",
         "scenario.wizStep2": "{prefix} – Einstellungen",
@@ -51,14 +51,14 @@ export default {
         "scenario.nameRequiredWiz": "Bitte einen Szenario-Namen eingeben.",
         "scenario.saveFailed": "Szenario konnte nicht gespeichert werden.",
         "scenario.createFailed": "Szenario konnte nicht erstellt werden.",
-        // --- Vault: Fehler-/Status-Toasts (geteilt Preset/Szenario/Freigabe) ---
+        // --- Vault: error/status toasts (shared preset/scenario/share) ---
         "vault.saveFailed": "Speichern fehlgeschlagen.",
         "vault.deleteFailed": "Löschen fehlgeschlagen.",
         "vault.createFailed": "Erstellen fehlgeschlagen.",
         "vault.startFailed": "Start fehlgeschlagen.",
         "vault.shareFailed": "Freigabe fehlgeschlagen.",
         "vault.shareSaved": "Freigabe gespeichert.",
-        // --- Vault: Leerzustände + Wizard-Konfiguration ---
+        // --- Vault: empty states + wizard configuration ---
         "vault.noPlaybooksAvailable": "Keine Playbooks verfügbar.",
         "vault.baseDir": "Basisverzeichnis (optional)",
         "vault.timezone": "Zeitzone",
@@ -69,12 +69,12 @@ export default {
         "vault.noTeamMembers": "Keine Teammitglieder vorhanden.",
         "vault.permStrict": "strikt (nur ausführen)",
         "vault.permFlexible": "flexibel (anpassbar)",
-        // --- Vault: FAB-Beschriftungen ---
+        // --- Vault: FAB labels ---
         "vault.fabUploadPlaybook": "Playbook hochladen",
         "vault.fabAddDevice": "Gerät hinzufügen",
         "vault.fabCreatePreset": "Preset erstellen",
         "vault.fabAdd": "Hinzufügen",
-        // --- Vault: Preset-Wizard ---
+        // --- Vault: preset wizard ---
         "vault.presetWizStep1": "Neues Preset – Playbooks",
         "vault.presetWizStep2": "Neues Preset – Einstellungen",
         "vault.presetWizStep3": "Neues Preset – Freigeben (optional)",

@@ -1,31 +1,31 @@
-//  (Region 1): Woerterbuch fuer den statischen Haupt-Workspace / Landing
-// (config-card, guest-premium-hint, loading) sowie die My-Vault-Karte (Tabs,
-// Infotexte, Leerzustaende) und die FAB-Labels. Namespace: "ws.".
-// Wird von index.js automatisch via import.meta.glob eingesammelt.
-// Konvention: flache, namespaced Keys; de-Wert = Originaltext, en-Wert = Uebersetzung.
+//  (Region 1): dictionary for the static main workspace / landing
+// (config-card, guest-premium-hint, loading) as well as the My Vault card (tabs,
+// info texts, empty states) and the FAB labels. Namespace: "ws.".
+// Collected automatically by index.js via import.meta.glob.
+// Convention: flat, namespaced keys; de value = original text, en value = translation.
 export default {
     de: {
-        // Ansichts-Umschalter (Playbook-Liste)
+        // View toggle (playbook list)
         "ws.viewGrid": "Kachelansicht",
         "ws.viewList": "Listenansicht",
-        // Gast-Premium-Hinweis
+        // Guest premium hint
         "ws.guestPremiumActive": "Premium-Modus aktiv (bereitgestellt durch Host-Konto)",
-        // My-Vault Tab-Beschriftungen
+        // My Vault tab labels
         "ws.tabScenarios": "Szenarios",
         "ws.tabPresets": "Presets",
         "ws.tabDevices": "Geräte",
-        // Tab: Eigene Playbooks
+        // Tab: Custom playbooks
         "ws.ownPlaybooks": "Eigene Playbooks",
         "ws.customPlaybooksInfo1": "Eigene Ansible-Playbooks (YAML) hochladen. Voraussetzungen: ",
         "ws.customPlaybooksInfo2": " auf oberster Ebene, sensible Werte mit ",
         "ws.customPlaybooksInfo3": ". Die Ausführung erfolgt in einer isolierten Docker-Sandbox.",
         "ws.noCustomPlaybooks": "Keine eigenen Playbooks hochgeladen.",
         "ws.downloadExamplePlaybook": "Beispiel-Playbook herunterladen",
-        // Tab: Geräte
+        // Tab: Devices
         "ws.devices": "Geräte",
         "ws.devicesDesc": "Verwalten Sie Ihre Geräte: hinterlegen Sie Verbindungsdaten und Standardwerte und geben Sie einzelne Geräte für Ihre Teammitglieder frei.",
         "ws.noDevices": "Keine Geräte angelegt.",
-        // Tab: Eigene Presets
+        // Tab: Custom presets
         "ws.ownPresets": "Eigene Presets",
         "ws.presetsDesc1": "Wiederverwendbare Deployment-Szenarien aus festen Playbooks, Standard-Variablen und einer optionalen Geräte-Gruppe. Teilbar mit Team-Mitgliedern – pro Mitglied ",
         "ws.presetsStrict": "strikt",
@@ -33,7 +33,7 @@ export default {
         "ws.presetsFlexible": "flexibel",
         "ws.presetsDesc3": " (Werte anpassbar). Das Ausführen erfordert eine aktive Premium-Laufzeit.",
         "ws.noPresets": "Keine Presets angelegt.",
-        // Tab: Szenarios
+        // Tab: Scenarios
         "ws.scenarios": "Szenarios",
         "ws.scenariosDesc": 'Ein Szenario verknüpft ein Preset (Playbooks + Einstellungen) fest mit einem Zielgerät und lässt sich – wie Presets – mit Team-Mitgliedern teilen. Ausführen per Klick im Startseiten-Abschnitt „Szenarios".',
         "ws.scenarioEmptyHint1": "Für Szenarien benötigst du mindestens ein ",
@@ -42,7 +42,7 @@ export default {
         "ws.scenarioEmptyDevice": "Gerät",
         "ws.scenarioEmptyHint3": '. Lege diese zuerst in den Tabs „Presets" und „Geräte" an.',
         "ws.noScenarios": "Keine Szenarien angelegt.",
-        // FAB-Labels (statische Vorgabe; app.js ueberschreibt je aktivem Tab)
+        // FAB labels (static default; app.js overrides per active tab)
         "ws.fabAdd": "Hinzufügen",
         "ws.fabCreate": "Erstellen",
     },

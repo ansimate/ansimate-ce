@@ -30,33 +30,33 @@ from extensions import ExtensionRegistry
 import entitlements
 import limits
 
-# Edition gegen erlaubte Werte absichern (unbekanntes/leeres Build-Arg -> 'cloud').
-# WICHTIG: EDITION ist ausschliesslich zur BUILD-ZEIT festgelegt (backend/edition.py,
-# erzeugt aus `--build-arg EDITION`). Sie darf NIEMALS aus os.environ gelesen werden,
-# sonst waere die Edition zur Laufzeit manipulierbar.
+# Guard the edition against allowed values (unknown/empty build arg -> 'cloud').
+# IMPORTANT: EDITION is set exclusively at BUILD TIME (backend/edition.py,
+# generated from `--build-arg EDITION`). It must NEVER be read from os.environ,
+# otherwise the edition would be manipulable at runtime.
 EDITION = EDITION if EDITION in ("cloud", "onpremise", "community") else "cloud"
 print(f"[edition] Aktive Edition (build-time): {EDITION}")
-# Community-Edition: Die Anwendung laeuft ausschliesslich als EIN lokaler
-# System-Administrator. Dessen Benutzername wird ueber die Compose-Variable
-# ADMIN_USERNAME konfiguriert (Default "admin"); Passwort via ADMIN_PASSWORD.
+# Community-Edition: The application runs exclusively as ONE local
+# system administrator. Their username is configured via the Compose variable
+# ADMIN_USERNAME (default "admin"); password via ADMIN_PASSWORD.
 COMMUNITY_ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
 
 
 def ensure_system_admin(db: DBSession) -> Optional[User]:
-    """Idempotenter, editions-uebergreifender Upsert des System-Administrators.
+    """Idempotent, edition-wide upsert of the system administrator.
 
-    Der ueber ADMIN_USERNAME/ADMIN_PASSWORD konfigurierte System-Admin wird in JEDER Edition
-    konsistent EINMAL angelegt/geheilt. Der eindeutige username verhindert Duplikate.
-      * Community: Der Admin ist fuer das (seit) Login zwingend. Existiert er, werden Rolle
-        und Aktiv-Status geheilt und das Passwort aus ADMIN_PASSWORD resynchronisiert (autoritative
-        Login-Quelle -> kein Lockout). Fehlt ADMIN_PASSWORD, wird gewarnt (kein Admin-Login).
-      * Cloud/On-Premise: Der env-provisionierte Admin ist OPTIONAL -> nur taetig werden, wenn
-        ADMIN_PASSWORD gesetzt ist (unveraendertes Verhalten). Das Passwort wird NICHT
-        ueberschrieben (der Admin verwaltet es selbst); nur Rolle/Aktiv-Status werden geheilt.
+    The system admin configured via ADMIN_USERNAME/ADMIN_PASSWORD is created/healed
+    consistently ONCE in EVERY edition. The unique username prevents duplicates.
+      * Community: The admin is mandatory for login (since). If they exist, role
+        and active status are healed and the password is resynced from ADMIN_PASSWORD (authoritative
+        login source -> no lockout). If ADMIN_PASSWORD is missing, a warning is emitted (no admin login).
+      * Cloud/On-Premise: The env-provisioned admin is OPTIONAL -> only act if
+        ADMIN_PASSWORD is set (unchanged behavior). The password is NOT
+        overwritten (the admin manages it themselves); only role/active status are healed.
     """
     username = COMMUNITY_ADMIN_USERNAME
     pw = os.environ.get("ADMIN_PASSWORD")
-    # Cloud/On-Premise ohne ADMIN_PASSWORD: kein env-Admin -> unveraendertes Verhalten (no-op).
+    # Cloud/On-Premise without ADMIN_PASSWORD: no env admin -> unchanged behavior (no-op).
     if EDITION != "community" and not pw:
         return None
     admin = db.query(User).filter(User.username == username).first()
@@ -68,8 +68,8 @@ def ensure_system_admin(db: DBSession) -> Optional[User]:
         if not admin.is_active:
             admin.is_active = True
             changed = True
-        # Passwort-Resync nur in der Community-Edition (ADMIN_PASSWORD = autoritative Login-Quelle).
-        # Cloud/On-Premise verwalten ihr Admin-Passwort selbst und werden NICHT ueberschrieben.
+        # Password resync only in the Community-Edition (ADMIN_PASSWORD = authoritative login source).
+        # Cloud/On-Premise manage their admin password themselves and are NOT overwritten.
         if EDITION == "community" and pw and not verify_password(pw, admin.hashed_password):
             admin.hashed_password = get_password_hash(pw)
             changed = True
@@ -77,7 +77,7 @@ def ensure_system_admin(db: DBSession) -> Optional[User]:
             db.commit()
         return admin
     if not pw:
-        # nur in der Community-Edition erreichbar (Cloud/On-Premise sind oben ausgestiegen)
+        # only reachable in the Community-Edition (Cloud/On-Premise returned above)
         print(f"[community-edition] WARNUNG: ADMIN_PASSWORD ist nicht gesetzt — der System-Admin "
               f"'{username}' wird NICHT angelegt und es ist kein Admin-Login moeglich. Bitte "
               "ADMIN_PASSWORD in der Umgebung (.env / docker-compose) setzen und neu starten.")
@@ -97,35 +97,35 @@ def ensure_system_admin(db: DBSession) -> Optional[User]:
     db.refresh(admin)
     return admin
 
-# : Kein separates DEV_DUMMY_DATA-Flag mehr. Der Mock-/Demo-Modus ergibt sich
-# allein daraus, ob ECHTE Stripe-Zugangsdaten hinterlegt sind: nur wenn sowohl
-# STRIPE_SECRET_KEY als auch STRIPE_WEBHOOK_SECRET gesetzt (nicht leer) sind, laeuft der
-# Live-Modus; fehlt eines/beides, ist der Mock-Modus aktiv (Demo-Rechnungen, keine echten
-# Stripe-Calls). Defaults daher leer statt Platzhalter-Keys.
-# : automatische Steuerberechnung (Stripe Tax) im Checkout. Standardmaessig an;
-# erfordert eine in Stripe konfigurierte Steuer-/Tax-Einstellung. Bei Bedarf via
-# STRIPE_AUTOMATIC_TAX=false abschaltbar (z. B. wenn Stripe Tax nicht eingerichtet ist).
+# : No separate DEV_DUMMY_DATA flag anymore. The mock/demo mode is derived
+# solely from whether REAL Stripe credentials are stored: only if both
+# STRIPE_SECRET_KEY and STRIPE_WEBHOOK_SECRET are set (not empty) does the
+# live mode run; if either/both are missing, mock mode is active (demo invoices, no real
+# Stripe calls). Defaults are therefore empty instead of placeholder keys.
+# : automatic tax calculation (Stripe Tax) at checkout. Enabled by default;
+# requires a tax setting configured in Stripe. Can be disabled via
+# STRIPE_AUTOMATIC_TAX=false if needed (e.g. if Stripe Tax is not set up).
 
 
 
 
-# : Ergebnis des Stripe-Verbindungstests beim Start. Wird im Admin-Panel angezeigt,
-# damit eine fehlerhafte Live-Konfiguration (falscher/abgelaufener Key, keine Netzanbindung)
-# sofort sichtbar ist. status: "mock" | "ok" | "error".
+# : Result of the Stripe connection test at startup. Shown in the admin panel
+# so that a faulty live configuration (wrong/expired key, no network connectivity)
+# is immediately visible. status: "mock" | "ok" | "error".
 
 
-# : _check_stripe_connection() lebt jetzt in billing.py (Stripe-SDK) und wird als
-# Startup-Hook der Cloud-Billing-Extension registriert. STRIPE_CONNECTION (reines Status-Dict)
-# bleibt im Core, damit die Admin-Statusanzeige auch ohne installiertes Billing funktioniert.
+# : _check_stripe_connection() now lives in billing.py (Stripe SDK) and is registered
+# as a startup hook of the cloud billing extension. STRIPE_CONNECTION (a pure status dict)
+# stays in the core so the admin status display works even without billing installed.
 
-# API-Doku ueber ENABLE_API_DOCS steuerbar (Default an). In Prod abschaltbar.
+# API docs controllable via ENABLE_API_DOCS (default on). Can be disabled in prod.
 _API_DOCS_ENABLED = os.environ.get("ENABLE_API_DOCS", "true").lower() == "true"
 
 
 def _allow_anonymous_run() -> bool:
-    # : Spam-Schutz. Ist ALLOW_ANONYMOUS_RUN=false, duerfen nur angemeldete
-    # Nutzer Playbooks ausfuehren. Default true (Verhalten unveraendert). Wird je Request
-    # gelesen, damit Compose-/Env-Aenderungen ohne Code-Anpassung greifen.
+    # : Spam protection. If ALLOW_ANONYMOUS_RUN=false, only authenticated
+    # users may run playbooks. Default true (behavior unchanged). Read per request
+    # so that Compose/env changes take effect without a code change.
     return os.environ.get("ALLOW_ANONYMOUS_RUN", "true").lower() == "true"
 app = FastAPI(
     title="Ansible Playbook Runner API",
@@ -135,12 +135,12 @@ app = FastAPI(
     openapi_url="/openapi.json" if _API_DOCS_ENABLED else None,
 )
 
-#: In der Community-Edition cloud-/onpremise-spezifische Endpunkte aus der OpenAPI-/
-# Swagger-Doku ausblenden (Registrierung, 2FA/Captcha, AVV, Abrechnung/Webhook, Gaeste,
-# administrative Nutzer-Verwaltung, Presets, Rechtstexte ...). Die Routen EXISTIEREN weiterhin
-# (teils premium-gegated), erscheinen aber nicht im veroeffentlichten OpenAPI-Schema. Gematcht
-# wird per Pfad-Praefix, damit auch Unterpfade (z. B. /api/admin/users/{id}, /api/profile/
-# guests/{id}/...) erfasst sind.
+#: In the Community-Edition, hide cloud/onpremise-specific endpoints from the OpenAPI/
+# Swagger docs (registration, 2FA/captcha, DPA, billing/webhook, guests,
+# administrative user management, presets, legal texts ...). The routes still EXIST
+# (some premium-gated), but do not appear in the published OpenAPI schema. Matching
+# is done by path prefix so that subpaths (e.g. /api/admin/users/{id}, /api/profile/
+# guests/{id}/...) are also captured.
 _COMMUNITY_HIDDEN_API_PREFIXES = (
     "/api/maintenance",
     "/api/auth/captcha",
@@ -157,9 +157,9 @@ _COMMUNITY_HIDDEN_API_PREFIXES = (
     "/api/profile/presets",
     "/api/admin/users",
     "/api/presets",
-    #: Premium-/Cloud-only-Endpunkte, die in der Community-Edition nicht angeboten
-    # werden, duerfen auch nicht in deren OpenAPI-Spezifikation (/docs, /openapi.json)
-    # auftauchen. "/api/playbooks/custom" erfasst per Praefix auch /custom/{filename}.
+    #: Premium/Cloud-only endpoints that are not offered in the Community-Edition
+    # must also not appear in its OpenAPI specification (/docs, /openapi.json).
+    # "/api/playbooks/custom" also captures /custom/{filename} via prefix.
     "/api/profile/export",
     "/api/playbooks/upload",
     "/api/playbooks/custom-meta",
@@ -171,11 +171,11 @@ def _community_api_hidden(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in _COMMUNITY_HIDDEN_API_PREFIXES)
 
 
-#: OpenAPI vervollstaendigen — (1) Auth-Schemata (Session-Cookie + API-Token Bearer),
-# damit Swagger einen "Authorize"-Dialog + Schloss-Symbole anbietet; (2) Response-Schemas fuer
-# die wichtigsten Ressourcen (Devices, Scenarios, Jobs) statt leerer {}-Objekte. Rein ADDITIV
-# auf dem generierten Schema — es wird KEIN response_model gesetzt, daher bleibt das
-# Laufzeit-/Serialisierungsverhalten der Endpunkte unveraendert.
+#: Complete the OpenAPI — (1) auth schemes (session cookie + API-token bearer),
+# so Swagger offers an "Authorize" dialog + lock icons; (2) response schemas for
+# the most important resources (Devices, Scenarios, Jobs) instead of empty {} objects. Purely ADDITIVE
+# on the generated schema — NO response_model is set, so the
+# runtime/serialization behavior of the endpoints stays unchanged.
 _OPENAPI_COMPONENT_SCHEMAS = {
     "Device": {
         "type": "object",
@@ -230,7 +230,7 @@ _OPENAPI_COMPONENT_SCHEMAS = {
     },
 }
 
-# (Pfad, Methode) -> (Wrapper, Schema-Name). "array" = Liste des Schemas, "object" = Einzelobjekt.
+# (path, method) -> (wrapper, schema name). "array" = list of the schema, "object" = single object.
 _OPENAPI_RESPONSE_REFS = {
     ("/api/devices", "get"): ("array", "Device"),
     ("/api/devices", "post"): ("object", "Device"),
@@ -255,7 +255,7 @@ def _enrich_openapi(schema: dict) -> None:
         "description": "API-Token (Format asm_tok_…) aus 'Profil → API-Token'. "
                        "Header: 'Authorization: Bearer <token>'. Scopes: run_playbook, read_logs.",
     }
-    # Beide Verfahren global akzeptiert -> Swagger zeigt "Authorize" und markiert Operationen.
+    # Both schemes accepted globally -> Swagger shows "Authorize" and marks operations.
     schema.setdefault("security", [{"cookieAuth": []}, {"bearerAuth": []}])
     comp_schemas = components.setdefault("schemas", {})
     for _name, _defn in _OPENAPI_COMPONENT_SCHEMAS.items():
@@ -277,9 +277,9 @@ _orig_openapi = app.openapi
 def _custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    schema = _orig_openapi()  # baut + cached app.openapi_schema (gleiches dict-Objekt)
+    schema = _orig_openapi()  # builds + caches app.openapi_schema (same dict object)
     _enrich_openapi(schema)
-    #: In der Community-Edition cloud-/onpremise-spezifische Endpunkte ausblenden.
+    #: In the Community-Edition, hide cloud/onpremise-specific endpoints.
     if EDITION == "community":
         paths = schema.get("paths", {})
         for _p in [p for p in list(paths) if _community_api_hidden(p)]:
@@ -290,25 +290,25 @@ def _custom_openapi():
 
 app.openapi = _custom_openapi
 
-# Open-Core Extension-Registry: zentrale Naht, an der sich Editionen
-# (z. B. Cloud-Billing) andocken. Wird am Modul-Ende mit der aktiven Edition befuellt
-# (register_extensions) und an genau drei Stellen ausgelesen: App-Aufbau (Router),
-# Startup-Event und Cron-Wartung. Community/On-Premise laufen mit leerer Registry,
-# das Verhalten ist damit unveraendert (No-Op).
+# Open-Core extension registry: central seam where editions
+# (e.g. cloud billing) dock in. Populated with the active edition at module end
+# (register_extensions) and read at exactly three places: app construction (router),
+# startup event and cron maintenance. Community/On-Premise run with an empty registry,
+# so the behavior is unchanged (no-op).
 registry = ExtensionRegistry()
 
-# : Das gesamte Cloud-Billing (Stripe-SDK, Billing-Router, Datenmodelle,
-# Helfer, tarifgesteuerter LimitsProvider, Admin-Statusbericht) liegt im Paket
-# editions/billing und wird NUR in der cloud-Edition geladen (register_extensions).
-# Community/On-Premise enthalten keinen Billing-Code -> Billing-Pfade liefern 404 (nicht
-# registriert), kein stripe-Import, keine Billing-Tabellen.
+# : The entire cloud billing (Stripe SDK, billing router, data models,
+# helpers, tariff-driven LimitsProvider, admin status report) lives in the package
+# editions/billing and is loaded ONLY in the cloud edition (register_extensions).
+# Community/On-Premise contain no billing code -> billing paths return 404 (not
+# registered), no stripe import, no billing tables.
 
 # Rate Limit Dictionaries and Helper (in-memory)
 guest_creation_limits = {}  # key: (client_ip, user_id), value: [datetime, ...]
 token_generation_limits = {}  # key: (client_ip, user_id), value: [datetime, ...]
-otp_attempt_limits = {}  # key: email, value: [datetime, ...] - 2FA Brute-Force-Schutz
-reset_request_limits = {}  # key: client_ip, value: [datetime, ...] - Passwort-Reset-Flood-Schutz
-verification_resend_limits = {}  # key: client_ip, value: [datetime, ...] - Resend-Flood-Schutz
+otp_attempt_limits = {}  # key: email, value: [datetime, ...] - 2FA brute-force protection
+reset_request_limits = {}  # key: client_ip, value: [datetime, ...] - password-reset flood protection
+verification_resend_limits = {}  # key: client_ip, value: [datetime, ...] - resend flood protection
 
 def check_rate_limit(limits_dict, key, max_requests, period_seconds=60):
     now = datetime.utcnow()
@@ -339,10 +339,10 @@ def cron_maintenance_worker():
             with SessionLocal() as db:
                 now = datetime.utcnow()
 
-                # : Edition-spezifische Wartungs-Hooks laufen am Ende des Zyklus
-                # ueber registry.run_maintenance(db, now) (in der Community-Edition ein No-Op).
-                # Der Core-Cron (IP-Release, Auth-Cleanup, Log-Rotation) enthaelt keinerlei
-                # edition-spezifische Logik.
+                # : Edition-specific maintenance hooks run at the end of the cycle
+                # via registry.run_maintenance(db, now) (a no-op in the Community-Edition).
+                # The core cron (IP release, auth cleanup, log rotation) contains no
+                # edition-specific logic.
 
                 # 2. IP Block auto-release
                 expired_blocks = db.query(IPBlock).filter(
@@ -363,7 +363,7 @@ def cron_maintenance_worker():
                     db.delete(b)
                 db.commit()
 
-                # 2b. Cleanup abgelaufener Auth-Artefakte (verhindert DB-Wachstum)
+                # 2b. Cleanup of expired auth artifacts (prevents DB growth)
                 try:
                     c_del = db.query(Captcha).filter(Captcha.expires_at <= now).delete()
                     o_del = db.query(OTP).filter(OTP.expires_at <= now).delete()
@@ -392,8 +392,8 @@ def cron_maintenance_worker():
                             jobs_by_user[u_id] = []
                         jobs_by_user[u_id].append(job)
 
-                    #: nur explizit ausgewaehlte IDs loeschen (kein Delete-Missing).
-                    # So ueberleben Jobs, die nach dem load_jobs()-Snapshot erstellt werden.
+                    #: only delete explicitly selected IDs (no delete-missing).
+                    # This way jobs created after the load_jobs() snapshot survive.
                     ids_to_prune = []
                     for u_id, user_jobs in jobs_by_user.items():
                         user_jobs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
@@ -402,7 +402,7 @@ def cron_maintenance_worker():
 
                         for idx, job in enumerate(user_jobs):
                             j_id = job.get("job_id")
-                            # Laufende/anstehende Jobs nie pruenen (auch wenn alt/ueber Limit)
+                            # Never prune running/pending jobs (even if old/over the limit)
                             if job.get("status") in ("pending", "running"):
                                 continue
                             should_delete = False
@@ -423,15 +423,15 @@ def cron_maintenance_worker():
                     if ids_to_prune:
                         delete_jobs(ids_to_prune)
 
-                # : stündlicher Statistik-Snapshot für die Dashboard-Verlaufsgraphen.
+                # : hourly statistics snapshot for the dashboard history graphs.
                 try:
                     capture_stats_snapshot(db)
                 except Exception as _se:
                     print(f"Stats-Snapshot fehlgeschlagen: {_se}")
 
-                # : Wartungs-Hooks der aktiven Edition ausfuehren
-                # (z. B. Abo-Downgrade). Leer in Community/On-Premise -> kein Billing
-                # im Core-Cron. Reihenfolge-unabhaengig zu den Core-Tasks oben.
+                # : run the maintenance hooks of the active edition
+                # (e.g. subscription downgrade). Empty in Community/On-Premise -> no billing
+                # in the core cron. Order-independent from the core tasks above.
                 registry.run_maintenance(db, now)
 
         except Exception as e:
@@ -449,53 +449,53 @@ def startup_event():
             from sqlalchemy import text
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_notifications_enabled BOOLEAN DEFAULT FALSE NOT NULL"))
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS associated_user_id VARCHAR(255) NULL"))
-            # Abo-/Trial-Kennzahlen (active_paid/active_trial) existierten vor der Trial-/Fingerprint-
-            # Bereinigung in ALLEN Editionen. Im gestrippten Community-Mirror kennt das StatsSnapshot-
-            # Modell diese Spalten NICHT mehr -> die NOT-NULL-Alt-Spalten abraeumen, sonst scheitern
-            # Snapshot-Inserts (die sie weglassen) an einer bestehenden NOT-NULL-Spalte (NotNullViolation).
-            #: NUR droppen, wenn das aktive Modell die Spalten wirklich nicht (mehr) kennt. Wird die
-            # Community-Edition aus dem UNGESTRIPPTEN Monorepo gebaut (lokaler CE-Test), deklariert das
-            # Modell sie weiterhin (Column-Default 0) -> ein Insert enthaelt sie dann, und ein Drop wuerde
-            # zu 'column active_paid does not exist' fuehren. Idempotent (IF EXISTS); cloud/onprem behalten
-            # die Spalten ohnehin. KEIN Marker: der Block MUSS in der Community laufen (Marker wuerden ihn
-            # gerade dort strippen).
+            # Subscription/trial metrics (active_paid/active_trial) existed in ALL editions before the
+            # trial/fingerprint cleanup. In the stripped community mirror the StatsSnapshot
+            # model no longer knows these columns -> drop the NOT-NULL legacy columns, otherwise
+            # snapshot inserts (which omit them) fail on an existing NOT-NULL column (NotNullViolation).
+            #: only drop if the active model really does not know the columns (anymore). If the
+            # Community-Edition is built from the UNSTRIPPED monorepo (local CE test), the
+            # model still declares them (column default 0) -> an insert then includes them, and a drop would
+            # lead to 'column active_paid does not exist'. Idempotent (IF EXISTS); cloud/onprem keep
+            # the columns anyway. NO marker: the block MUST run in Community (markers would strip it
+            # precisely there).
             if EDITION == "community" and not hasattr(StatsSnapshot, "active_paid"):
                 db.execute(text("ALTER TABLE stats_snapshots DROP COLUMN IF EXISTS active_paid"))
                 db.execute(text("ALTER TABLE stats_snapshots DROP COLUMN IF EXISTS active_trial"))
-            # : Webhook-URL fuer Playbook-Status-Benachrichtigungen.
+            # : webhook URL for playbook status notifications.
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS webhook_url VARCHAR NULL"))
-            # : bevorzugte UI-Sprache je Nutzer (de|en|NULL=automatisch). Kernfunktion,
-            # community-sicher (KEIN Marker, laeuft vor dem optionalen tariffs-Block + commit unten,
-            # bricht die Startup-Tx/das Admin-Seeding nicht ab).
+            # : preferred UI language per user (de|en|NULL=automatic). Core feature,
+            # community-safe (NO marker, runs before the optional tariffs block + commit below,
+            # does not abort the startup tx/the admin seeding).
             db.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5) NULL"))
-            #: optionales Sudo-/Become-Passwort je Geraet (Privilege Escalation).
+            #: optional sudo/become password per device (privilege escalation).
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS encrypted_become_credential VARCHAR NULL"))
-            # (Device-Flatten): Geraete-Freigabe + Run-Kontext (base_dir/timezone) direkt am
-            # Device (ziehen von der frueheren 1er-DeviceGroup weg) + Ziel-Geraete als JSON-Liste
-            # an Szenario/Preset (Multi-Host via Checkbox-Auswahl).
+            # (Device-Flatten): device share + run context (base_dir/timezone) directly on the
+            # Device (moving away from the former single DeviceGroup) + target devices as a JSON list
+            # on Scenario/Preset (multi-host via checkbox selection).
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS guest_access TEXT DEFAULT '[]' NOT NULL"))
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS base_directory VARCHAR NULL"))
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS timezone VARCHAR NULL"))
             db.execute(text("ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS device_ids TEXT DEFAULT '[]' NOT NULL"))
             db.execute(text("ALTER TABLE custom_presets ADD COLUMN IF NOT EXISTS device_ids TEXT DEFAULT '[]' NOT NULL"))
-            # : Szenarios teilbar wie Presets (shares-Spalte; Tabelle aus bestand ohne sie).
-            # : die bisherigen Migrationen ZUERST committen. Sonst verschluckt ein Fehler im
-            # optionalen Tariff-Block (die tariffs-Tabelle existiert nur in der Billing-/Cloud-
-            # Edition; in Community/On-Premise bricht PostgreSQL die gesamte Transaktion ab) ALLE
-            # nachfolgenden Statements inkl. des Admin-Seedings (-> kein Admin, kein Login).
+            # : scenarios shareable like presets (shares column; the table existed without it).
+            # : commit the previous migrations FIRST. Otherwise an error in the
+            # optional tariff block (the tariffs table exists only in the billing/cloud
+            # edition; in Community/On-Premise PostgreSQL aborts the entire transaction) swallows ALL
+            # subsequent statements including the admin seeding (-> no admin, no login).
             db.commit()
             db.execute(text("CREATE INDEX IF NOT EXISTS ix_users_associated_user_id ON users(associated_user_id)"))
             db.commit()
 
-            # ( Device-Flatten): einmalige, idempotente Migration von der DeviceGroup-
-            # Wrapper-Aera auf das flache Device-Modell. Zielauswahl von Szenarien/Presets zieht
-            # von der 1er-DeviceGroup (bzw. echten Multi-Gruppe) auf eine device_ids-Liste um;
-            # Geraete-Freigaben (guest_access) ziehen vom Solo-Wrapper aufs Device. Danach ist die
-            # device_groups-Tabelle inert (wird nicht mehr geschrieben, das Modell entfaellt).
-            # Raw SQL, damit die Migration unabhaengig vom entfernten DeviceGroup-ORM laeuft, und
-            # robust gegen fehlende Legacy-Tabellen/Spalten (frische Community-Installationen
-            # haben weder device_groups noch device_group_id). Idempotent: schreibt device_ids nur,
-            # solange sie noch leer sind; guest_access nur, solange am Device noch leer.
+            # ( Device-Flatten): one-time, idempotent migration from the DeviceGroup
+            # wrapper era to the flat Device model. Target selection of scenarios/presets moves
+            # from the single DeviceGroup (or a real multi-group) to a device_ids list;
+            # device shares (guest_access) move from the solo wrapper onto the Device. Afterwards the
+            # device_groups table is inert (no longer written to, the model is dropped).
+            # Raw SQL so that the migration runs independently of the removed DeviceGroup ORM, and
+            # robust against missing legacy tables/columns (fresh community installations
+            # have neither device_groups nor device_group_id). Idempotent: writes device_ids only
+            # while it is still empty; guest_access only while still empty on the device.
             try:
                 from sqlalchemy import inspect as _sa_inspect
                 _insp = _sa_inspect(engine)
@@ -516,9 +516,9 @@ def startup_event():
                         _bd_raw, _tz_raw = _r[4], _r[5]
                         _dids = _safe_json_list(_dids_raw)
                         _grp_devids[_gid] = _dids
-                        # Solo-Wrapper (Sentinel + genau 1 Geraet): Freigaben + Run-Kontext
-                        # (base_dir/timezone) aufs Device ziehen. Nur setzen, solange am Device
-                        # noch leer (idempotent).
+                        # Solo wrapper (sentinel + exactly 1 device): move shares + run context
+                        # (base_dir/timezone) onto the device. Only set while still
+                        # empty on the device (idempotent).
                         if MANAGED_DEVICE_SENTINEL in _safe_json_obj(_dv_raw) and len(_dids) == 1:
                             if _ga_raw and _ga_raw not in ("[]", ""):
                                 db.execute(text(
@@ -566,7 +566,7 @@ def startup_event():
                 "max_history_age": "30",
                 "storage_quota_mb": "100",
                 "max_custom_playbooks": "50",
-                #: Ansible-Verbindungstimeout in Sekunden (sudo/become-Prompt-Wartezeit).
+                #: Ansible connection timeout in seconds (sudo/become prompt wait time).
                 "default_connection_timeout": "30",
             }
             for key, value in default_settings.items():
@@ -576,24 +576,24 @@ def startup_event():
                     db.add(setting)
             db.commit()
 
-            # : beim Start einen Statistik-Snapshot erfassen, damit die Verlaufs-
-            # graphen sofort mindestens einen Datenpunkt haben (danach stündlich via Cron).
+            # : capture a statistics snapshot at startup so that the history
+            # graphs immediately have at least one data point (then hourly via cron).
             try:
                 capture_stats_snapshot(db)
             except Exception as _snap_err:
-                #: die abgebrochene Transaktion aufraeumen, sonst schlaegt jedes weitere
-                # Statement fehl ("current transaction is aborted") -> ensure_system_admin() koennte
-                # keinen Admin anlegen und der Login der Community-Edition wuerde scheitern.
+                #: clean up the aborted transaction, otherwise every further
+                # statement fails ("current transaction is aborted") -> ensure_system_admin() could
+                # not create an admin and the Community-Edition login would fail.
                 db.rollback()
                 print(f"Initialer Stats-Snapshot fehlgeschlagen: {_snap_err}")
 
-            #: System-Admin (ADMIN_USERNAME/ADMIN_PASSWORD) editions-uebergreifend EINMAL
-            # idempotent anlegen/heilen — keine Duplikate, konsistente Identitaet in allen
-            # Editionen. Details + Edition-Nuancen siehe ensure_system_admin().
+            #: create/heal the system admin (ADMIN_USERNAME/ADMIN_PASSWORD) idempotently
+            # ONCE across all editions — no duplicates, consistent identity in all
+            # editions. For details + edition nuances see ensure_system_admin().
             ensure_system_admin(db)
 
-            # Verwaiste Jobs aufraeumen: nach einem Neustart ist die In-Memory-Queue leer,
-            # daher koennen 'running'/'pending'-Jobs nicht fortgesetzt werden -> als unterbrochen markieren.
+            # Clean up orphaned jobs: after a restart the in-memory queue is empty,
+            # so 'running'/'pending' jobs cannot be resumed -> mark them as interrupted.
             try:
                 from sqlalchemy import text as _text
                 db.execute(_text(
@@ -608,9 +608,9 @@ def startup_event():
 
 
 
-    # : Der Stripe-Verbindungstest ist jetzt ein Startup-Hook der Cloud-Billing-
-    # Extension und laeuft ueber registry.run_startup() (unten). Community/On-Premise fuehren
-    # ihn nicht aus (kein Billing geladen).
+    # : The Stripe connection test is now a startup hook of the cloud billing
+    # extension and runs via registry.run_startup() (below). Community/On-Premise do not
+    # execute it (no billing loaded).
 
     
     # Start Cron background maintenance worker thread
@@ -643,32 +643,32 @@ app.add_middleware(SessionAuthMiddleware)
 
 
 def _edition_blocks_path(path: str) -> bool:
-    """Editionsabhaengige Route-Sperrung.
+    """Edition-dependent route blocking.
 
-    - Community: echtes Login fuer den Admin + vom Admin via Teams angelegte
-      Teammitglieder. Gesperrt bleiben nur die Selbstregistrierungs-/E-Mail-Verifikations-
-      Routen (/api/auth/register, /verify-email, /resend-verification) und der Custom-
-      Playbook-Upload. Login/Logout/Profil/Teams/Geraete sind offen.
+    - Community: real login for the admin + team members created by the admin
+      via Teams. Only the self-registration/email-verification
+      routes (/api/auth/register, /verify-email, /resend-verification) and the custom
+      playbook upload remain blocked. Login/logout/profile/teams/devices are open.
 
-    Billing-/Pricing-Routen werden NICHT mehr per Denylist gesperrt: sie haengen
-    am billing_router, der nur in der Cloud-Edition gemountet wird -> in Community/On-Premise
-    sind sie schlicht nicht registriert und liefern dadurch 404.
+    Billing/pricing routes are NO longer blocked via denylist: they hang
+    off the billing_router, which is only mounted in the cloud edition -> in Community/On-Premise
+    they are simply not registered and therefore return 404.
     """
     if EDITION == "community":
-        #: Custom-Playbook-Upload/-Verwaltung in Community deaktiviert
-        # (nur die im Image fest integrierten Vorlagen sind ausfuehrbar).
+        #: custom playbook upload/management disabled in Community
+        # (only the templates baked into the image are runnable).
         if (path.startswith("/api/playbooks/upload")
                 or path.startswith("/api/playbooks/custom-meta")
                 or path.startswith("/api/playbooks/custom")):
             return True
-        # : keine Selbstregistrierung -> Registrierungs-/Verifikations-/Reset-Routen sperren
-        # (Community hat i. d. R. kein SMTP).
+        # : no self-registration -> block registration/verification/reset routes
+        # (Community usually has no SMTP).
         if (path.startswith("/api/auth/register")
                 or path.startswith("/api/auth/verify-email")
                 or path.startswith("/api/auth/resend-verification")
                 or path.startswith("/api/auth/reset-password")):
             return True
-        # Community = NUR der System-Admin: keine Teammitglieder/Gast-Accounts -> Teams-Endpoints sperren.
+        # Community = ONLY the system admin: no team members/guest accounts -> block Teams endpoints.
         if path.startswith("/api/profile/guests"):
             return True
     return False
@@ -676,39 +676,39 @@ def _edition_blocks_path(path: str) -> bool:
 
 @app.middleware("http")
 async def edition_route_guard(request: Request, call_next):
-    # Gesperrte Routen verhalten sich wie nicht vorhanden (404), bevor Auth/Logik greift.
-    # request.url.path ist exakt derselbe (bereits dekodierte) Pfad, den auch das Routing
-    # zum Dispatch nutzt -> Guard und Router koennen nicht divergieren (kein Encoding-/
-    # Trailing-Slash-Bypass auf eine gesperrte Route). '..' wird nicht aufgeloest.
+    # Blocked routes behave as if not present (404) before auth/logic kicks in.
+    # request.url.path is exactly the same (already decoded) path that routing
+    # uses for dispatch -> guard and router cannot diverge (no encoding/
+    # trailing-slash bypass onto a blocked route). '..' is not resolved.
     if _edition_blocks_path(request.url.path):
         return JSONResponse(status_code=404, content={"detail": "Not Found"})
     return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
-# : Wartungsmodus. Persistiert als Settings (maintenance_mode/maintenance_note).
-# Ist er aktiv, duerfen nur Admins API/App nutzen; alle anderen erhalten 503 mit der
-# hinterlegten Wartungsnotiz. Auth-/Edition-/Maintenance-Endpoints bleiben offen, damit
-# sich Admins anmelden koennen und das Frontend die Wartungsseite samt Notiz anzeigen kann.
+# : maintenance mode. Persisted as settings (maintenance_mode/maintenance_note).
+# When active, only admins may use the API/app; everyone else gets a 503 with the
+# configured maintenance note. Auth/edition/maintenance endpoints stay open so that
+# admins can log in and the frontend can show the maintenance page including the note.
 # ---------------------------------------------------------------------------
 def _get_setting(db: DBSession, key: str, default=None):
     s = db.query(Setting).filter(Setting.key == key).first()
     return s.value if s else default
 
-#: Wartungsmodus-Helfer bleiben in ALLEN Editionen. _maintenance_active/_registration_enabled
-# werden von behaltenem Community-Code genutzt (get_edition, admin_stats); Guard/Endpoint sind in der
-# Community inert (EDITION=="community" -> active=False, bypass=True) und bedienen /api/maintenance.
+#: maintenance-mode helpers remain in ALL editions. _maintenance_active/_registration_enabled
+# are used by retained community code (get_edition, admin_stats); guard/endpoint are inert in
+# Community (EDITION=="community" -> active=False, bypass=True) and serve /api/maintenance.
 def _maintenance_active(db: DBSession) -> bool:
-    #: Der Wartungsmodus ist in der Community-Edition kein Feature -> immer inaktiv,
-    # unabhaengig von einem evtl. persistierten Setting. So bleibt er ueberall (Guard, Banner,
-    # Stats, /api/maintenance) wirkungslos.
+    #: Maintenance mode is not a feature in the Community-Edition -> always inactive,
+    # regardless of a possibly persisted setting. This way it stays ineffective everywhere (guard, banner,
+    # stats, /api/maintenance).
     if EDITION == "community":
         return False
     return (_get_setting(db, "maintenance_mode", "false") or "false").lower() == "true"
 
 def _registration_enabled(db: DBSession) -> bool:
-    # : Administratoren koennen die Selbstregistrierung im Admin-Panel
-    # an-/abschalten. Default true. Greift zusaetzlich zur edition-/env-Steuerung.
+    # : administrators can enable/disable self-registration in the admin panel.
+    # Default true. Applies in addition to the edition/env control.
     return (_get_setting(db, "registration_enabled", "true") or "true").lower() == "true"
 
 
@@ -720,7 +720,7 @@ def _maintenance_exempt(path: str) -> bool:
 
 
 def _maintenance_user(request: Request, db: DBSession):
-    # Nur Cookie-Session (fuer den Admin-Login). API-Tokens/Anonyme gelten als Nicht-Admin.
+    # Cookie session only (for the admin login). API tokens/anonymous count as non-admin.
     try:
         sid = request.cookies.get("session_id")
         if sid:
@@ -733,8 +733,8 @@ def _maintenance_user(request: Request, db: DBSession):
 @app.middleware("http")
 async def maintenance_guard(request: Request, call_next):
     path = request.url.path
-    # Nur API-Requests pruefen (statische SPA-Assets liefert nginx). Community = Single-Admin,
-    # daher nie gesperrt. Auth/Edition/Maintenance bleiben fuer alle erreichbar.
+    # Only check API requests (nginx serves static SPA assets). Community = single admin,
+    # therefore never blocked. Auth/edition/maintenance stay reachable for everyone.
     if EDITION != "community" and path.startswith("/api/") and not _maintenance_exempt(path):
         with SessionLocal() as db:
             if _maintenance_active(db):
@@ -747,9 +747,9 @@ async def maintenance_guard(request: Request, call_next):
 
 @app.get("/api/maintenance")
 def get_maintenance_status(request: Request, db: DBSession = Depends(get_db)):
-    # Oeffentlich: das Frontend entscheidet anhand dieser Antwort, ob die Wartungsseite gezeigt
-    # wird. `bypass` (Admin/Community) wird serverseitig aufgeloest, damit das Frontend die
-    # Entscheidung VOR dem vollstaendigen Auth-/Edition-Boot treffen kann (kein FOUC).
+    # Public: the frontend decides based on this response whether the maintenance page is shown.
+    # `bypass` (admin/community) is resolved server-side so that the frontend can make the
+    # decision BEFORE the full auth/edition boot (no FOUC).
     active = _maintenance_active(db)
     user = _maintenance_user(request, db)
     bypass = bool(EDITION == "community" or (user and user.role == "admin"))
@@ -760,9 +760,9 @@ def get_maintenance_status(request: Request, db: DBSession = Depends(get_db)):
     }
 
 
-# : dynamische Passwortregeln aus den Settings (ENV/Defaults via Settings überschreibbar).
-# Defaults: Mindestlänge 8, keine Pflicht für Sonderzeichen/Groß-Klein/Ziffer. Wird bei Registrierung,
-# Admin-Anlage, Passwort-Änderung und -Reset erzwungen.
+# : dynamic password rules from the settings (ENV/defaults overridable via settings).
+# Defaults: minimum length 8, no requirement for special char/upper-lower/digit. Enforced on registration,
+# admin creation, password change and reset.
 def validate_password_policy(db: DBSession, password: str):
     password = password or ""
     try:
@@ -786,15 +786,15 @@ def validate_password_policy(db: DBSession, password: str):
 
 @app.get("/api/version")
 def get_edition():
-    # Aktive, zur Build-Zeit eingebackene Edition. Vom Frontend zur
-    # dynamischen UI-Anpassung genutzt.
-    # : allow_anonymous_run steuert, ob das Frontend den Ausfuehren-Button
-    # fuer nicht angemeldete Besucher anbietet.
-    # : registration_enabled steuert, ob das Frontend den Registrieren-Button anzeigt.
+    # Active edition baked in at build time. Used by the frontend for
+    # dynamic UI adjustment.
+    # : allow_anonymous_run controls whether the frontend offers the run button
+    # for unauthenticated visitors.
+    # : registration_enabled controls whether the frontend shows the register button.
     from database import SessionLocal
     reg_enabled = True
     if EDITION == "community":
-        # : in der Community-Edition gibt es keine Selbstregistrierung.
+        # : there is no self-registration in the Community-Edition.
         reg_enabled = False
     else:
         try:
@@ -803,7 +803,7 @@ def get_edition():
         except Exception:
             reg_enabled = True
     return {
-        #: Versionsnummer in ALLEN Editionen (Diagnose/Monitoring/Deployment-Validierung).
+        #: version number in ALL editions (diagnostics/monitoring/deployment validation).
         "version": APP_VERSION,
         "edition": EDITION,
         "allow_anonymous_run": _allow_anonymous_run(),
@@ -821,31 +821,31 @@ else:
 os.makedirs(LOGS_DIR, exist_ok=True)
 JOBS_FILE = os.path.join(LOGS_DIR, "jobs.json")
 
-#: Verzeichnis mit dem gevendorten `sudo`-Become-Plugin. Es ueberschattet das eingebaute
-# ansible-sudo-Plugin und ergaenzt die Prompt-Erkennung um das sudo-rs-Format
-# ("[sudo: <prompt>] Password:", Ubuntu 25.10+), ohne klassisches sudo zu brechen. Wird beiden
-# Ausfuehrungspfaden (normal + Custom-Sandbox) via ANSIBLE_BECOME_PLUGINS bekannt gemacht.
+#: directory with the vendored `sudo` become plugin. It shadows the built-in
+# ansible sudo plugin and extends the prompt detection with the sudo-rs format
+# ("[sudo: <prompt>] Password:", Ubuntu 25.10+) without breaking classic sudo. Made known to both
+# execution paths (normal + custom sandbox) via ANSIBLE_BECOME_PLUGINS.
 BECOME_PLUGINS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ansible_plugins", "become")
 
 # In-memory lock for jobs.json updates
 jobs_lock = threading.Lock()
 
-# Serialisiert Concurrency-Check + Job-Insert, schliesst die TOCTOU-Luecke
+# Serializes concurrency check + job insert, closing the TOCTOU gap
 job_create_lock = threading.Lock()
 
 # Thread-safe worker queue
 execution_queue = queue.Queue()
 
-# : Registry laufender Ansible-Prozesse, damit POST /api/jobs/{id}/cancel sie beenden kann.
-# job_id -> {"process": Popen, "is_custom": bool}. cancel_requested deckt den Queue-/Spawn-Fall ab
-# (Job ist noch nicht – oder gerade erst – als Prozess registriert).
+# : registry of running Ansible processes so that POST /api/jobs/{id}/cancel can stop them.
+# job_id -> {"process": Popen, "is_custom": bool}. cancel_requested covers the queue/spawn case
+# (the job is not yet – or just now – registered as a process).
 active_runs = {}
 active_runs_lock = threading.Lock()
 cancel_requested = set()
 
 def _terminate_run_process(job_id: str, process, is_custom: bool):
-    # : laufenden Ansible-Prozess (+ Custom-Sandbox-Container) sauber beenden –
-    # identische Logik wie der Timeout-Pfad in run_playbook_background.
+    # : cleanly terminate the running Ansible process (+ custom sandbox container) –
+    # identical logic to the timeout path in run_playbook_background.
     try:
         process.terminate()
         try:
@@ -881,7 +881,7 @@ def _job_row_to_dict(j) -> dict:
     return d
 
 def load_jobs() -> dict:
-    # Jobs liegen jetzt in der DB (ueberleben Neustarts). Interface bleibt dict.
+    # Jobs now live in the DB (survive restarts). The interface stays a dict.
     from database import SessionLocal
     with jobs_lock:
         try:
@@ -904,8 +904,8 @@ def _apply_job_dict(row: Job, jd: dict):
     row.progress = json.dumps(jd.get("progress")) if jd.get("progress") is not None else None
 
 def save_jobs(jobs: dict):
-    #: reiner Upsert - loescht NICHT mehr Zeilen, die im uebergebenen dict fehlen.
-    # Pruning laeuft jetzt ausschliesslich ueber delete_jobs() mit expliziter ID-Liste.
+    #: pure upsert - no longer deletes rows missing from the passed dict.
+    # Pruning now runs exclusively via delete_jobs() with an explicit ID list.
     from database import SessionLocal
     with jobs_lock:
         try:
@@ -922,7 +922,7 @@ def save_jobs(jobs: dict):
             print(f"Error saving jobs: {e}")
 
 def save_job(jd: dict):
-    #: atomarer Single-Row-Upsert ohne Vollscan/Delete-Missing.
+    #: atomic single-row upsert without full scan/delete-missing.
     from database import SessionLocal
     jid = jd.get("job_id")
     if not jid:
@@ -940,7 +940,7 @@ def save_job(jd: dict):
             print(f"Error saving job {jid}: {e}")
 
 def delete_jobs(job_ids):
-    #: nur explizit benannte Jobs loeschen (kein Delete-Missing mehr).
+    #: only delete explicitly named jobs (no more delete-missing).
     from database import SessionLocal
     ids = [j for j in job_ids if j]
     if not ids:
@@ -988,7 +988,7 @@ def get_job_progress(job: dict) -> dict:
 _TERMINAL_STATUS = ("success", "failed", "canceled")
 
 def update_job_status(job_id: str, status: str, finished_at: str = None):
-    #: gezieltes Single-Row-Update unter Lock, kein load-all/save-all-Fenster.
+    #: targeted single-row update under lock, no load-all/save-all window.
     from database import SessionLocal
     with jobs_lock:
         try:
@@ -996,16 +996,16 @@ def update_job_status(job_id: str, status: str, finished_at: str = None):
                 row = db.query(Job).filter(Job.job_id == job_id).first()
                 if not row:
                     return None
-                # : Endzustände sind FINAL. Ein bereits gesetzter Endzustand (z.B. ein
-                # paralleler Abbruch vs. natürliches Ende) wird NICHT von einem anderen Endzustand
-                # überschrieben („first terminal wins"). Gibt den tatsächlich persistierten Status
-                # zurück, damit Mail/Webhook sich danach richten (kein Status-/Notification-Mismatch).
+                # : terminal states are FINAL. An already-set terminal state (e.g. a
+                # parallel cancellation vs. natural end) is NOT overwritten by another terminal
+                # state ("first terminal wins"). Returns the actually persisted status
+                # so that mail/webhook follow it (no status/notification mismatch).
                 if row.status in _TERMINAL_STATUS and status != row.status:
                     return row.status
                 row.status = status
                 if finished_at:
                     row.finished_at = finished_at
-                # Fortschritt fuer Endzustaende berechnen und persistieren
+                # Compute and persist progress for terminal states
                 if status in _TERMINAL_STATUS:
                     job_dict = _job_row_to_dict(row)
                     job_dict["status"] = status
@@ -1024,20 +1024,20 @@ class RunRequest(BaseModel):
     session_id: Optional[str] = None
     variables: Optional[dict] = None
     device_id: Optional[str] = None
-    # (Device-Flatten): Multi-Host-Ziel als Liste von Device-IDs (ersetzt device_group_id).
-    # Wird aus Szenario/Preset gesetzt oder im Ausfuehren-Dialog gewaehlt. device_id (Einzel) wird
-    # unten auf diese Liste normalisiert; beide fuehren durch denselben Geraete-Zweig.
+    # (Device-Flatten): multi-host target as a list of device IDs (replaces device_group_id).
+    # Set from scenario/preset or chosen in the run dialog. device_id (single) is
+    # normalized to this list below; both flow through the same device branch.
     device_ids: Optional[List[str]] = None
-    # : Ausfuehrung eines benutzerdefinierten Presets (loest Playbooks + Variablen +
-    # Zielgeraete auf; Premium-gated; Berechtigung strict/flexible).
+    # : execution of a custom preset (resolves playbooks + variables +
+    # target devices; premium-gated; permission strict/flexible).
     custom_preset_id: Optional[str] = None
-    # : Ausfuehrung eines Szenarios (Preset + festes Zielgeraet); analog Preset, teilbar.
+    # : execution of a scenario (preset + fixed target device); analogous to preset, shareable.
     scenario_id: Optional[str] = None
-    # : Einmaliger SSH-Private-Key fuer geraetelose (Ad-hoc-)Laeufe — wird nur fuer diesen
-    # Lauf genutzt und NICHT gespeichert. Nur im else-Zweig (request.target_host) relevant.
+    # : one-time SSH private key for deviceless (ad-hoc) runs — used only for this
+    # run and NOT stored. Only relevant in the else branch (request.target_host).
     ssh_key: Optional[str] = None
-    #: optionales Sudo-/Become-Passwort fuer diesen Lauf (ueberschreibt ein am Geraet
-    # hinterlegtes). Wird NICHT persistiert; nur fuer die Ansible-Ausfuehrung genutzt.
+    #: optional sudo/become password for this run (overrides one stored on the
+    # device). NOT persisted; used only for the Ansible execution.
     become_password: Optional[str] = None
 
     @field_validator("ssh_key")
@@ -1045,13 +1045,13 @@ class RunRequest(BaseModel):
     def validate_ssh_key(cls, v):
         if v is None:
             return v
-        # Leere Eingabe wie "nicht gesetzt" behandeln (Frontend sendet "" wenn Key wieder entfernt wurde).
+        # Treat empty input like "not set" (frontend sends "" when the key is removed again).
         if v.strip() == "":
             return None
-        # Sanity-Grenze gegen Missbrauch; reale Private Keys liegen weit darunter.
+        # Sanity limit against abuse; real private keys are far below this.
         if len(v) > 32768:
             raise ValueError("SSH-Key ist zu lang (maximal 32768 Zeichen).")
-        # Steuerzeichen ausser Zeilenumbruch/Tab verbieten (Inventory-/Datei-Injection-Schutz).
+        # Forbid control characters except line break/tab (inventory/file injection protection).
         if any(ord(ch) < 32 and ch not in "\r\n\t" for ch in v):
             raise ValueError("SSH-Key enthaelt unzulaessige Steuerzeichen.")
         return v
@@ -1078,9 +1078,9 @@ class RunRequest(BaseModel):
         if v is None:
             return v
         v = v.strip()
-        # SSH-Benutzername des ZIEL-Hosts: keine Mindestlaenge erzwingen (gueltige
-        # Logins wie "pi" oder einzelne Buchstaben existieren). Regex erzwingt >=1
-        # gueltiges Zeichen (Injection-Schutz), Max 32 = Linux-Konvention.
+        # SSH username of the TARGET host: do not enforce a minimum length (valid
+        # logins like "pi" or single letters exist). The regex enforces >=1
+        # valid character (injection protection), max 32 = Linux convention.
         if not re.match(r"^[a-zA-Z0-9._-]+$", v):
             raise ValueError("Ungueltiger Benutzername. Nur Alphanumerisch, Punkte, Unterstriche und Bindestriche erlaubt.")
         if len(v) > 32:
@@ -1092,9 +1092,9 @@ class RunRequest(BaseModel):
     def validate_password(cls, v):
         if v is None:
             return v
-        # Dies ist das SSH-Passwort des ZIEL-Hosts (keine Konto-Erstellung) - daher KEINE
-        # Mindestlaenge erzwingen; das Passwort bestimmt der Zielhost. Max 72 als Sanity-
-        # Grenze; Steuerzeichen verbieten (Inventory-Injection-Schutz).
+        # This is the SSH password of the TARGET host (no account creation) - therefore do NOT
+        # enforce a minimum length; the target host determines the password. Max 72 as a sanity
+        # limit; forbid control characters (inventory injection protection).
         if len(v) > 72:
             raise ValueError("Passwort ist zu lang (maximal 72 Zeichen).")
         if any(ord(ch) < 32 for ch in v):
@@ -1133,16 +1133,16 @@ class RunRequest(BaseModel):
 
 def _send_status_webhook(webhook_url: Optional[str], job_id: str, status: str,
                          target_host: str, playbooks: List[str], error: Optional[str] = None):
-    """: Sendet nach Beendigung eines Laufs einen JSON-Payload an die konfigurierte
-    Webhook-URL (z. B. Slack/Teams/Discord-Eingehende-Webhooks). Best-effort, mit kurzem Timeout;
-    Fehler werden nur geloggt und brechen den Lauf nicht ab."""
+    """: Sends a JSON payload to the configured webhook URL after a run finishes
+    (e.g. Slack/Teams/Discord incoming webhooks). Best-effort, with a short timeout;
+    errors are only logged and do not abort the run."""
     if not webhook_url:
         return
     try:
         import json as _json
         import urllib.request
-        # 'text' ist das von Slack/Mattermost/Discord am breitesten unterstuetzte Feld; die
-        # strukturierten Felder erlauben eigene Integrationen.
+        # 'text' is the field most broadly supported by Slack/Mattermost/Discord; the
+        # structured fields allow custom integrations.
         emoji = "✅" if status == "success" else "❌"
         text = f"{emoji} Ansimate Playbook-Lauf {job_id}: {status.upper()} (Ziel: {target_host})"
         payload = {
@@ -1179,7 +1179,7 @@ def run_playbook_background(
     webhook_url: Optional[str] = None,
     become_password: Optional[str] = None
 ):
-    # : Wurde der Job bereits in der Warteschlange abgebrochen, gar nicht erst starten.
+    # : if the job was already canceled in the queue, do not even start it.
     with active_runs_lock:
         precanceled = job_id in cancel_requested
         if precanceled:
@@ -1188,8 +1188,8 @@ def run_playbook_background(
         update_job_status(job_id, "canceled", datetime.now().isoformat())
         return
 
-    # : Standard-Timeout (Sekunden) aus den dynamischen Einstellungen lesen (Default 3600).
-    # Robust gegen fehlende/ungueltige Werte -> Fallback auf 3600.
+    # : read the default timeout (seconds) from the dynamic settings (default 3600).
+    # Robust against missing/invalid values -> fallback to 3600.
     job_timeout = 3600
     try:
         with SessionLocal() as _db:
@@ -1200,12 +1200,12 @@ def run_playbook_background(
     except Exception:
         job_timeout = 3600
 
-    #: Verbindungs-Timeout (Sekunden) aus den dynamischen Einstellungen (Default 30).
-    # Steuert ANSIBLE_TIMEOUT und damit u.a. die Wartezeit auf das sudo/become-Prompt. Manche
-    # Ziele (langsames PAM/Netz-Auth, LDAP/SSSD/DNS) zeigen das Prompt erst nach >10s; Ansibles
-    # Default (~10s) laeuft dann ab -> "Timeout waiting for privilege escalation prompt", obwohl
-    # das Passwort korrekt ist. Hoeherer Wert = robuster gegen langsame Ziele, aber unerreichbare
-    # Hosts melden sich erst nach dieser Zeit als "unreachable". Robust gegen Muell -> Fallback 30.
+    #: connection timeout (seconds) from the dynamic settings (default 30).
+    # Controls ANSIBLE_TIMEOUT and thus, among other things, the wait time for the sudo/become prompt. Some
+    # targets (slow PAM/network auth, LDAP/SSSD/DNS) show the prompt only after >10s; Ansible's
+    # default (~10s) then expires -> "Timeout waiting for privilege escalation prompt", although
+    # the password is correct. Higher value = more robust against slow targets, but unreachable
+    # hosts only report as "unreachable" after this time. Robust against garbage -> fallback 30.
     connection_timeout = 30
     try:
         with SessionLocal() as _db:
@@ -1216,7 +1216,7 @@ def run_playbook_background(
     except Exception:
         connection_timeout = 30
 
-    # Hosts normalisieren: entweder Liste (Geraete-Gruppe) oder Einzel-Host.
+    # Normalize hosts: either a list (device group) or a single host.
     if hosts:
         host_entries = hosts
     else:
@@ -1244,16 +1244,16 @@ def run_playbook_background(
     inv_dir = "/playbooks/tmp" if is_custom else "/tmp"
     os.makedirs(inv_dir, exist_ok=True)
     inv_path = f"{inv_dir}/inv_{job_id}"
-    key_path = f"{inv_dir}/key_{job_id}"  # Basis fuer Aufraeumen/Sandbox-Fehlerpfad
-    key_paths = []  # alle geschriebenen Key-Dateien (pro Host)
-    #: TOFU PRO JOB statt dauerhaftem known_hosts. StrictHostKeyChecking=accept-new
-    # akzeptiert NEUE Hosts automatisch (dominanter Fall: erstmalige Verbindung) und erkennt einen
-    # MITTEN im Lauf gewechselten Schluessel -> schuetzt Credentials vor stillem MITM innerhalb
-    # eines Jobs. Das known_hosts ist aber EPHEMER pro Job: ein nach OS-Reinstall geaenderter
-    # Host-Key (neuer Fingerprint) blockiert dadurch KEINE spaetere Ausfuehrung mehr -
-    # frueher persistierte das known_hosts in LOGS_DIR und lehnte den geaenderten Key ab.
-    # Sandbox (custom): tmpfs-Pfad, pro Container-Lauf ohnehin frisch. Host-Lauf: eigene
-    # known_hosts-Datei je Job unter inv_dir (wird im finally wieder entfernt).
+    key_path = f"{inv_dir}/key_{job_id}"  # base for cleanup/sandbox error path
+    key_paths = []  # all written key files (per host)
+    #: TOFU PER JOB instead of a persistent known_hosts. StrictHostKeyChecking=accept-new
+    # accepts NEW hosts automatically (dominant case: first-time connection) and detects a
+    # key changed MID-run -> protects credentials against silent MITM within
+    # a job. But the known_hosts is EPHEMERAL per job: a host key changed after an OS reinstall
+    # (new fingerprint) therefore no longer blocks ANY later execution -
+    # previously the known_hosts persisted in LOGS_DIR and rejected the changed key.
+    # Sandbox (custom): tmpfs path, fresh anyway per container run. Host run: own
+    # known_hosts file per job under inv_dir (removed again in the finally).
     if is_custom:
         known_hosts_file = "/playbooks/tmp/known_hosts"
     else:
@@ -1264,11 +1264,11 @@ def run_playbook_background(
         except Exception as _kh_e:
             print(f"known_hosts konnte nicht vorbereitet werden: {_kh_e}")
     try:
-        # Variablen einmal aufbereiten (gelten fuer alle Hosts)
+        # Prepare variables once (they apply to all hosts)
         var_suffix = ""
-        # base_dir wird separat PRO HOST gesetzt (mit Heimatverzeichnis-Fallback), daher hier
-        # ausgeklammert. Ein vom Nutzer/Preset/Gruppe explizit gesetztes, nicht-leeres base_dir
-        # hat Vorrang; ein leerer String zaehlt als "nicht angegeben" und loest den Fallback aus.
+        # base_dir is set separately PER HOST (with a home-directory fallback), so it is
+        # excluded here. A non-empty base_dir explicitly set by the user/preset/group
+        # takes precedence; an empty string counts as "not specified" and triggers the fallback.
         provided_base_dir = None
         if variables:
             raw_bd = variables.get("base_dir")
@@ -1297,16 +1297,16 @@ def run_playbook_background(
                 h_key = he.get("ssh_key")
                 line = f"{h_host}"
                 if h_user:
-                    # Defense-in-depth: Steuerzeichen entfernen + single-quote-escapen
+                    # Defense-in-depth: remove control characters + single-quote-escape
                     safe_user = "".join(ch for ch in str(h_user) if ord(ch) >= 32).replace("'", "'\"'\"'")
                     line += f" ansible_user='{safe_user}' ssh_user='{safe_user}'"
                 if h_pass:
                     safe_pass = "".join(ch for ch in str(h_pass) if ord(ch) >= 32).replace("'", "'\"'\"'")
                     line += f" ansible_password='{safe_pass}'"
-                #: Sudo-/Become-Passwort. Vorrang: explizit hinterlegtes/angegebenes Become-
-                # Passwort (funktioniert auch bei Key-Auth) -> sonst Fallback auf das SSH-Passwort
-                # (bisheriges Verhalten: SSH-Passwort dient zugleich als Sudo-Passwort). Behebt den
-                # Privilege-Escalation-Timeout auf Systemen ohne passwortloses Sudo.
+                #: sudo/become password. Priority: an explicitly stored/provided become
+                # password (also works with key auth) -> otherwise fallback to the SSH password
+                # (previous behavior: the SSH password also serves as the sudo password). Fixes the
+                # privilege-escalation timeout on systems without passwordless sudo.
                 h_become = he.get("become_password") or (h_pass if h_pass else None)
                 if h_become:
                     safe_become = "".join(ch for ch in str(h_become) if ord(ch) >= 32).replace("'", "'\"'\"'")
@@ -1319,11 +1319,11 @@ def run_playbook_background(
                     key_paths.append(kp)
                     line += f" ansible_ssh_private_key_file='{kp}'"
                 line += f" ansible_ssh_common_args='-o StrictHostKeyChecking=accept-new -o UserKnownHostsFile={known_hosts_file}'"
-                # base_dir: expliziten Wert verwenden; sonst auf das Heimatverzeichnis des
-                # SSH-Benutzers zurueckfallen (root -> /root, sonst /home/<user>). Spiegelt die
-                # fruehere Frontend-Regel serverseitig, damit JEDER Lauf (Ad-hoc, Geraet, Gruppe,
-                # Preset, Szenario) ein gesetztes base_dir hat, statt eines leeren/fehlenden Werts.
-                #: pro-Host base_dir (vom Geraet) hat Vorrang vor dem globalen Wert.
+                # base_dir: use the explicit value; otherwise fall back to the SSH user's
+                # home directory (root -> /root, otherwise /home/<user>). Mirrors the
+                # former frontend rule server-side so that EVERY run (ad-hoc, device, group,
+                # preset, scenario) has a set base_dir instead of an empty/missing value.
+                #: per-host base_dir (from the device) takes precedence over the global value.
                 bd_value = he.get("base_dir") or provided_base_dir
                 if bd_value is None and h_user:
                     bd_user = "".join(ch for ch in str(h_user) if ord(ch) >= 32)
@@ -1355,23 +1355,23 @@ def run_playbook_background(
         return
 
     # 2. Build the ansible-playbook command and prevent directory traversal
-    #: fehlende `requires`-Abhaengigkeiten serverseitig ergaenzen (Voraussetzungs-Playbooks
-    # wie install-flatpak/install-docker), damit auch Presets/Szenarien/API-Runs, die nur die App
-    # auffuehren, den Paketmanager mitinstallieren. Reihenfolge folgt unten via _playbook_order_rank.
+    #: add missing `requires` dependencies server-side (prerequisite playbooks
+    # like install-flatpak/install-docker) so that presets/scenarios/API runs that list only the app
+    # also install the package manager. Ordering follows below via _playbook_order_rank.
     effective_playbooks = _expand_playbook_requires(playbooks)
     playbook_paths = []
     for pb in effective_playbooks:
-        resolved_path = _resolve_std_playbook_path(pb)   # inkl. premium/-Unterordner; Traversal-sicher
+        resolved_path = _resolve_std_playbook_path(pb)   # incl. premium/ subfolder; traversal-safe
         if resolved_path:
             playbook_paths.append(resolved_path)
 
-    #: Abhaengigkeits-Reihenfolge erzwingen. Szenarien/Presets buendeln mehrere Playbooks;
-    # deren Reihenfolge (aus den Preset-playbook_ids/der Auswahl) ist beliebig und kann z. B.
-    # `create-stack-*` VOR `install-docker.yml` schieben -> schlaegt fehl, da Docker noch fehlt.
-    # Stabil nach Basisnamen-Praefix sortieren: Voraussetzungen zuerst, create-stack-* zuletzt,
-    # alles uebrige dazwischen (Originalreihenfolge je Gruppe bleibt durch die stabile Sortierung).
-    #: Paketmanager-Voraussetzungen (Docker, Flatpak) sind selbst install-* Playbooks, muessen
-    # aber VOR den uebrigen install-* laufen (install-flatpak vor den Flatpak-Apps) -> eigene Stufe 0.
+    #: enforce dependency ordering. Scenarios/presets bundle multiple playbooks;
+    # their order (from the preset playbook_ids/the selection) is arbitrary and can, for example,
+    # push `create-stack-*` BEFORE `install-docker.yml` -> fails because Docker is still missing.
+    # Sort stably by basename prefix: prerequisites first, create-stack-* last,
+    # everything else in between (original order per group is preserved by the stable sort).
+    #: package-manager prerequisites (Docker, Flatpak) are themselves install-* playbooks, but must
+    # run BEFORE the other install-* (install-flatpak before the Flatpak apps) -> their own stage 0.
     def _playbook_order_rank(p):
         base = os.path.basename(p)
         if base in ("install-docker.yml", "install-flatpak.yml"):
@@ -1390,7 +1390,7 @@ def run_playbook_background(
             lf.write("No valid playbooks found to execute.\n")
         if os.path.exists(inv_path):
             os.remove(inv_path)
-        #: ephemeres per-Job known_hosts (Host-Lauf) auch im Frühabbruch entfernen.
+        #: also remove the ephemeral per-job known_hosts (host run) on early abort.
         if not is_custom and os.path.exists(known_hosts_file):
             try:
                 os.remove(known_hosts_file)
@@ -1414,20 +1414,20 @@ def run_playbook_background(
 
     # Set up environment variables. Force plain text logs (no ANSI colors) for the file.
     env = os.environ.copy()
-    #: Host-Key-Pruefung aktiv lassen, damit ansible KEIN StrictHostKeyChecking=no
-    # injiziert und unsere accept-new/known_hosts-Args aus dem Inventory greifen (TOFU).
+    #: keep host-key checking active so that ansible does NOT inject StrictHostKeyChecking=no
+    # and our accept-new/known_hosts args from the inventory take effect (TOFU).
     env["ANSIBLE_HOST_KEY_CHECKING"] = "True"
     env["ANSIBLE_NOCOLOR"] = "1"
-    #: Live-Log-Fluss. ansible-playbook ist ein Python-Prozess; erkennt Python, dass stdout
-    # KEIN TTY sondern eine Pipe ist, schaltet es auf Block-Pufferung (~4-8 KB) um -> Ausgaben
-    # erscheinen erst am Jobende (GUI bleibt waehrend des Laufs leer). PYTHONUNBUFFERED=1 erzwingt
-    # ungepuffertes stdout, sodass jede Zeile sofort in die Pipe/Logdatei geflusht wird.
+    #: live log flow. ansible-playbook is a Python process; if Python detects that stdout
+    # is NOT a TTY but a pipe, it switches to block buffering (~4-8 KB) -> output
+    # only appears at job end (the GUI stays empty during the run). PYTHONUNBUFFERED=1 forces
+    # unbuffered stdout so that each line is flushed to the pipe/log file immediately.
     env["PYTHONUNBUFFERED"] = "1"
-    #: Ansible-Verbindungstimeout (Sekunden). Bestimmt u.a., wie lange ansible auf das
-    # sudo/become-Passwort-Prompt des Ziels wartet. Default (~10s) ist fuer Ziele mit langsamem
-    # PAM zu kurz -> hier admin-konfigurierbar (default_connection_timeout, Default 30).
+    #: Ansible connection timeout (seconds). Determines, among other things, how long ansible waits for the
+    # target's sudo/become password prompt. The default (~10s) is too short for targets with slow
+    # PAM -> admin-configurable here (default_connection_timeout, default 30).
     env["ANSIBLE_TIMEOUT"] = str(connection_timeout)
-    #: gevendortes sudo-Become-Plugin mit sudo-rs-Prompt-Unterstuetzung laden (Ubuntu 25.10+).
+    #: load the vendored sudo become plugin with sudo-rs prompt support (Ubuntu 25.10+).
     if os.path.isdir(BECOME_PLUGINS_DIR):
         env["ANSIBLE_BECOME_PLUGINS"] = BECOME_PLUGINS_DIR
 
@@ -1435,9 +1435,9 @@ def run_playbook_background(
 
     # Construct execution command (sandbox docker container vs host command)
     if is_custom:
-        # SICHERHEIT: kein --volumes-from (wuerde docker.sock erben = Host-Root/Sandbox-Escape).
-        # FAIL-CLOSED: ohne ermittelbaren Owner ODER ohne HOST_PLAYBOOKS_DIR wird NICHT auf dem
-        # Host-Pfad ausgefuehrt (Issue).
+        # SECURITY: no --volumes-from (would inherit docker.sock = host root/sandbox escape).
+        # FAIL-CLOSED: without a determinable owner OR without HOST_PLAYBOOKS_DIR it does NOT run on the
+        # host path (issue).
         host_playbooks_dir = os.environ.get("HOST_PLAYBOOKS_DIR")
         if not user_id or not host_playbooks_dir:
             update_job_status(job_id, "failed", datetime.now().isoformat())
@@ -1455,10 +1455,10 @@ def run_playbook_background(
                     except Exception:
                         pass
             return
-        # SICHERHEIT (Issue): NICHT den gesamten /playbooks-Baum sichtbar machen.
-        # tmpfs verdeckt alle fremden Custom-Playbooks und alle fremden Job-Inventare/Keys;
-        # danach werden nur das EIGENE custom-Verzeichnis und die job-eigene Inventory-/Key-Datei
-        # gezielt read-only zurueckgemountet. Standard-Playbooks unter /playbooks bleiben lesbar.
+        # SECURITY (issue): do NOT make the entire /playbooks tree visible.
+        # tmpfs hides all other users' custom playbooks and all other users' job inventories/keys;
+        # after that only the OWN custom directory and the job's own inventory/key file
+        # are remounted read-only in a targeted way. Standard playbooks under /playbooks stay readable.
         sandbox_cmd = [
             "docker", "run", "--rm",
             "--name", f"ansible-sandbox-{job_id}",
@@ -1474,10 +1474,10 @@ def run_playbook_background(
             "--security-opt", "no-new-privileges",
             "-e", "ANSIBLE_HOST_KEY_CHECKING=True",
             "-e", "ANSIBLE_NOCOLOR=1",
-            #: ungepuffertes stdout auch im Sandbox-Container (ansible laeuft hier drin).
+            #: unbuffered stdout in the sandbox container too (ansible runs inside it).
             "-e", "PYTHONUNBUFFERED=1",
-            #: Verbindungstimeout + sudo-rs-faehiges Become-Plugin auch in der Sandbox
-            # (gleiches Backend-Image -> Plugin liegt unter demselben Pfad).
+            #: connection timeout + sudo-rs-capable become plugin in the sandbox too
+            # (same backend image -> the plugin lives at the same path).
             "-e", f"ANSIBLE_TIMEOUT={connection_timeout}",
             "-e", f"ANSIBLE_BECOME_PLUGINS={BECOME_PLUGINS_DIR}",
         ]
@@ -1485,12 +1485,12 @@ def run_playbook_background(
             _kname = os.path.basename(_kp)
             sandbox_cmd += ["-v", f"{host_playbooks_dir}/tmp/{_kname}:{_kp}:ro"]
 
-        # : Defense-in-Depth. Der Socket-Proxy filtert API-Endpunkte, aber NICHT
-        # die Inhalte von Bind-Mounts. Daher hier fail-closed erzwingen, dass
-        #   (a) keine privilegierten/host-root-faehigen Flags gesetzt sind und
-        #   (b) jede Host-Quelle eines Bind-Mounts strikt INNERHALB von host_playbooks_dir liegt.
-        # So kann kein Lauf versehentlich Host-Root (/) oder einen Pfad ausserhalb des
-        # Playbook-Baums in die Sandbox mounten.
+        # : defense-in-depth. The socket proxy filters API endpoints, but NOT
+        # the contents of bind mounts. Therefore enforce fail-closed here that
+        #   (a) no privileged/host-root-capable flags are set and
+        #   (b) every host source of a bind mount lies strictly INSIDE host_playbooks_dir.
+        # This way no run can accidentally mount host root (/) or a path outside the
+        # playbook tree into the sandbox.
         _forbidden_flags = {"--privileged", "--volumes-from", "--pid", "--ipc", "--userns",
                             "--cap-add", "--device", "--net=host", "--network=host"}
         _hp_real = os.path.realpath(host_playbooks_dir)
@@ -1524,8 +1524,8 @@ def run_playbook_background(
 
     log_file_path = os.path.join(LOGS_DIR, f"{job_id}.log")
     update_job_status(job_id, "running")
-    #: tatsächlicher Ausführungsbeginn (nicht die Enqueue-Zeit created_at) als Basis für
-    # die Gesamtlaufzeit in der Abschluss-/Fehler-Mail.
+    #: actual execution start (not the enqueue time created_at) as the basis for
+    # the total runtime in the completion/error mail.
     run_started = datetime.now()
 
     # Send start email notification if requested
@@ -1569,15 +1569,15 @@ def run_playbook_background(
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                #: bufsize=1 = zeilengepuffertes Lesen auf Elternseite (nur Textmodus),
-                # damit jede vom Kind geflushte Zeile sofort ankommt statt in einem Lesepuffer
-                # zu verharren.
+                #: bufsize=1 = line-buffered reading on the parent side (text mode only),
+                # so that each line flushed by the child arrives immediately instead of lingering
+                # in a read buffer.
                 bufsize=1,
                 env=env if not is_custom else None
             )
 
-            # : Prozess für den Abbruch registrieren; traf der Abbruch im Spawn-Fenster
-            # ein, sofort beenden (das Streaming/wait unten liefert dann zeitnah zurück).
+            # : register the process for cancellation; if the cancellation arrived in the spawn
+            # window, terminate immediately (the streaming/wait below then returns promptly).
             with active_runs_lock:
                 active_runs[job_id] = {"process": process, "is_custom": is_custom}
                 _cancel_now = job_id in cancel_requested
@@ -1585,7 +1585,7 @@ def run_playbook_background(
                 _terminate_run_process(job_id, process, is_custom)
 
             # Scrub secrets function
-            # Maskier-Liste aus ALLEN Host-Eintraegen (Geraete-Gruppe) + Top-Level-Creds
+            # Masking list from ALL host entries (device group) + top-level creds
             _mask_creds = []
             if password:
                 _mask_creds.append(password)
@@ -1613,19 +1613,19 @@ def run_playbook_background(
                 return masked
 
             # Stream output directly to the log file and enforce timeout
-            #: markiert, ob Ansible an der Rechteausweitung (sudo/become) gescheitert ist.
+            #: marks whether Ansible failed at privilege escalation (sudo/become).
             become_prompt_error = False
             try:
-                #: readline-Iterator statt `for line in process.stdout`, damit KEIN
-                # zusaetzlicher Read-Ahead-Puffer des File-Iterators Zeilen zurueckhaelt — jede
-                # Zeile wird beim Newline sofort geliefert und (mit flush) live in die Logdatei
-                # geschrieben, die get_job_logs streamt.
+                #: readline iterator instead of `for line in process.stdout` so that NO
+                # additional read-ahead buffer of the file iterator holds lines back — each
+                # line is delivered immediately at the newline and (with flush) written live to the log file
+                # that get_job_logs streams.
                 for line in iter(process.stdout.readline, ""):
                     masked_line = mask_secrets(line)
                     log_file.write(masked_line)
                     log_file.flush()
-                    #: typische Sudo-/Become-Fehlersignaturen erkennen (Timeout am Prompt,
-                    # fehlendes/falsches Passwort), um am Ende eine klare Meldung anzuhaengen.
+                    #: detect typical sudo/become error signatures (timeout at the prompt,
+                    # missing/wrong password) in order to append a clear message at the end.
                     _ll = masked_line.lower()
                     if ("privilege escalation prompt" in _ll
                             or "missing sudo password" in _ll
@@ -1633,7 +1633,7 @@ def run_playbook_background(
                             or "incorrect sudo password" in _ll):
                         become_prompt_error = True
 
-                # : konfigurierbares Timeout (default 3600s) statt fixer 5 Minuten.
+                # : configurable timeout (default 3600s) instead of a fixed 5 minutes.
                 return_code = process.wait(timeout=job_timeout)
             except subprocess.TimeoutExpired:
                 print(f"Job {job_id} timed out. Terminating...")
@@ -1652,7 +1652,7 @@ def run_playbook_background(
 
             log_file.write(f"\n=========================================================\n")
             log_file.write(f"=== Playbook Execution finished at {datetime.now().isoformat()} with code {return_code} ===\n")
-            #: klare, umsetzbare Meldung statt eines stummen Sudo-Timeouts.
+            #: clear, actionable message instead of a silent sudo timeout.
             if become_prompt_error and return_code != 0:
                 log_file.write(
                     "\n=== FEHLER: Rechteausweitung (sudo/become) fehlgeschlagen ===\n"
@@ -1662,16 +1662,16 @@ def run_playbook_background(
                 )
             log_file.flush()
 
-        # : Endstatus bestimmen. update_job_status ist endzustands-sicher (überschreibt
-        # einen bereits gesetzten Endzustand – z.B. einen parallelen Abbruch – NICHT) und liefert den
-        # tatsächlich persistierten Status; Mail/Webhook richten sich danach (kein Mismatch).
+        # : determine the final status. update_job_status is terminal-state-safe (does NOT
+        # overwrite an already-set terminal state – e.g. a parallel cancellation) and returns the
+        # actually persisted status; mail/webhook follow it (no mismatch).
         with active_runs_lock:
             was_canceled = job_id in cancel_requested
         intended = "canceled" if was_canceled else ("success" if return_code == 0 else "failed")
         final_status = update_job_status(job_id, intended, datetime.now().isoformat())
 
-        # Send completion email notification if requested.: bei JEDEM Endzustand
-        # (Erfolgreich/Fehlgeschlagen/Abgebrochen) benachrichtigen und die Gesamtlaufzeit mitschicken.
+        # Send completion email notification if requested.: notify on EVERY terminal state
+        # (success/failed/canceled) and include the total runtime.
         if send_notifications and user_email and final_status:
             try:
                 from email_helper import send_email_sync
@@ -1698,12 +1698,12 @@ def run_playbook_background(
             except Exception as email_err:
                 print(f"Failed to send completion notification: {email_err}")
 
-        # : Webhook nach Beendigung (Erfolg/Fehlschlag/Abbruch) – tatsächlich
-        # persistierter Status (endzustands-sicher gegen parallelen Abbruch).
+        # : webhook after completion (success/failure/cancellation) – actually
+        # persisted status (terminal-state-safe against parallel cancellation).
         _send_status_webhook(webhook_url, job_id, final_status or intended, target_host, playbooks)
 
     except Exception as e:
-        # : endzustands-sicher – ein paralleler Abbruch wird nicht zu „failed" überschrieben.
+        # : terminal-state-safe – a parallel cancellation is not overwritten to "failed".
         final_status = update_job_status(job_id, "failed", datetime.now().isoformat())
         try:
             with open(log_file_path, "a") as log_file:
@@ -1711,7 +1711,7 @@ def run_playbook_background(
         except Exception:
             pass
 
-        # Send fail email notification if requested (nur wenn wirklich fehlgeschlagen)
+        # Send fail email notification if requested (only if it actually failed)
         if send_notifications and user_email and final_status == "failed":
             try:
                 from email_helper import send_email_sync
@@ -1730,12 +1730,12 @@ def run_playbook_background(
             except Exception as email_err:
                 print(f"Failed to send error notification: {email_err}")
 
-        # : Webhook bei Fehlschlag (Exception waehrend der Ausfuehrung) – tatsächlich
-        # persistierter Status (überschreibt einen parallelen Abbruch nicht).
+        # : webhook on failure (exception during execution) – actually
+        # persisted status (does not overwrite a parallel cancellation).
         _send_status_webhook(webhook_url, job_id, final_status or "failed", target_host, playbooks,
                              error=str(e) if final_status == "failed" else None)
     finally:
-        # : Prozess-Registry + Abbruch-Flag dieses Jobs freigeben.
+        # : release this job's process registry + cancellation flag.
         with active_runs_lock:
             active_runs.pop(job_id, None)
             cancel_requested.discard(job_id)
@@ -1752,8 +1752,8 @@ def run_playbook_background(
                     os.remove(_kp)
                 except Exception as e:
                     print(f"Error removing temporary key {_kp}: {e}")
-        #: ephemeres per-Job known_hosts des Host-Laufs entfernen (Sandbox nutzt tmpfs,
-        # der Pfad existiert dort nicht auf dem Host -> os.path.exists filtert ihn heraus).
+        #: remove the ephemeral per-job known_hosts of the host run (sandbox uses tmpfs,
+        # the path does not exist there on the host -> os.path.exists filters it out).
         if not is_custom and os.path.exists(known_hosts_file):
             try:
                 os.remove(known_hosts_file)
@@ -1778,10 +1778,10 @@ def queue_worker():
             execution_queue.task_done()
 
 
-# : Task-Queue mit konfigurierbarem Concurrency-Limit. MAX_CONCURRENT_RUNS
-# steuert, wie viele Ansible-Ausfuehrungen parallel laufen duerfen (Default 2). Ueberzaehlige
-# Requests bleiben mit Status "pending" in der Warteschlange und werden abgearbeitet, sobald
-# ein Worker frei wird. Frueher gab es nur einen Worker (de-facto-Limit 1).
+# : task queue with a configurable concurrency limit. MAX_CONCURRENT_RUNS
+# controls how many Ansible executions may run in parallel (default 2). Excess
+# requests stay in the queue with status "pending" and are processed as soon as
+# a worker becomes free. Previously there was only one worker (de-facto limit 1).
 def _max_concurrent_runs() -> int:
     try:
         n = int(os.environ.get("MAX_CONCURRENT_RUNS", "2"))
@@ -1810,13 +1810,13 @@ def load_index_metadata() -> list:
     return []
 
 def _expand_playbook_requires(playbook_files: list) -> list:
-    """: Fehlende `requires`-Abhaengigkeiten (rekursiv, aus index.yml) einer Lauf-Auswahl
-    ergaenzen. Anders als die Frontend-Auto-Auswahl greift dies serverseitig fuer JEDEN Run-Pfad
-    (direkte Auswahl, Presets, Szenarien, API/Token) – so laufen Voraussetzungs-Playbooks
-    (install-flatpak vor den Flatpak-Apps, install-docker vor den Stacks) auch dann, wenn die
-    gespeicherte/uebergebene Liste nur die App enthaelt. Die AUSFUEHRUNGS-Reihenfolge stellt
-    danach `_playbook_order_rank` sicher; hier wird nur die MENGE (dedupliziert) erweitert.
-    `seen` (nach Basisnamen) schuetzt zugleich vor Zyklen in den requires-Angaben."""
+    """: Add missing `requires` dependencies (recursively, from index.yml) to a run selection.
+    Unlike the frontend auto-selection, this applies server-side for EVERY run path
+    (direct selection, presets, scenarios, API/token) – so prerequisite playbooks
+    (install-flatpak before the Flatpak apps, install-docker before the stacks) run even when the
+    stored/passed list contains only the app. The EXECUTION order is then ensured
+    by `_playbook_order_rank`; here only the SET (deduplicated) is extended.
+    `seen` (by basename) also protects against cycles in the requires entries."""
     try:
         requires_map = {
             e["file"]: [r for r in (e.get("requires") or []) if isinstance(r, str)]
@@ -1836,13 +1836,13 @@ def _expand_playbook_requires(playbook_files: list) -> list:
         queue.extend(requires_map.get(base, []))
     return result
 
-# : i18n-faehige Metadaten-Felder in index.yml. Ein Feld darf statt eines einfachen
-# Strings ein Sprach-Dict tragen, z. B.  description: { de: "...", en: "..." }. `_localize` waehlt
-# daraus den Wert der aktiven UI-Sprache (Fallback-Kette: gewuenschte Sprache -> en -> de -> erster
-# nicht-leerer Wert). Einfache Strings (der Normalfall fuer 161 Playbooks) werden unveraendert
-# durchgereicht -> vollstaendig abwaertskompatibel; ein Playbook kann schrittweise zweisprachig
-# werden, ohne dass die uebrigen angefasst werden muessen. `lang` kommt aus dem `?lang=`-Query der
-# Katalog-Endpunkte (Quelle der Wahrheit ist die im Frontend aktive Sprache).
+# : i18n-capable metadata fields in index.yml. A field may carry a language dict
+# instead of a plain string, e.g.  description: { de: "...", en: "..." }. `_localize` picks
+# from it the value of the active UI language (fallback chain: desired language -> en -> de -> first
+# non-empty value). Plain strings (the normal case for 161 playbooks) are passed through
+# unchanged -> fully backward-compatible; a playbook can become bilingual step by step
+# without touching the others. `lang` comes from the `?lang=` query of the
+# catalog endpoints (the source of truth is the language active in the frontend).
 def _localize(value, lang):
     if isinstance(value, dict):
         for cand in (lang, "en", "de"):
@@ -1875,7 +1875,7 @@ def resolve_playbook_metadata(file_path: str, index_metadata: list, lang: Option
             "size": size,
             "requires": metadata_entry.get("requires", []),
             "category": metadata_entry.get("category", ""),
-            # : Hersteller-/Autoren-URLs (rechtliche Transparenz). Default leer.
+            # : vendor/author URLs (legal transparency). Default empty.
             "vendor_urls": metadata_entry.get("vendor_urls", [])
         }
     else:
@@ -1892,8 +1892,8 @@ def resolve_playbook_metadata(file_path: str, index_metadata: list, lang: Option
 
 
 class LoginSchema(BaseModel):
-    # "identifier" akzeptiert Benutzername ODER E-Mail. "email" bleibt als
-    # rueckwaertskompatibler Alias erhalten (aeltere Clients / Tests).
+    # "identifier" accepts username OR email. "email" is kept as a
+    # backward-compatible alias (older clients / tests).
     identifier: Optional[str] = None
     email: Optional[str] = None
     password: str
@@ -1902,17 +1902,17 @@ class LoginSchema(BaseModel):
 class ProfileUpdateSchema(BaseModel):
     username: str
     email: str
-    # Optional: Identitaets-/2FA-Aenderung erfolgt session-authentifiziert; kein
-    # separates 'Aktuelles Passwort'-Feld mehr im Profil noetig.
+    # Optional: identity/2FA change happens session-authenticated; no
+    # separate 'current password' field needed in the profile anymore.
     current_password: Optional[str] = None
-    # : optionale UI-Sprache ("de"|"en"|""/None=automatisch). Konsistenz mit dem
-    # dedizierten Sprach-Setter, damit "Profil speichern" die Sprache mitfuehren kann.
+    # : optional UI language ("de"|"en"|""/None=automatic). Consistency with the
+    # dedicated language setter so that "save profile" can carry the language along.
     language: Optional[str] = None
 
-# : dedizierter Body fuer den leichtgewichtigen Sprach-Setter (Header-Switcher/
-# Profil-Select), der NICHT das ganze Profil (username+email Pflicht) mitsenden soll.
+# : dedicated body for the lightweight language setter (header switcher/
+# profile select) that should NOT send the whole profile (username+email required).
 class ProfileLanguageSchema(BaseModel):
-    language: Optional[str] = None  # "de" | "en" | None/"" = automatisch (Browser-Erkennung)
+    language: Optional[str] = None  # "de" | "en" | None/"" = automatic (browser detection)
 
 class ChangePasswordSchema(BaseModel):
     current_password: str
@@ -1921,7 +1921,7 @@ class ChangePasswordSchema(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_new_password(cls, v):
-        # : dynamische Mindestlänge wird im Handler (validate_password_policy) geprüft.
+        # : the dynamic minimum length is checked in the handler (validate_password_policy).
         if len(v) > 72:
             raise ValueError("Passwort darf maximal 72 Zeichen lang sein.")
         return v
@@ -1945,8 +1945,8 @@ class TokenCreateSchema(BaseModel):
     @field_validator("scopes")
     @classmethod
     def validate_scopes(cls, v):
-        #: Granulare Scopes. run_playbook/read_logs (bestehend) + manage_devices/
-        # manage_scenarios (Agent-Enablement: Geraete-/Szenario-Verwaltung per Token).
+        #: granular scopes. run_playbook/read_logs (existing) + manage_devices/
+        # manage_scenarios (agent enablement: device/scenario management via token).
         allowed = TOKEN_SCOPES
         cleaned = []
         for s in (v or []):
@@ -1973,7 +1973,7 @@ class PasswordResetSchema(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_new_password(cls, v):
-        # : dynamische Mindestlänge wird im Handler (validate_password_policy) geprüft.
+        # : the dynamic minimum length is checked in the handler (validate_password_policy).
         if len(v) > 72:
             raise ValueError("Passwort darf maximal 72 Zeichen lang sein.")
         return v
@@ -1988,7 +1988,7 @@ class DeviceCreateSchema(BaseModel):
     port: Optional[int] = 22
     credential: Optional[str] = None
     credential_type: Optional[str] = None
-    #: optionales Sudo-/Become-Passwort (getrennt vom SSH-Credential).
+    #: optional sudo/become password (separate from the SSH credential).
     become_password: Optional[str] = None
 
     @field_validator("name")
@@ -2046,7 +2046,7 @@ class DeviceUpdateSchema(BaseModel):
     port: Optional[int] = None
     credential: Optional[str] = None
     credential_type: Optional[str] = None
-    #: optionales Sudo-/Become-Passwort. None = unveraendert lassen, "" = loeschen.
+    #: optional sudo/become password. None = leave unchanged, "" = delete.
     become_password: Optional[str] = None
 
     @field_validator("name")
@@ -2104,7 +2104,7 @@ class DeviceUpdateSchema(BaseModel):
 class ToggleNotificationSchema(BaseModel):
     enabled: bool
 
-# : Webhook-URL fuer Status-Benachrichtigungen (Slack/Teams/Discord o.ae.).
+# : webhook URL for status notifications (Slack/Teams/Discord etc.).
 class WebhookUpdateSchema(BaseModel):
     webhook_url: str = ""
 
@@ -2120,38 +2120,38 @@ class WebhookUpdateSchema(BaseModel):
 
 
 
-#: AdminSettingsUpdateSchema bleibt in ALLEN Editionen - admin_update_settings
-# (Admin-Panel-Einstellungen) ist auch in der Community verfuegbar.
+#: AdminSettingsUpdateSchema remains in ALL editions - admin_update_settings
+# (admin panel settings) is available in Community too.
 class AdminSettingsUpdateSchema(BaseModel):
     rate_limit_global_ip: str
     rate_limit_user_ip: str
     ip_ban_duration: str
     max_history_count: str
     max_history_age: str
-    #: In der Community-Edition sind Quota-/Limit- und Fingerprint-Alert-Felder
-    # ausgeblendet und werden nicht mitgesendet -> optional (nur bei Mitsenden aktualisiert),
-    # sonst 422 auf fehlende Werte.
+    #: In the Community-Edition the quota/limit and fingerprint-alert fields are
+    # hidden and not sent along -> optional (only updated when sent),
+    # otherwise 422 on missing values.
     max_active_api_tokens: Optional[str] = None
     max_guest_accounts: Optional[str] = None
     storage_quota_mb: Optional[str] = None
     max_custom_playbooks: Optional[str] = None
-    # : Standard-Timeout (Sekunden) fuer Playbook-Ausfuehrungen.
+    # : default timeout (seconds) for playbook executions.
     default_job_timeout: str
-    #: Ansible-Verbindungstimeout (Sekunden) = sudo/become-Prompt-Wartezeit. Optional,
-    # damit aeltere Clients/Community-Edition ohne das Feld kein 422 ausloesen (Default 30).
+    #: Ansible connection timeout (seconds) = sudo/become prompt wait time. Optional,
+    # so that older clients/Community-Edition without the field do not trigger a 422 (default 30).
     default_connection_timeout: Optional[str] = None
-    # : Wartungsmodus (kein Numeric-Validator -> optional + eigene Pruefung).
+    # : maintenance mode (no numeric validator -> optional + its own check).
     maintenance_mode: Optional[str] = None
     maintenance_note: Optional[str] = None
-    # : Selbstregistrierung an-/abschalten (optional; nur bei Mitsenden aktualisiert).
+    # : enable/disable self-registration (optional; only updated when sent).
     registration_enabled: Optional[str] = None
-    # : dynamische Passwortregeln (optional; nur bei Mitsenden aktualisiert).
+    # : dynamic password rules (optional; only updated when sent).
     password_min_length: Optional[str] = None
     password_require_special: Optional[str] = None
     password_require_case: Optional[str] = None
     password_require_digit: Optional[str] = None
-    #: Enterprise-/Custom-Tarif auf der Preisseite (cloud-only). Titel/Beschreibung/
-    # Kontakt-Adresse und An-/Aus-Schalter (optional; nur bei Mitsenden aktualisiert).
+    #: enterprise/custom tariff on the pricing page (cloud-only). Title/description/
+    # contact address and on/off switch (optional; only updated when sent).
     enterprise_tier_enabled: Optional[str] = None
     enterprise_tier_title: Optional[str] = None
     enterprise_tier_description: Optional[str] = None
@@ -2175,9 +2175,9 @@ class AdminSettingsUpdateSchema(BaseModel):
     )
     @classmethod
     def validate_numeric_setting(cls, v):
-        #: alle Einstellungen sind nicht-negative Ganzzahlen. Verhindert, dass ein
-        # nicht-numerischer Wert persistiert wird und spaeter die Middleware crasht.
-        #: optionale Felder duerfen fehlen (Community sendet sie nicht mit).
+        #: all settings are non-negative integers. Prevents a
+        # non-numeric value from being persisted and later crashing the middleware.
+        #: optional fields may be missing (Community does not send them along).
         if v is None:
             return v
         s = str(v).strip()
@@ -2200,12 +2200,12 @@ class AdminIPBlockCreateSchema(BaseModel):
     duration_seconds: Optional[int] = None
 
 
-#: Granulare API-Token-Scopes. Jede Scope erlaubt bestimmte (Methode, Pfad-Praefix)-
-# Kombinationen; "*" = jede Methode. Ein Token darf einen Pfad nutzen, wenn IRGENDEINE seiner
-# Scopes dafuer eine Regel liefert. Der Praefix-Match ist grenzensicher (path == pref ODER
-# path.startswith(pref + "/")): manage_devices/manage_scenarios erreichen so NIEMALS sensible
-# Nachbarpfade wie /api/profile/tokens, /api/profile/guests oder /api/profile/export
-# (kein Rechte-Escalation-Pfad ueber Praefix-Ueberlappung).
+#: granular API-token scopes. Each scope allows certain (method, path prefix)
+# combinations; "*" = any method. A token may use a path if ANY of its
+# scopes provides a rule for it. The prefix match is boundary-safe (path == pref OR
+# path.startswith(pref + "/")): manage_devices/manage_scenarios thus NEVER reach sensitive
+# neighboring paths like /api/profile/tokens, /api/profile/guests or /api/profile/export
+# (no privilege-escalation path via prefix overlap).
 _TOKEN_SCOPE_RULES = {
     "run_playbook":     [("*", "/api/run")],
     "read_logs":        [("*", "/api/jobs")],
@@ -2231,10 +2231,10 @@ def _token_may_access(scopes, method: str, path: str) -> bool:
 
 # Dependency helpers
 def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> Optional[User]:
-    # : Community wertet jetzt echte Sessions aus (Login fuer den Admin + vom Admin via
-    # Teams angelegte Teammitglieder). Frueher lieferte diese Funktion in der Community-Edition
-    # bedingungslos den lokalen System-Admin und ignorierte Cookies/Token; das ist entfallen,
-    # damit ein abgemeldeter Besucher ein echter Gast (None) ist.
+    # : Community now evaluates real sessions (login for the admin + team members created by
+    # the admin via Teams). Previously this function in the Community-Edition returned the local
+    # system admin unconditionally and ignored cookies/tokens; that is gone,
+    # so that a logged-out visitor is a real guest (None).
 
     # 1. Bearer Token Auth
     auth_header = request.headers.get("Authorization")
@@ -2247,12 +2247,12 @@ def get_current_user(request: Request, db: DBSession = Depends(get_db)) -> Optio
             if api_token:
                 if api_token.expires_at is None or api_token.expires_at > datetime.utcnow():
                     user = db.query(User).filter(User.id == api_token.user_id).first()
-                    #: deaktivierte/gesperrte Nutzer duerfen nicht ueber ihren Token zugreifen
+                    #: deactivated/blocked users must not access via their token
                     if user and user.is_active:
                         request.state.api_token_scopes = [s.strip() for s in api_token.scopes.split(",") if s.strip()]
                         request.state.is_api_token = True
-                        #: API-Token-Zugriffs-Gate zentral (gilt auch fuer Endpoints mit
-                        # get_current_user). Scope-basiert statt fester run/jobs-Whitelist.
+                        #: central API-token access gate (also applies to endpoints with
+                        # get_current_user). Scope-based instead of a fixed run/jobs whitelist.
                         if not _token_may_access(request.state.api_token_scopes, request.method, request.url.path):
                             raise HTTPException(status_code=403, detail="API-Token hat keinen Zugriff auf diesen Endpunkt.")
                         return user
@@ -2271,7 +2271,7 @@ def get_authenticated_user(request: Request, current_user: Optional[User] = Depe
     if not current_user:
         raise HTTPException(status_code=401, detail="Nicht authentifiziert. Bitte melden Sie sich an.")
 
-    #: API-Token nur auf die von seinen Scopes erlaubten Endpunkte (scope-basiertes Gate).
+    #: API token only on the endpoints allowed by its scopes (scope-based gate).
     if getattr(request.state, "is_api_token", False):
         if not _token_may_access(getattr(request.state, "api_token_scopes", []), request.method, request.url.path):
             raise HTTPException(status_code=403, detail="API-Token hat keinen Zugriff auf diesen Endpunkt.")
@@ -2291,13 +2291,13 @@ async def login_user(data: LoginSchema, request: Request, response: Response, db
         raise HTTPException(status_code=422, detail="Benutzername oder E-Mail ist erforderlich.")
     ident_lower = ident_raw.lower()
 
-    # Login per E-Mail (lowercased gespeichert) ODER Benutzername (exakt).
+    # Login by email (stored lowercased) OR username (exact).
     user = db.query(User).filter(
         (User.email == ident_lower) | (User.username == ident_raw)
     ).first()
 
-    # Brute-Force-Sperre an der echten E-Mail des Users festmachen; ist der
-    # Identifier unbekannt, am eingegebenen Wert (verhindert User-Enumeration via Lockout).
+    # Anchor the brute-force lock to the user's real email; if the
+    # identifier is unknown, to the entered value (prevents user enumeration via lockout).
     lockout_key = user.email if user else ident_lower
     attempt = db.query(LoginAttempt).filter(LoginAttempt.email == lockout_key).first()
     now = datetime.utcnow()
@@ -2324,7 +2324,7 @@ async def login_user(data: LoginSchema, request: Request, response: Response, db
 
     email = user.email
 
-    # E-Mail-Verifikation erzwingen, falls aktiviert (Double-Opt-In)
+    # Enforce email verification if enabled (double opt-in)
     if os.environ.get("EMAIL_VERIFICATION_REQUIRED", "false").lower() == "true" and not user.email_verified:
         raise HTTPException(status_code=403, detail="Bitte bestaetigen Sie zuerst Ihre E-Mail-Adresse. Wir haben Ihnen einen Bestaetigungslink gesendet.")
 
@@ -2334,8 +2334,8 @@ async def login_user(data: LoginSchema, request: Request, response: Response, db
         session = create_user_session(db, user.id, ip, ua)
         cookie_secure = os.environ.get("COOKIE_SECURE", "true").lower() == "true"
         response.set_cookie(key="session_id", value=session.id, httponly=True, secure=cookie_secure, samesite="strict", max_age=14 * 86400)
-        #: JS-lesbares Begleit-Cookie (kein Token) - das Frontend erkennt damit eine
-        # bestehende Sitzung und spart den ueberfluessigen /api/profile-Call fuer Anonyme.
+        #: JS-readable companion cookie (not a token) - the frontend uses it to detect an
+        # existing session and saves the superfluous /api/profile call for anonymous visitors.
         response.set_cookie(key="as_auth", value="1", httponly=False, secure=cookie_secure, samesite="strict", max_age=14 * 86400)
         return {"status": "logged_in", "username": user.username, "role": user.role, "tier": user.tier, "email": email}
 
@@ -2380,10 +2380,10 @@ def revoke_session(session_id: str, user: User = Depends(get_authenticated_user)
     db.commit()
     return {"message": "Sitzung erfolgreich beendet."}
 
-#: bleibt in ALLEN Editionen - reset-password-request (Community) ruft es auf; No-Op, wenn
-# CAPTCHA_REQUIRED nicht gesetzt ist.
+#: remains in ALL editions - reset-password-request (Community) calls it; no-op if
+# CAPTCHA_REQUIRED is not set.
 def verify_captcha_if_required(db: DBSession, captcha_id: Optional[str], captcha_answer: Optional[str]):
-    """Prueft das Captcha, wenn CAPTCHA_REQUIRED=true gesetzt ist; sonst No-Op."""
+    """Checks the captcha if CAPTCHA_REQUIRED=true is set; otherwise no-op."""
     captcha_required = os.environ.get("CAPTCHA_REQUIRED", "false").lower() == "true"
     if not captcha_required:
         return
@@ -2406,7 +2406,7 @@ async def reset_password_request(data: PasswordResetRequestSchema, request: Requ
     if not ident_raw:
         raise HTTPException(status_code=422, detail="Benutzername oder E-Mail ist erforderlich.")
 
-    # Captcha pruefen, falls serverseitig aktiviert
+    # Check the captcha if enabled server-side
     verify_captcha_if_required(db, data.captcha_id, data.captcha_answer)
 
     ident_lower = ident_raw.lower()
@@ -2415,7 +2415,7 @@ async def reset_password_request(data: PasswordResetRequestSchema, request: Requ
         (User.email == ident_lower) | (User.username == ident_raw)
     ).first()
 
-    # Bei Anforderung ueber den Benutzernamen den Hinweis auf die verknuepfte E-Mail geben.
+    # When requesting via the username, point to the linked email.
     if is_email_input:
         generic_message = "Wenn die E-Mail registriert ist, wurde ein Link gesendet."
     else:
@@ -2470,7 +2470,7 @@ def reset_password(data: PasswordResetSchema, db: DBSession = Depends(get_db)):
     validate_password_policy(db, data.new_password)  # 
     user.hashed_password = get_password_hash(data.new_password)
     otp_entry.is_verified = True
-    #: alle bestehenden Sessions entwerten (Reset = potenzielle Kontouebernahme abwehren)
+    #: invalidate all existing sessions (reset = fend off potential account takeover)
     db.query(Session).filter(Session.user_id == user.id).delete()
     db.commit()
 
@@ -2489,7 +2489,7 @@ def get_profile(user: User = Depends(get_authenticated_user), db: DBSession = De
         "deletion_pending_at": user.deletion_pending_at.isoformat() if user.deletion_pending_at else None,
         "email_notifications_enabled": user.email_notifications_enabled,
         "webhook_url": user.webhook_url or "",
-        # : serverseitige Sprachpraeferenz (de|en|null=automatisch). Kernfeld, auch Community.
+        # : server-side language preference (de|en|null=automatic). Core field, Community too.
         "language": user.language,
         "two_factor_enabled": user.two_factor_enabled,
         "associated_user_id": user.associated_user_id,
@@ -2497,7 +2497,7 @@ def get_profile(user: User = Depends(get_authenticated_user), db: DBSession = De
 
 @app.post("/api/profile/update")
 def update_profile(data: ProfileUpdateSchema, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
-    # Passwort nur pruefen, wenn (optional) mitgesendet; Session-Auth genuegt.
+    # Only check the password if (optionally) sent along; session auth is sufficient.
     if data.current_password and not verify_password(data.current_password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Aktuelles Passwort ist ungueltig.")
 
@@ -2509,13 +2509,13 @@ def update_profile(data: ProfileUpdateSchema, user: User = Depends(get_authentic
     if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email) or len(email) > 254:
         raise HTTPException(status_code=400, detail="Ungueltige E-Mail-Adresse.")
 
-    # Gast-Accounts duerfen Benutzername/E-Mail nicht aendern (nur 2FA-Toggle/Passwort).
+    # Guest accounts may not change username/email (only 2FA toggle/password).
     if user.role == "guest" and (username != user.username or email != user.email):
         raise HTTPException(status_code=403, detail="Gast-Accounts koennen Benutzername und E-Mail nicht aendern.")
 
-    # : Der Benutzername ist nach der Registrierung unveraenderlich. Ausnahme:
-    # System-Admins duerfen den eigenen Namen aendern; fremde Namen werden ausschliesslich
-    # ueber das Admin-Panel (eigener Endpoint) korrigiert.
+    # : the username is immutable after registration. Exception:
+    # system admins may change their own name; other people's names are corrected
+    # exclusively via the admin panel (its own endpoint).
     if username != user.username and user.role != "admin":
         raise HTTPException(status_code=403, detail="Der Benutzername kann nach der Registrierung nicht mehr geaendert werden.")
 
@@ -2527,7 +2527,7 @@ def update_profile(data: ProfileUpdateSchema, user: User = Depends(get_authentic
 
     user.username = username
     user.email = email
-    # : Sprache optional mitfuehren (leer/None -> automatisch).
+    # : optionally carry the language along (empty/None -> automatic).
     if data.language is not None:
         lang = (data.language or "").strip().lower() or None
         if lang not in (None, "de", "en"):
@@ -2539,8 +2539,8 @@ def update_profile(data: ProfileUpdateSchema, user: User = Depends(get_authentic
 
 @app.post("/api/profile/language")
 def update_profile_language(data: ProfileLanguageSchema, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
-    # : leichtgewichtiger, session-/token-faehiger Sprach-Setter fuer den Header-
-    # Switcher und das Profil-Select. Gast-Accounts duerfen die eigene Sprache setzen.
+    # : lightweight, session/token-capable language setter for the header
+    # switcher and the profile select. Guest accounts may set their own language.
     lang = (data.language or "").strip().lower() or None
     if lang not in (None, "de", "en"):
         raise HTTPException(status_code=400, detail="Ungueltige Sprache (erlaubt: de, en oder leer/automatisch).")
@@ -2554,7 +2554,7 @@ def change_password(data: ChangePasswordSchema, request: Request, user: User = D
         raise HTTPException(status_code=401, detail="Aktuelles Passwort ist ungueltig.")
     validate_password_policy(db, data.new_password)  # 
     user.hashed_password = get_password_hash(data.new_password)
-    #: andere Sessions entwerten, die aktuelle Sitzung behalten
+    #: invalidate other sessions, keep the current session
     current_sid = request.cookies.get("session_id")
     q = db.query(Session).filter(Session.user_id == user.id)
     if current_sid:
@@ -2572,7 +2572,7 @@ def toggle_notifications(data: ToggleNotificationSchema, user: User = Depends(ge
 
 @app.post("/api/profile/webhook")
 def update_webhook(data: WebhookUpdateSchema, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
-    # : Webhook-URL setzen/loeschen. Leer = deaktiviert.
+    # : set/delete webhook URL. Empty = disabled.
     user.webhook_url = data.webhook_url or None
     db.commit()
     return {"message": "Webhook erfolgreich gespeichert." if user.webhook_url else "Webhook entfernt.",
@@ -2590,10 +2590,10 @@ def _clean_playbook_list(v):
 
 
 def _clean_playbook_ids(raw):
-    """: saeubert die Playbook-ID-Liste einer Szenario-Vorlage. IDs sind
-    Pfade relativ zu /playbooks (index.yml-"file" bzw. "custom/<owner>/<file>"). Es wird
-    nur Format/Sicherheit geprueft (kein Pfad-Traversal, sinnvolle Zeichen, Laengen) -
-    die eigentliche Existenz-/Zugriffspruefung uebernimmt der Run-Endpoint."""
+    """: cleans the playbook ID list of a scenario template. IDs are
+    paths relative to /playbooks (index.yml "file" or "custom/<owner>/<file>"). Only
+    format/security is checked (no path traversal, sensible characters, lengths) -
+    the actual existence/access check is done by the run endpoint."""
     if not raw:
         return []
     if len(raw) > 100:
@@ -2613,10 +2613,10 @@ def _clean_playbook_ids(raw):
     return out
 
 def _serialize_device(d: Device):
-    """ (Device-Flatten): einheitliche Geraete-Darstellung fuer /api/devices und
-    /api/profile/devices-unified. Klartext-Credentials/Become-Passwoerter werden NIE
-    zurueckgegeben (nur has_*-Flags). Die managed/managed_device-Felder bleiben fuer die
-    bestehende Vault-UI erhalten (jedes Geraet ist jetzt ein verwaltetes Einzelgeraet)."""
+    """ (Device-Flatten): unified device representation for /api/devices and
+    /api/profile/devices-unified. Plaintext credentials/become passwords are NEVER
+    returned (only has_* flags). The managed/managed_device fields are kept for the
+    existing vault UI (every device is now a managed single device)."""
     return {
         "id": d.id,
         "name": d.name,
@@ -2625,12 +2625,12 @@ def _serialize_device(d: Device):
         "port": d.port,
         "has_credential": d.encrypted_credential is not None,
         "credential_type": d.credential_type,
-        #: Sudo-/Become-Passwort hinterlegt? (Klartext wird NIE zurueckgegeben)
+        #: is a sudo/become password stored? (plaintext is NEVER returned)
         "has_become_credential": d.encrypted_become_credential is not None,
         "base_directory": d.base_directory,
         "timezone": d.timezone,
         "guest_access": _safe_json_list(d.guest_access),
-        # Kompat mit der bestehenden Vault-UI (editManagedDevice liest managed_device.*).
+        # Compat with the existing vault UI (editManagedDevice reads managed_device.*).
         "managed": True,
         "managed_device": {
             "id": d.id, "host": d.host, "username": d.username,
@@ -2655,9 +2655,9 @@ def _safe_json_list(value):
         return []
 
 def _clean_device_defaults(data):
-    """ (Device-Flatten): validiert die Run-Kontext-Felder eines Geraets (SSH-User,
-    Credential-Typ, base_dir, timezone). Duck-Typing: liest dieselben Feldnamen wie
-    UnifiedDeviceSchema. Gibt ein dict ohne Credential zurueck."""
+    """ (Device-Flatten): validates a device's run-context fields (SSH user,
+    credential type, base_dir, timezone). Duck typing: reads the same field names as
+    UnifiedDeviceSchema. Returns a dict without a credential."""
     def _norm(v):
         return v.strip() if isinstance(v, str) else None
     user = _norm(data.default_ssh_user) or None
@@ -2674,22 +2674,22 @@ def _clean_device_defaults(data):
         raise HTTPException(status_code=400, detail="Ungueltige Zeitzone.")
     return {"user": user, "ctype": ctype, "base_dir": base_dir, "tz": tz}
 
-# ---- (Device-Flatten): Verwaltete Einzelgeraete ----
-# Ein "Gerät" = genau EIN Device (ein Host). Verbindungsdaten (host/user/credential/become),
-# Run-Kontext (base_dir/timezone) und die Gast-Freigabe (guest_access) liegen direkt am Device.
-# Die frueheren 1er-/Multi-DeviceGroup-Wrapper sind entfallen; Multi-Host laeuft ueber die
-# device_ids-Auswahl an Szenario/Preset (siehe /api/run).
-MANAGED_DEVICE_SENTINEL = "__managed_device__"  # nur noch fuer die einmalige Flatten-Migration
+# ---- (Device-Flatten): managed single devices ----
+# A "device" = exactly ONE Device (one host). Connection data (host/user/credential/become),
+# run context (base_dir/timezone) and the guest share (guest_access) live directly on the Device.
+# The former single/multi DeviceGroup wrappers are gone; multi-host runs via the
+# device_ids selection on Scenario/Preset (see /api/run).
+MANAGED_DEVICE_SENTINEL = "__managed_device__"  # only for the one-time flatten migration
 
 class UnifiedDeviceSchema(BaseModel):
     name: str
     host: str
     default_ssh_user: Optional[str] = None
-    default_credential: Optional[str] = None        # Klartext; "" loescht, None laesst unveraendert
+    default_credential: Optional[str] = None        # plaintext; "" deletes, None leaves unchanged
     default_credential_type: Optional[str] = None   # "password" | "key"
-    #: optionales Sudo-/Become-Passwort des verwalteten Geraets (am Single-Device gespeichert).
-    # Kontrakt wie default_credential: Klartext; "" loescht, None laesst unveraendert. Fehlt es, dient
-    # beim Lauf weiterhin das SSH-Passwort als Sudo-Passwort (Fallback in run_playbook_background).
+    #: optional sudo/become password of the managed device (stored on the single device).
+    # Contract like default_credential: plaintext; "" deletes, None leaves unchanged. If missing,
+    # the SSH password continues to serve as the sudo password during the run (fallback in run_playbook_background).
     default_become_password: Optional[str] = None
     default_base_directory: Optional[str] = None
     default_timezone: Optional[str] = None
@@ -2738,7 +2738,7 @@ class ManagedDeviceShareSchema(BaseModel):
     guest_access: List[str] = []
 
 def _load_device(device_id: str, user: User, db: DBSession):
-    """: laedt ein Geraet des Besitzers. 404, wenn es fehlt oder nicht ihm gehoert."""
+    """: loads a device of the owner. 404 if it is missing or does not belong to them."""
     dev = db.query(Device).filter(Device.id == device_id, Device.user_id == user.id).first()
     if not dev:
         raise HTTPException(status_code=404, detail="Gerät nicht gefunden.")
@@ -2746,7 +2746,7 @@ def _load_device(device_id: str, user: User, db: DBSession):
 
 @app.get("/api/profile/devices-unified")
 def list_managed_devices(user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
-    #: Besitzer sieht alle eigenen Geraete; ein Gast nur die ihm freigegebenen.
+    #: the owner sees all their own devices; a guest only those shared with them.
     if user.role == "guest":
         owner_id = user.associated_user_id
         if not owner_id:
@@ -2762,7 +2762,7 @@ def create_managed_device(data: UnifiedDeviceSchema, request: Request, user: Use
         raise HTTPException(status_code=403, detail="Gast-Accounts koennen keine Geraete erstellen.")
     if not user.is_subscription_active(db):
         raise HTTPException(status_code=403, detail="Abonnement inaktiv. Bitte reaktivieren Sie Ihr Abonnement, um Geraete zu verwalten.")
-    # : Geraete-Limit (zaehlt echte Device-Datensaetze, also auch verwaltete).
+    # : device limit (counts real Device records, including managed ones).
     device_limit = effective_max_devices(user, db)
     if device_limit is not None:
         current = db.query(Device).filter(Device.user_id == user.id).count()
@@ -2774,7 +2774,7 @@ def create_managed_device(data: UnifiedDeviceSchema, request: Request, user: Use
     if data.default_credential:
         encrypted = encrypt_credential(data.default_credential)
         ctype = defaults["ctype"] or "password"
-    #: optionales Sudo-/Become-Passwort am Device ablegen (Lauf-Pfad liest es bereits aus).
+    #: store the optional sudo/become password on the device (the run path already reads it).
     encrypted_become = encrypt_credential(data.default_become_password) if (data.default_become_password or "").strip() else None
     dev = Device(
         user_id=user.id, name=data.name.strip(), host=data.host.strip(),
@@ -2799,7 +2799,7 @@ def update_managed_device(device_id: str, data: UnifiedDeviceSchema, request: Re
         raise HTTPException(status_code=403, detail="Abonnement inaktiv. Bitte reaktivieren Sie Ihr Abonnement, um Geraete zu verwalten.")
     dev = _load_device(device_id, user, db)
     defaults = _clean_device_defaults(data)
-    # Credential-Kontrakt: None=behalten, ""=loeschen, sonst neu verschluesseln.
+    # Credential contract: None=keep, ""=delete, otherwise re-encrypt.
     dev.name = data.name.strip()
     dev.host = data.host.strip()
     dev.username = defaults["user"]
@@ -2812,7 +2812,7 @@ def update_managed_device(device_id: str, data: UnifiedDeviceSchema, request: Re
         else:
             dev.encrypted_credential = encrypt_credential(data.default_credential)
             dev.credential_type = defaults["ctype"] or dev.credential_type or "password"
-    #: Sudo-/Become-Passwort (gleicher Kontrakt: None=behalten, ""=loeschen, sonst neu setzen).
+    #: sudo/become password (same contract: None=keep, ""=delete, otherwise set anew).
     if data.default_become_password is not None:
         if data.default_become_password == "":
             dev.encrypted_become_credential = None
@@ -2849,7 +2849,7 @@ def share_managed_device(device_id: str, data: ManagedDeviceShareSchema, request
                      {"device_id": dev.id, "guests": len(guest_ids)}, _client_ip(request))
     return _serialize_device(dev)
 
-# ---- : Benutzerdefinierte Presets ----
+# ---- : custom presets ----
 class CustomPresetShare(BaseModel):
     guest_id: str
     permission: str = "strict"  # "strict" | "flexible"
@@ -2858,23 +2858,23 @@ class CustomPresetSchema(BaseModel):
     name: str
     playbook_ids: List[str] = []
     variables: Optional[Dict[str, str]] = None
-    # (Device-Flatten): Ziel-Geraete als Liste (Multi-Host via Checkbox). Leer = geraetelos.
+    # (Device-Flatten): target devices as a list (multi-host via checkbox). Empty = deviceless.
     device_ids: List[str] = []
     shares: Optional[List[CustomPresetShare]] = None
 
 
-# : Szenario = Preset (Rezept) + Zielgeraete fuer 1-Klick-Deployment.
-# : teilbar wie Presets (shares: strict/flexible pro Gast).
+# : Scenario = preset (recipe) + target devices for 1-click deployment.
+# : shareable like presets (shares: strict/flexible per guest).
 class ScenarioSchema(BaseModel):
     name: str
     preset_id: str
-    # (Device-Flatten): optionale Ziel-Geraete (Multi-Host via Checkbox). Leer -> geräteloses
-    # Szenario (Gerät wird beim Ausführen einmalig eingegeben).
+    # (Device-Flatten): optional target devices (multi-host via checkbox). Empty -> deviceless
+    # scenario (the device is entered once at run time).
     device_ids: List[str] = []
     shares: Optional[List[CustomPresetShare]] = None
 
 def _clean_preset_variables(raw):
-    """Validiert Preset-Standardvariablen (Schluessel wie Variablennamen, kurze Werte)."""
+    """Validates preset default variables (keys like variable names, short values)."""
     out = {}
     if not raw:
         return out
@@ -2909,8 +2909,8 @@ def _clean_preset_shares(raw, owner_id, db):
     return out
 
 def _clean_device_ids(raw, owner_id: str, db: DBSession):
-    """ (Device-Flatten): filtert eine Geraete-Auswahl auf existierende Geraete des
-    Besitzers (Reihenfolge bewahrt, dedupliziert). Leere/unbekannte IDs werden verworfen."""
+    """ (Device-Flatten): filters a device selection down to the owner's existing devices
+    (order preserved, deduplicated). Empty/unknown IDs are discarded."""
     if not raw:
         return []
     valid = {d.id for d in db.query(Device).filter(Device.user_id == owner_id).all()}
@@ -2926,9 +2926,9 @@ def _clean_preset_input(data: CustomPresetSchema, owner_id: str, db: DBSession):
     name = (data.name or "").strip()
     if not name or len(name) > 80:
         raise HTTPException(status_code=400, detail="Name ist erforderlich (max. 80 Zeichen).")
-    # : Unicode-Buchstaben zulassen (z. B. Umlaute) – sonst scheitern deutsche Namen wie
-    # "Geräteloses". \w ist unicode-aware; Interpunktion bleibt auf eine sichere Whitelist begrenzt.
-    # Konsistent mit Szenario-Namen, deren Name als Preset-Name wiederverwendet wird.
+    # : allow Unicode letters (e.g. umlauts) – otherwise German names like
+    # "Geräteloses" fail. \w is unicode-aware; punctuation stays limited to a safe whitelist.
+    # Consistent with scenario names, whose name is reused as the preset name.
     if not re.match(r"^[\w ._/&+-]+$", name):
         raise HTTPException(status_code=400, detail="Ungueltiger Preset-Name.")
     playbook_ids = _clean_playbook_ids(data.playbook_ids)
@@ -2950,14 +2950,14 @@ def _serialize_preset(p: CustomPreset, viewer=None):
     }
     if is_owner:
         data["shares"] = shares
-        data["permission"] = "flexible"  # Besitzer darf immer anpassen
+        data["permission"] = "flexible"  # the owner may always modify
     else:
         mine = next((s for s in shares if s.get("guest_id") == (viewer.id if viewer else None)), None)
         data["permission"] = (mine or {}).get("permission")
     return data
 
 def _preset_for_viewer(p: CustomPreset, viewer) -> bool:
-    """Darf `viewer` dieses Preset sehen/ausfuehren? Besitzer oder freigegebener Gast."""
+    """May `viewer` see/run this preset? Owner or shared guest."""
     if viewer is None:
         return False
     if viewer.id == p.user_id:
@@ -2980,8 +2980,8 @@ def list_custom_presets(user: User = Depends(get_authenticated_user), db: DBSess
 def create_custom_preset(data: CustomPresetSchema, request: Request, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Gast-Accounts koennen keine Presets erstellen.")
-    #  (#E): Preset-Erstellung ist eine Premium-Funktion. Admins ausgenommen (kein Abo-Bezug);
-    # site-weite Admin-Presets ("jeder sieht sie") sind auf einen Folge-Meilenstein vertagt.
+    #  (#E): preset creation is a premium feature. Admins excepted (no subscription reference);
+    # site-wide admin presets ("everyone sees them") are deferred to a follow-up milestone.
     if user.role != "admin" and not user.is_subscription_active(db):
         raise HTTPException(status_code=403, detail="Das Erstellen von Presets erfordert eine aktive Premium-Laufzeit.")
     name, pb_ids, variables, dev_ids, shares = _clean_preset_input(data, user.id, db)
@@ -3000,7 +3000,7 @@ def create_custom_preset(data: CustomPresetSchema, request: Request, user: User 
 def update_custom_preset(preset_id: str, data: CustomPresetSchema, request: Request, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Gast-Accounts koennen keine Presets bearbeiten.")
-    #  (#E): Bearbeiten analog zur Erstellung Premium-gegated (Admins ausgenommen).
+    #  (#E): editing is premium-gated like creation (admins excepted).
     if user.role != "admin" and not user.is_subscription_active(db):
         raise HTTPException(status_code=403, detail="Das Bearbeiten von Presets erfordert eine aktive Premium-Laufzeit.")
     p = db.query(CustomPreset).filter(CustomPreset.id == preset_id, CustomPreset.user_id == user.id).first()
@@ -3030,9 +3030,9 @@ def delete_custom_preset(preset_id: str, request: Request, user: User = Depends(
     return {"message": "Preset geloescht."}
 
 # ---------------------------------------------------------------------------
-# : Szenarios = Preset (Rezept) + Zielgeraete, 1-Klick-Deployment.
-# (Device-Flatten): Zielgeraete als device_ids-Liste (Multi-Host via Checkbox).
-# Ausgefuehrt wird ueber den bestehenden /api/run-Pfad (custom_preset_id + device_ids).
+# : Scenarios = preset (recipe) + target devices, 1-click deployment.
+# (Device-Flatten): target devices as a device_ids list (multi-host via checkbox).
+# Executed via the existing /api/run path (custom_preset_id + device_ids).
 # ---------------------------------------------------------------------------
 def _clean_scenario_name(name: str) -> str:
     name = (name or "").strip()
@@ -3046,8 +3046,8 @@ def _serialize_scenario(s: Scenario, preset_map: dict, device_map: dict, viewer:
     dev_ids = _safe_json_list(s.device_ids)
     devices = [device_map[i] for i in dev_ids if i in device_map]
     is_owner = bool(viewer and viewer.id == s.user_id)
-    #: geraetelos = es wurden bewusst keine Zielgeraete hinterlegt. Gesetzte, aber nicht mehr
-    # auffindbare Geraete bedeuten "geloescht" -> ungueltig.
+    #: deviceless = no target devices were deliberately stored. Set but no longer
+    # findable devices mean "deleted" -> invalid.
     device_optional = not dev_ids
     all_devices_exist = len(devices) == len(dev_ids)
     out = {
@@ -3058,22 +3058,22 @@ def _serialize_scenario(s: Scenario, preset_map: dict, device_map: dict, viewer:
         "preset_id": s.preset_id,
         "device_ids": dev_ids,
         "preset_name": preset.name if preset is not None else None,
-        # Einzelgeraet -> Geraete-Name; Mehrfachauswahl -> Anzahl; geraetelos -> None.
+        # single device -> device name; multiple selection -> count; deviceless -> None.
         "device_name": (devices[0].name if len(devices) == 1 else (f"{len(dev_ids)} Geräte" if dev_ids else None)),
-        #: kennzeichnet ein bewusst geraeteloses Szenario (Geraet beim Run eingeben).
+        #: marks a deliberately deviceless scenario (enter the device at run time).
         "device_optional": device_optional,
-        # : Metadaten-Zaehler fuer die Listenuebersicht. Nicht sensibel -> immer ausgeliefert.
+        # : metadata counters for the list overview. Not sensitive -> always delivered.
         "playbook_count": len(_safe_json_list(preset.playbook_ids)) if preset is not None else 0,
         "device_count": len(dev_ids),
-        # valid=False -> Preset (oder ein fest gesetztes Geraet) wurde inzwischen geloescht.
-        # Geraetelose Szenarien sind ohne Geraet gueltig.
+        # valid=False -> the preset (or a fixed device) has since been deleted.
+        # Deviceless scenarios are valid without a device.
         "valid": bool(preset is not None and (device_optional or all_devices_exist)),
         "created_at": s.created_at.isoformat() if s.created_at else None,
     }
     shares = _safe_json_list(s.shares)
     if is_owner:
-        out["shares"] = shares           # Freigabeliste nur dem Besitzer zeigen
-        out["shared_count"] = len(shares)  # : Anzahl Benutzer-Freigaben (nur fuer Besitzer)
+        out["shares"] = shares           # only show the share list to the owner
+        out["shared_count"] = len(shares)  # : number of user shares (owner only)
         out["permission"] = "flexible"
     else:
         mine = next((sh for sh in shares if sh.get("guest_id") == (viewer.id if viewer else None)), None)
@@ -3090,7 +3090,7 @@ def _scenario_for_viewer(s: Scenario, viewer: User) -> bool:
 def _scenario_gate(user: User, db: DBSession):
     if user.role == "guest":
         raise HTTPException(status_code=403, detail="Gast-Accounts koennen keine Szenarien verwalten.")
-    # Wie bei der Preset-Erstellung: Premium-Funktion, Admins ausgenommen.
+    # Like preset creation: premium feature, admins excepted.
     if user.role != "admin" and not user.is_subscription_active(db):
         raise HTTPException(status_code=403, detail="Szenarien erfordern eine aktive Premium-Laufzeit.")
 
@@ -3099,8 +3099,8 @@ def _resolve_scenario_refs(data: ScenarioSchema, user: User, db: DBSession):
     preset = db.query(CustomPreset).filter(CustomPreset.id == data.preset_id, CustomPreset.user_id == user.id).first()
     if not preset:
         raise HTTPException(status_code=400, detail="Preset nicht gefunden.")
-    #: Zielgeraete sind optional (geräteloses Szenario). Gesetzte IDs werden auf existierende
-    # Geraete des Besitzers gefiltert.
+    #: target devices are optional (deviceless scenario). Set IDs are filtered down to the
+    # owner's existing devices.
     dev_ids = _clean_device_ids(data.device_ids, user.id, db)
     return preset, dev_ids
 
@@ -3108,7 +3108,7 @@ def _resolve_scenario_refs(data: ScenarioSchema, user: User, db: DBSession):
 @app.get("/api/profile/scenarios")
 def list_scenarios(user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db)):
     if user.role == "guest":
-        # Gast: freigegebene Szenarien des Besitzers (analog list_custom_presets).
+        # Guest: the owner's shared scenarios (analogous to list_custom_presets).
         owner_id = user.associated_user_id
         if not owner_id:
             return []
@@ -3148,10 +3148,10 @@ def update_scenario(scenario_id: str, data: ScenarioSchema, request: Request, us
     preset, dev_ids = _resolve_scenario_refs(data, user, db)
     s.name = name
     s.preset_id = preset.id
-    s.device_ids = json.dumps(dev_ids)  #: optionale Multi-Host-Auswahl (leer = geraetelos)
-    # : Freigaben nur ändern, wenn explizit mitgesendet (None = unverändert). So kann der
-    # Bearbeiten-Dialog (Name/Preset/Gerät) die Freigaben unberührt lassen; Sharing läuft über den
-    # eigenen Freigabe-Dialog.
+    s.device_ids = json.dumps(dev_ids)  #: optional multi-host selection (empty = deviceless)
+    # : only change shares if explicitly sent along (None = unchanged). This way the
+    # edit dialog (name/preset/device) can leave the shares untouched; sharing runs via its
+    # own share dialog.
     if data.shares is not None:
         s.shares = json.dumps(_clean_preset_shares(data.shares, user.id, db))
     db.commit()
@@ -3205,14 +3205,14 @@ def create_token(
     if not check_rate_limit(token_generation_limits, (client_ip, user.id), max_requests=5):
         raise HTTPException(status_code=429, detail="Zu viele Anfragen. Sie koennen maximal 5 API-Tokens pro Minute erstellen.")
 
-    #: Gesamt-Limit aktiver (nicht abgelaufener) Tokens durchsetzen
+    #: enforce the total limit of active (non-expired) tokens
     now = datetime.utcnow()
     max_tokens = _global_int_setting(db, "max_active_api_tokens", 5)
     active_tokens = db.query(APIToken).filter(
         APIToken.user_id == user.id,
         ((APIToken.expires_at == None) | (APIToken.expires_at > now))
     ).count()
-    #: In der Community-Edition gilt kein Token-Limit (Feld ausgeblendet).
+    #: In the Community-Edition no token limit applies (field hidden).
     if EDITION != "community" and active_tokens >= max_tokens:
         raise HTTPException(status_code=403, detail=f"Maximale Anzahl aktiver API-Tokens erreicht ({max_tokens}).")
 
@@ -3260,7 +3260,7 @@ def delete_token(token_id: str, user: User = Depends(get_authenticated_user), db
 
 
 def brand_title() -> str:
-    """Markenname fuer Export-Metadaten (Branding-Runtime oder Fallback)."""
+    """Brand name for export metadata (branding runtime or fallback)."""
     try:
         cfg_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "branding-runtime.json")
         if os.path.isfile(cfg_path):
@@ -3273,7 +3273,7 @@ def brand_title() -> str:
 
 
 
-# : Administratoren duerfen fremde Benutzernamen korrigieren (Namenskorrektur).
+# : administrators may correct other users' usernames (name correction).
 class AdminUsernameUpdateSchema(BaseModel):
     username: str
 
@@ -3300,7 +3300,7 @@ def admin_update_username(user_id: str, data: AdminUsernameUpdateSchema, http_re
     return {"message": "Benutzername erfolgreich aktualisiert."}
 
 def write_audit(db: DBSession, actor, action: str, target_name: str = None, detail: str = None, ip: str = None):
-    """Schreibt einen Audit-Log-Eintrag (best effort)."""
+    """Writes an audit log entry (best effort)."""
     try:
         db.add(AuditLog(
             actor_id=(actor.id if actor else None),
@@ -3313,7 +3313,7 @@ def write_audit(db: DBSession, actor, action: str, target_name: str = None, deta
         print(f"Audit-Log-Fehler: {e}")
 
 def _client_ip(request) -> str:
-    """Client-IP aus dem Request (X-Forwarded-For bevorzugt, hinter Traefik gesetzt)."""
+    """Client IP from the request (X-Forwarded-For preferred, set behind Traefik)."""
     if request is None:
         return None
     return request.headers.get(
@@ -3321,18 +3321,18 @@ def _client_ip(request) -> str:
         request.client.host if request.client else "127.0.0.1"
     ).split(",")[0].strip()
 
-#: Team-Audit-Helfer bleiben in ALLEN Editionen - behaltene Endpoints (Geraetegruppen, Presets,
-# Szenarios) schreiben ueber write_team_audit (best effort; ohne team_audit_logs-Tabelle stiller No-Op).
+#: team-audit helpers remain in ALL editions - retained endpoints (device groups, presets,
+# scenarios) write via write_team_audit (best effort; a silent no-op without the team_audit_logs table).
 def _team_owner_id(user) -> str:
-    """: Team-Schluessel eines Akteurs - Gaeste gehoeren zum besitzenden Account."""
+    """: team key of an actor - guests belong to the owning account."""
     if user is None:
         return None
     return user.associated_user_id if getattr(user, "role", None) == "guest" else user.id
 
 def write_team_audit(db: DBSession, actor, action: str, target_name: str = None, details=None, ip: str = None):
-    """: schreibt einen Team-Audit-Eintrag (best effort, append-only).
-    `details` darf dict/list (wird zu JSON) oder str sein. Das Team ergibt sich aus dem
-    Akteur (Gaeste -> besitzender Account)."""
+    """: writes a team-audit entry (best effort, append-only).
+    `details` may be a dict/list (converted to JSON) or a str. The team is derived from the
+    actor (guests -> owning account)."""
     try:
         team_id = _team_owner_id(actor)
         if not team_id:
@@ -3354,15 +3354,15 @@ def write_team_audit(db: DBSession, actor, action: str, target_name: str = None,
 @app.get("/api/profile/audit-log")
 def team_audit_log(request: Request, user: User = Depends(get_authenticated_user), db: DBSession = Depends(get_db),
                    limit: int = 200, actor_id: Optional[str] = None):
-    """: Aktivitaetsprotokoll des eigenen Teams. Nur Team-Admins (besitzende,
-    regulaere Accounts) - Gaeste und Plattform-Admins haben keinen Team-Kontext.
-    : optionaler actor_id-Filter -> Aktivitaeten eines einzelnen Teammitglieds."""
+    """: activity log of one's own team. Only team admins (owning,
+    regular accounts) - guests and platform admins have no team context.
+    : optional actor_id filter -> activities of a single team member."""
     if user.role != "user":
         raise HTTPException(status_code=403, detail="Nur Team-Admins koennen das Aktivitaetsprotokoll einsehen.")
     limit = max(1, min(int(limit or 200), 500))
     q = db.query(TeamAuditLog).filter(TeamAuditLog.team_user_id == user.id)
     if actor_id:
-        # Nur Mitglieder des eigenen Teams (bzw. der Besitzer selbst) sind als Akteur zulaessig.
+        # Only members of one's own team (or the owner themselves) are permitted as an actor.
         if actor_id != user.id:
             member = db.query(User).filter(User.id == actor_id, User.associated_user_id == user.id).first()
             if not member:
@@ -3398,7 +3398,7 @@ def admin_audit_log(admin: User = Depends(get_admin_user), db: DBSession = Depen
     } for e in entries]
 
 
-# : gemeinsame Kennzahl-Berechnung (Dashboard-Stats + Snapshot-Erfassung).
+# : shared metric calculation (dashboard stats + snapshot capture).
 def _account_counts(db: DBSession):
     users = db.query(User).all()
     paid = trial = 0
@@ -3420,7 +3420,7 @@ def _playbook_storage_bytes() -> int:
 
 
 def _ip_block_counts(db: DBSession):
-    """Aktive IP-Sperren nach Ursache: automatisch (Rate-Limit) vs. manuell (Admin)."""
+    """Active IP blocks by cause: automatic (rate limit) vs. manual (admin)."""
     blocks = db.query(IPBlock).all()
     auto = sum(1 for b in blocks if "rate" in (b.reason or "").lower())
     manual = len(blocks) - auto
@@ -3428,7 +3428,7 @@ def _ip_block_counts(db: DBSession):
 
 
 def capture_stats_snapshot(db: DBSession):
-    """: aktuellen Statistik-Stand als Snapshot persistieren (fuer Verlaufsgraphen)."""
+    """: persist the current statistics state as a snapshot (for history graphs)."""
     total, paid, trial, inactive = _account_counts(db)
     ip_total, ip_auto, ip_manual = _ip_block_counts(db)
     snap_kwargs = dict(
@@ -3451,19 +3451,19 @@ def admin_stats(admin: User = Depends(get_admin_user), db: DBSession = Depends(g
         "captcha": os.environ.get("CAPTCHA_REQUIRED", "false").lower() == "true",
         "email_verification": os.environ.get("EMAIL_VERIFICATION_REQUIRED", "false").lower() == "true",
         "api_docs": os.environ.get("ENABLE_API_DOCS", "true").lower() == "true",
-        # : Wartungsmodus-Status fuer die Dashboard-Status-Leuchte.
+        # : maintenance-mode status for the dashboard status light.
         "maintenance_mode": _maintenance_active(db),
     }
     return {
         "total": users_total,
         "inactive": inactive,
         "playbook_storage_bytes": storage,
-        # : IP-Sperren nach Ursache (für das Tortendiagramm).
+        # : IP blocks by cause (for the pie chart).
         "ip_blocks": {"total": ip_total, "auto": ip_auto, "manual": ip_manual},
         "config": config
     }
 
-# : Zeitreihe der Statistik-Snapshots für die Verlaufsgraphen (24h/7d/30d).
+# : time series of the statistics snapshots for the history graphs (24h/7d/30d).
 @app.get("/api/admin/stats/timeseries")
 def admin_stats_timeseries(range: str = "7d", admin: User = Depends(get_admin_user), db: DBSession = Depends(get_db)):
     hours = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}.get(range, 24 * 7)
@@ -3485,14 +3485,14 @@ def _global_int_setting(db: DBSession, key: str, default: int) -> int:
         return int(s.value)
     return default
 
-#: effective_*-Wrapper bleiben in ALLEN Editionen - behaltene Endpoints (z. B. Geraeteanlage
-# via effective_max_devices) nutzen sie; sie delegieren nur an den aktiven LimitsProvider
+#: effective_* wrappers remain in ALL editions - retained endpoints (e.g. device creation
+# via effective_max_devices) use them; they only delegate to the active LimitsProvider
 # (On-Premise: CoreLimitsProvider; Community: CommunityLimitsProvider).
-# : effektive Limits ueber den aktiven LimitsProvider. Core-Default = User-
-# Override -> globale Settings (kein Tarif); cloud nutzt den TariffLimitsProvider, dem
-# _active_tariff als Resolver injiziert ist (siehe Provider-Wiring am Modulende).
-# Admin-Overrides (admin_set_user_limits) bleiben unveraendert wirksam, da der Provider
-# zuerst den User-Override prueft.
+# : effective limits via the active LimitsProvider. Core default = user
+# override -> global settings (no tariff); cloud uses the TariffLimitsProvider, into which
+# _active_tariff is injected as the resolver (see provider wiring at module end).
+# Admin overrides (admin_set_user_limits) remain effective unchanged, since the provider
+# checks the user override first.
 def effective_storage_quota_mb(user: User, db: DBSession) -> int:
     return limits.get_limits_provider().effective_storage_quota_mb(user, db)
 
@@ -3522,40 +3522,40 @@ def admin_update_settings(data: AdminSettingsUpdateSchema, admin: User = Depends
         "ip_ban_duration": data.ip_ban_duration,
         "max_history_count": data.max_history_count,
         "max_history_age": data.max_history_age,
-        # : Standard-Timeout fuer Ausfuehrungen.
+        # : default timeout for executions.
         "default_job_timeout": data.default_job_timeout,
     }
-    #: Quota-/Limit- und Fingerprint-Alert-Felder sind in der Community-Edition
-    # ausgeblendet und werden nicht mitgesendet -> nur bei explizitem Mitsenden aktualisieren
-    # (sonst bleibt der bestehende Standard erhalten).
+    #: The quota/limit and fingerprint-alert fields are hidden in the Community-Edition
+    # and not sent along -> only update when explicitly sent
+    # (otherwise the existing default is retained).
     for _opt_key in (
         "max_active_api_tokens", "max_guest_accounts", "storage_quota_mb",
         "max_custom_playbooks",
-        #: Verbindungstimeout (nur bei Mitsenden aktualisieren; Default via Seeding/Fallback).
+        #: connection timeout (only update when sent; default via seeding/fallback).
         "default_connection_timeout",
     ):
         _opt_val = getattr(data, _opt_key)
         if _opt_val is not None:
             updates[_opt_key] = _opt_val
-    # : Wartungsmodus + Notiz nur bei explizitem Mitsenden aktualisieren.
-    #: In der Community-Edition ist der Wartungsmodus nicht verfuegbar -> Feld serverseitig
-    # ignorieren (nicht aktivierbar; das UI blendet Schalter/Notiz ohnehin aus).
+    # : only update maintenance mode + note when explicitly sent.
+    #: In the Community-Edition maintenance mode is not available -> ignore the field
+    # server-side (not activatable; the UI hides the switch/note anyway).
     if EDITION != "community":
         if data.maintenance_mode is not None:
             updates["maintenance_mode"] = "true" if str(data.maintenance_mode).lower() == "true" else "false"
         if data.maintenance_note is not None:
             updates["maintenance_note"] = data.maintenance_note.strip()
-    # : Registrierungs-Schalter nur bei explizitem Mitsenden aktualisieren.
+    # : only update the registration switch when explicitly sent.
     if data.registration_enabled is not None:
         updates["registration_enabled"] = "true" if str(data.registration_enabled).lower() == "true" else "false"
-    # : Passwortregeln nur bei Mitsenden aktualisieren.
+    # : only update password rules when sent.
     if data.password_min_length is not None:
         updates["password_min_length"] = data.password_min_length
     for _pw_key in ("password_require_special", "password_require_case", "password_require_digit"):
         _val = getattr(data, _pw_key)
         if _val is not None:
             updates[_pw_key] = "true" if str(_val).lower() == "true" else "false"
-    #: Enterprise-/Custom-Tarif (cloud-only) nur bei Mitsenden aktualisieren.
+    #: only update the enterprise/custom tariff (cloud-only) when sent.
     if EDITION != "community":
         if data.enterprise_tier_enabled is not None:
             updates["enterprise_tier_enabled"] = "true" if str(data.enterprise_tier_enabled).lower() == "true" else "false"
@@ -3572,8 +3572,8 @@ def admin_update_settings(data: AdminSettingsUpdateSchema, admin: User = Depends
         else:
             db.add(Setting(key=key, value=value))
     db.commit()
-    # : Wird der Wartungsmodus aktiviert, alle Nicht-Admin-Sessions sofort beenden,
-    # damit betroffene Benutzer beim nächsten Request (503) auf die Wartungsseite landen.
+    # : when maintenance mode is activated, immediately end all non-admin sessions
+    # so that affected users land on the maintenance page on their next request (503).
     if updates.get("maintenance_mode") == "true":
         admin_ids = [u.id for u in db.query(User).filter(User.role == "admin").all()]
         q = db.query(Session)
@@ -3583,7 +3583,7 @@ def admin_update_settings(data: AdminSettingsUpdateSchema, admin: User = Depends
         db.commit()
     return {"message": "Einstellungen erfolgreich gespeichert."}
 
-# : Test-E-Mail zur SMTP-Verifizierung.
+# : test email for SMTP verification.
 class AdminTestEmailSchema(BaseModel):
     email: str
 
@@ -3685,7 +3685,7 @@ def create_device(data: DeviceCreateSchema, user: User = Depends(get_authenticat
     if not user.is_subscription_active(db):
         raise HTTPException(status_code=403, detail="Abonnement inaktiv. Bitte reaktivieren Sie Ihr Abonnement, um Geraete zu verwalten.")
 
-    # : Geraete-Limit des aktiven Tarifs durchsetzen (None = unbegrenzt).
+    # : enforce the device limit of the active tariff (None = unlimited).
     device_limit = effective_max_devices(user, db)
     if device_limit is not None:
         current = db.query(Device).filter(Device.user_id == user.id).count()
@@ -3698,7 +3698,7 @@ def create_device(data: DeviceCreateSchema, user: User = Depends(get_authenticat
             raise HTTPException(status_code=400, detail="credential_type ist erforderlich, wenn credential angegeben wird.")
         encrypted = encrypt_credential(data.credential)
 
-    #: optionales Sudo-/Become-Passwort verschluesseln (unabhaengig vom SSH-Credential).
+    #: encrypt the optional sudo/become password (independent of the SSH credential).
     encrypted_become = encrypt_credential(data.become_password) if (data.become_password or "").strip() else None
 
     device = Device(
@@ -3780,7 +3780,7 @@ def update_device(device_id: str, data: DeviceUpdateSchema, user: User = Depends
     elif data.credential_type is not None and device.encrypted_credential is not None:
         device.credential_type = data.credential_type
 
-    #: Sudo-/Become-Passwort setzen/loeschen. None = unveraendert lassen, "" = loeschen.
+    #: set/delete sudo/become password. None = leave unchanged, "" = delete.
     if data.become_password is not None:
         if data.become_password == "":
             device.encrypted_become_credential = None
@@ -3837,7 +3837,7 @@ def get_system_timezone():
     return {"timezone": "Europe/Berlin"}
 
 def get_preset_playbook_files() -> set:
-    """Liefert alle Playbook-Dateien (voller Pfad + Basename), die in irgendeinem Preset vorkommen."""
+    """Returns all playbook files (full path + basename) that appear in any preset."""
     presets_path = "/playbooks/presets.yml"
     allowed = set()
     if not os.path.isfile(presets_path):
@@ -3857,7 +3857,7 @@ def get_preset_playbook_files() -> set:
 
 
 @app.get("/api/presets")
-def list_presets(lang: Optional[str] = None):  # : aktive UI-Sprache durchreichen
+def list_presets(lang: Optional[str] = None):  # : pass through the active UI language
     presets_path = "/playbooks/presets.yml"
     if not os.path.isfile(presets_path):
         return []
@@ -3886,10 +3886,10 @@ def list_presets(lang: Optional[str] = None):  # : aktive UI-Sprache durchreiche
         print(f"Preset-Lesefehler: {e}")
         raise HTTPException(status_code=500, detail="Presets konnten nicht gelesen werden.")
 
-# ---- Custom-Playbook-Metadaten (JSON-Sidecar pro Besitzer) ----
+# ---- Custom playbook metadata (JSON sidecar per owner) ----
 
-#: _custom_meta_path/load_custom_meta/save_custom_meta bleiben in ALLEN Editionen -
-# behaltene Community-Endpoints (Playbook-Liste/-Detail, Custom-Meta) lesen/schreiben die Sidecars.
+#: _custom_meta_path/load_custom_meta/save_custom_meta remain in ALL editions -
+# retained community endpoints (playbook list/detail, custom meta) read/write the sidecars.
 def _custom_meta_path(owner_id: str) -> str:
     return os.path.join("/playbooks", "custom", owner_id, "_meta.json")
 
@@ -3914,7 +3914,7 @@ def save_custom_meta(owner_id: str, data: dict):
 def list_playbooks(
     current_user: Optional[User] = Depends(get_current_user),
     db: DBSession = Depends(get_db),
-    lang: Optional[str] = None,  # : aktive UI-Sprache -> zweisprachige description
+    lang: Optional[str] = None,  # : active UI language -> bilingual description
 ):
     if not os.path.isdir("/playbooks"):
         return []
@@ -3932,11 +3932,11 @@ def list_playbooks(
                     for entry in metadata:
                         if isinstance(entry, dict) and "file" in entry:
                             file_name = entry["file"]
-                            resolved_path = _resolve_std_playbook_path(file_name)   # inkl. premium/
+                            resolved_path = _resolve_std_playbook_path(file_name)   # incl. premium/
                             if resolved_path:
                                 is_premium = bool(entry.get("premium", False))
-                                # / : Premium-Playbooks editionsunabhaengig ueber
-                                # den EntitlementProvider ausblenden (Community blendet aus).
+                                # / : hide premium playbooks edition-independently via
+                                # the EntitlementProvider (Community hides them).
                                 if is_premium and entitlements.get_entitlement_provider().hides_premium_in_catalog():
                                     continue
                                 playbooks.append({
@@ -3947,17 +3947,17 @@ def list_playbooks(
                                     "size": os.path.getsize(resolved_path),
                                     "requires": entry.get("requires", []),
                                     "category": entry.get("category", ""),
-                                    # : Hersteller-/Autoren-URLs (rechtliche Transparenz).
+                                    # : vendor/author URLs (legal transparency).
                                     "vendor_urls": entry.get("vendor_urls", []),
-                                    #: optionales Eingabe-Variablen-Schema durchreichen
-                                    # (von schema-getriebenen Formularen genutzt; leer wenn
-                                    # nicht deklariert).
+                                    #: pass through the optional input variable schema
+                                    # (used by schema-driven forms; empty if
+                                    # not declared).
                                     "variables": entry.get("variables", []),
-                                    # : Dienst erfordert HTTPS (Frontend-Warnhinweis)
+                                    # : service requires HTTPS (frontend warning)
                                     "requires_https": bool(entry.get("requires_https", False)),
-                                    # : Service-Gruppe fuer die Port-Kollisionspruefung
-                                    # (Varianten desselben Diensts teilen sich eine Gruppe und
-                                    # kollidieren untereinander nicht). Standard: keine Gruppe.
+                                    # : service group for the port collision check
+                                    # (variants of the same service share a group and
+                                    # do not collide with each other). Default: no group.
                                     "service_group": entry.get("service_group") or None,
                                     "custom": False
                                 })
@@ -3999,7 +3999,7 @@ def list_playbooks(
                 for entry in os.scandir(custom_dir):
                     if entry.is_file() and (entry.name.endswith(".yml") or entry.name.endswith(".yaml")):
                         m = meta.get(entry.name, {})
-                        # Gaeste sehen nur die ihnen freigegebenen Custom-Playbooks
+                        # Guests only see the custom playbooks shared with them
                         if is_guest and current_user.id not in m.get("guest_access", []):
                             continue
                         custom_playbooks.append({
@@ -4012,8 +4012,8 @@ def list_playbooks(
                             "description": m.get("description") or "Eigenes Custom Playbook.",
                             "size": entry.stat().st_size,
                             "requires": [],
-                            # : keine eigene "Eigene Playbooks"-Kategorie -> in "Verfügbare
-                            # Playbooks" einsortieren (Catch-all "Sonstige" zusammen mit dem Katalog).
+                            # : no separate "My Playbooks" category -> sort into "Available
+                            # Playbooks" (catch-all "Sonstige" together with the catalog).
                             "category": "Sonstige",
                             "custom": True,
                             "guest_access": (None if is_guest else m.get("guest_access", []))
@@ -4023,10 +4023,10 @@ def list_playbooks(
             except Exception as e:
                 print(f"Failed to scan custom playbooks: {e}")
 
-    # : Premium-Standard-Playbooks fuer Gast-Accounts ausblenden.
-    # - Host-Konto OHNE aktive Laufzeit: alle Premium-Playbooks vollstaendig entfernen.
-    # - Host-Konto MIT aktiver Laufzeit: nur explizit fuer diesen Gast freigegebene zeigen.
-    # (Custom-Playbooks tragen keine "premium"-Kennzeichnung und bleiben unberuehrt.)
+    # : hide premium standard playbooks for guest accounts.
+    # - Host account WITHOUT active runtime: remove all premium playbooks entirely.
+    # - Host account WITH active runtime: show only those explicitly shared with this guest.
+    # (Custom playbooks carry no "premium" flag and remain untouched.)
     if current_user and current_user.role == "guest":
         if not current_user.is_subscription_active(db):
             playbooks = [p for p in playbooks if not p.get("premium")]
@@ -4040,22 +4040,22 @@ def list_playbooks(
     return playbooks
 
 def _resolve_std_playbook_path(pb):
-    """Loest einen Standard-Playbook-Bezug (index.yml-'file' oder Lauf-String) auf einen
-    kanonischen Pfad unter /playbooks auf. Premium-Playbooks liegen im Unterordner premium/
-    (damit der Community-Export sie ueber den Ordner ausschliessen kann) -> dort zusaetzlich
-    suchen. Liefert den abspath unter /playbooks oder None (nicht gefunden / Directory-Traversal).
-    'file' in index.yml bleibt der bare Dateiname; die Premium-Erkennung greift weiterhin ueber
-    den Basename (canon_base), daher KEINE Aenderung an den Premium-/Share-Pruefungen noetig."""
+    """Resolves a standard playbook reference (index.yml 'file' or run string) to a
+    canonical path under /playbooks. Premium playbooks live in the premium/ subfolder
+    (so the community export can exclude them by folder) -> also search
+    there. Returns the abspath under /playbooks or None (not found / directory traversal).
+    'file' in index.yml stays the bare filename; premium detection still works via
+    the basename (canon_base), so NO change to the premium/share checks is needed."""
     for cand in (pb, os.path.join("premium", pb)):
         rp = os.path.abspath(os.path.join("/playbooks", cand))
         if (rp == "/playbooks" or rp.startswith("/playbooks" + os.sep)) and os.path.isfile(rp):
             return rp
     return None
 
-#: bleibt in ALLEN Editionen - die Community braucht die Premium-Dateiliste, um Premium-Playbooks
-# auszublenden (CommunityEntitlementProvider.hides_premium_in_catalog / list_playbooks-Filter).
+#: remains in ALL editions - Community needs the premium file list to hide premium playbooks
+# (CommunityEntitlementProvider.hides_premium_in_catalog / list_playbooks filter).
 def _load_premium_playbook_files():
-    """Set der als premium markierten Standard-Playbook-Dateinamen aus index.yml."""
+    """Set of standard playbook filenames marked as premium from index.yml."""
     out = set()
     index_path = "/playbooks/index.yml"
     if not os.path.isfile(index_path):
@@ -4072,7 +4072,7 @@ def _load_premium_playbook_files():
     return out
 
 def _index_playbook_files():
-    """: (alle_dateien, premium_dateien) aus index.yml für die Team-Freigabe-Zähler."""
+    """: (all_files, premium_files) from index.yml for the team share counters."""
     all_files, premium = set(), set()
     index_path = "/playbooks/index.yml"
     if not os.path.isfile(index_path):
@@ -4102,11 +4102,11 @@ def run_playbook(
         if "run_playbook" not in getattr(http_req.state, "api_token_scopes", []):
             raise HTTPException(status_code=403, detail="Fehlender Scope: run_playbook")
 
-    # : Szenario aufloesen -> Preset (Rezept) + Zielgeraete. Teilbar wie Presets;
-    # Premium-gated; Berechtigung strict/flexible steuert Variablen-Overrides. Muss VOR der
-    # Preset-Aufloesung laufen (setzt playbooks/variables/device_ids direkt).
-    # scenario_authorized_devices: ein per Szenario-Freigabe autorisierter Gast darf die (serverseitig
-    # fest gesetzten) Zielgeraete des Szenarios nutzen, auch ohne separate Geraete-Freigabe.
+    # : resolve the scenario -> preset (recipe) + target devices. Shareable like presets;
+    # premium-gated; the strict/flexible permission controls variable overrides. Must run BEFORE
+    # preset resolution (sets playbooks/variables/device_ids directly).
+    # scenario_authorized_devices: a guest authorized via a scenario share may use the scenario's
+    # (server-side fixed) target devices, even without a separate device share.
     scenario_authorized_devices = False
     if request.scenario_id:
         if not current_user:
@@ -4130,7 +4130,7 @@ def run_playbook(
         ).first()
         if not scen_preset:
             raise HTTPException(status_code=400, detail="Das Preset des Szenarios existiert nicht mehr.")
-        # Playbooks + (optional) feste Zielgeraete aus dem Szenario; Variablen strict/flexible wie bei Presets.
+        # Playbooks + (optional) fixed target devices from the scenario; variables strict/flexible as with presets.
         request.playbooks = _safe_json_list(scen_preset.playbook_ids)
         request.device_ids = _safe_json_list(scenario.device_ids)
         scen_vars = _safe_json_obj(scen_preset.variables)
@@ -4140,14 +4140,14 @@ def run_playbook(
             merged = dict(scen_vars)
             merged.update(request.variables or {})
             request.variables = merged
-        # : Nur bei fest gebundenen Geraeten autorisiert die Szenario-Freigabe deren
-        # Nutzung. Geraetelose Szenarien nutzen die im Request mitgegebenen Einmal-Zugangsdaten
-        # (SSH-Host/Benutzer/Credential aus dem Ausfuehren-Dialog).
+        # : only for firmly bound devices does the scenario share authorize their
+        # use. Deviceless scenarios use the one-time credentials passed in the request
+        # (SSH host/user/credential from the run dialog).
         scenario_authorized_devices = bool(request.device_ids)
 
-    # : Custom-Preset aufloesen -> setzt Playbooks, Variablen und Zielgeraete.
-    # Premium-gated (aktive Abo-Laufzeit des Nutzers bzw. Team-Besitzers); die Berechtigung
-    # strict/flexible steuert, ob im Dialog gesetzte Variablen die Preset-Werte ueberschreiben.
+    # : resolve the custom preset -> sets playbooks, variables and target devices.
+    # Premium-gated (active subscription runtime of the user or team owner); the strict/flexible
+    # permission controls whether variables set in the dialog override the preset values.
     if request.custom_preset_id:
         if not current_user:
             raise HTTPException(status_code=401, detail="Nicht authentifiziert. Presets erfordern eine Anmeldung.")
@@ -4157,24 +4157,24 @@ def run_playbook(
         ).first()
         if not preset:
             raise HTTPException(status_code=404, detail="Preset nicht gefunden.")
-        # Berechtigung bestimmen: Besitzer immer 'flexible'; Gast braucht eine Freigabe.
+        # Determine the permission: owner always 'flexible'; guest needs a share.
         permission = "flexible"
         if current_user.role == "guest":
             share = next((s for s in _safe_json_list(preset.shares) if s.get("guest_id") == current_user.id), None)
             if not share:
                 raise HTTPException(status_code=403, detail="Dieses Preset wurde nicht fuer Sie freigegeben.")
             permission = share.get("permission", "strict")
-        # Punkt 4: Premium-Gate (aktive Laufzeit des Nutzers bzw. Team-Besitzers).
+        # point 4: premium gate (active runtime of the user or team owner).
         if not current_user.is_subscription_active(db):
             raise HTTPException(status_code=403, detail="Das Ausfuehren von Presets erfordert eine aktive Premium-Laufzeit.")
-        # Playbooks IMMER aus dem Preset (nicht vom Client).
+        # Playbooks ALWAYS from the preset (not from the client).
         request.playbooks = _safe_json_list(preset.playbook_ids)
-        # Zielgeraete des Presets uebernehmen, sofern der Aufrufer keine anderen waehlte.
+        # Adopt the preset's target devices unless the caller chose others.
         _preset_devs = _safe_json_list(preset.device_ids)
         if _preset_devs and not request.device_ids:
             request.device_ids = _preset_devs
-        # Variablen: strict -> ausschliesslich Preset-Werte; flexible/Besitzer -> Client-
-        # Overrides gewinnen, Preset-Werte als Fallback.
+        # Variables: strict -> exclusively preset values; flexible/owner -> client
+        # overrides win, preset values as fallback.
         preset_vars = _safe_json_obj(preset.variables)
         if permission == "strict":
             request.variables = dict(preset_vars)
@@ -4185,9 +4185,9 @@ def run_playbook(
 
     if current_user:
         if not current_user.is_subscription_active(db):
-            # : Gaeste sind ohne aktives Host-Abo blockiert. Bezieht sich die
-            # Ausfuehrung auf ein Premium-Playbook, die geforderte praezise Meldung zeigen,
-            # sonst einen klaren Hinweis auf das Host-Konto.
+            # : guests are blocked without an active host subscription. If the
+            # execution concerns a premium playbook, show the required precise message,
+            # otherwise a clear note about the host account.
             if current_user.role == "guest":
                 premium_files = _load_premium_playbook_files()
                 wants_premium = any(
@@ -4212,12 +4212,12 @@ def run_playbook(
                     detail="Im Free-Tier ist maximal 1 Ausfuehrung gleichzeitig erlaubt. Bitte warten Sie, bis der aktive Job beendet ist."
                 )
     else:
-        # : Spam-Schutz. Ist ALLOW_ANONYMOUS_RUN=false, ist die anonyme Ausfuehrung
-        # komplett gesperrt; der Besucher wird zur Anmeldung/Registrierung aufgefordert.
+        # : spam protection. If ALLOW_ANONYMOUS_RUN=false, anonymous execution is
+        # completely blocked; the visitor is prompted to log in/register.
         if not _allow_anonymous_run():
             raise HTTPException(status_code=401, detail="Die anonyme Ausfuehrung ist deaktiviert. Bitte melden Sie sich an oder registrieren Sie sich, um Playbooks auszufuehren.")
-        # Anonyme Aufrufer: nicht komplett ungebremst. session_id erforderlich,
-        # keine Custom-Playbooks, und max. 1 gleichzeitige Ausfuehrung je Session.
+        # Anonymous callers: not completely unthrottled. session_id required,
+        # no custom playbooks, and max. 1 concurrent execution per session.
         sid = request.session_id
         if not sid:
             raise HTTPException(status_code=401, detail="Nicht authentifiziert. Bitte melden Sie sich an oder starten Sie eine Sitzung.")
@@ -4231,8 +4231,8 @@ def run_playbook(
     if not request.playbooks:
         raise HTTPException(status_code=400, detail="At least one playbook must be selected.")
 
-    # Gast-Accounts: Standard-Playbooks/Presets sind erlaubt; Custom-Playbooks
-    # nur, wenn der Besitzer sie diesem Gast freigegeben hat.
+    # Guest accounts: standard playbooks/presets are allowed; custom playbooks
+    # only if the owner has shared them with this guest.
     if current_user and current_user.role == "guest":
         owner_id = current_user.associated_user_id
         guest_meta = load_custom_meta(owner_id) if owner_id else {}
@@ -4240,7 +4240,7 @@ def run_playbook(
         for pb in request.playbooks:
             is_custom = pb.startswith("custom/") or "/custom/" in pb
             if not is_custom:
-                continue  # Standard-Playbooks und Presets sind erlaubt
+                continue  # standard playbooks and presets are allowed
             base = pb.split("/")[-1]
             if owner_id and pb.startswith(custom_prefix) and current_user.id in guest_meta.get(base, {}).get("guest_access", []):
                 continue
@@ -4251,7 +4251,7 @@ def run_playbook(
     if current_user:
         effective_owner_id = current_user.associated_user_id if current_user.role == "guest" else current_user.id
     custom_base = os.path.join("/playbooks", "custom") + os.sep
-    #: Premium-Set + Gast-Revokes einmal vorbereiten
+    #: prepare the premium set + guest revokes once
     premium_files = _load_premium_playbook_files()
     guest_revoked = []
     if current_user and current_user.role == "guest":
@@ -4260,26 +4260,26 @@ def run_playbook(
         except Exception:
             guest_revoked = []
     for pb in request.playbooks:
-        resolved_path = _resolve_std_playbook_path(pb)   # inkl. premium/-Unterordner; Traversal-sicher
+        resolved_path = _resolve_std_playbook_path(pb)   # incl. premium/ subfolder; traversal-safe
         if resolved_path is None:
             raise HTTPException(status_code=400, detail=f"Playbook {pb} not found or invalid.")
-        # Sicherheits-Fix: Premium-/Revoke-Pruefung MUSS auf dem kanonischen Pfad
-        # basieren (wie spaeter die Ausfuehrung), nicht auf dem Roh-String. Sonst
-        # umgeht z.B. "name.yml/" oder "name.yml/." die Pruefung (gleicher os.path.abspath,
-        # aber abweichender base_pb). rel_pb entspricht dem index.yml-"file"-Wert bzw.
-        # dem "custom/<owner>/<file>"-Pfad; canon_base ist der reine Dateiname.
+        # Security fix: the premium/revoke check MUST be based on the canonical path
+        # (like the execution later), not on the raw string. Otherwise, for example,
+        # "name.yml/" or "name.yml/." bypasses the check (same os.path.abspath,
+        # but a differing base_pb). rel_pb corresponds to the index.yml "file" value or
+        # the "custom/<owner>/<file>" path; canon_base is the bare filename.
         rel_pb = os.path.relpath(resolved_path, "/playbooks")
         canon_base = os.path.basename(resolved_path)
         is_premium_pb = rel_pb in premium_files or canon_base in premium_files
-        # : Premium-Zugriff editionsunabhaengig ueber den EntitlementProvider.
-        # community -> nie verfuegbar; onpremise -> frei; cloud -> aktives Abo und (Gast)
-        # zusaetzlich die explizite Freigabe (shared_premium_playbooks). Die praezise
-        # 403-Meldung liefert der Provider.
+        # : premium access edition-independently via the EntitlementProvider.
+        # community -> never available; onpremise -> free; cloud -> active subscription and (guest)
+        # additionally the explicit share (shared_premium_playbooks). The precise
+        # 403 message is provided by the provider.
         if is_premium_pb:
             _ep = entitlements.get_entitlement_provider()
             if not _ep.can_run_premium(current_user, rel_pb, canon_base, db):
                 raise HTTPException(status_code=403, detail=_ep.premium_denied_message(current_user, rel_pb, canon_base, db))
-        #: vom Besitzer fuer diesen Gast entzogene Playbooks blockieren
+        #: block playbooks revoked by the owner for this guest
         if guest_revoked and (rel_pb in guest_revoked or canon_base in guest_revoked):
             raise HTTPException(status_code=403, detail="Dieses Playbook wurde fuer Sie gesperrt.")
         if resolved_path.startswith(custom_base):
@@ -4297,13 +4297,13 @@ def run_playbook(
     password = request.password
     ssh_key = None
     host_entries = None
-    #: Sudo-/Become-Passwort fuer diesen Lauf. Ein im Dialog angegebenes Passwort hat
-    # Vorrang vor dem am Geraet hinterlegten (wird pro Zweig unten ggf. aus dem Geraet ergaenzt).
+    #: sudo/become password for this run. A password provided in the dialog takes
+    # precedence over the one stored on the device (added per branch below from the device if needed).
     become_password = (request.become_password or "").strip() or None
 
-    # (Device-Flatten): device_id (Einzelauswahl aus dem Ausfuehren-Dropdown) auf die
-    # device_ids-Liste normalisieren; Einzel- und Multi-Host teilen sich denselben Geraete-Zweig
-    # (host_entries mit 1..n Hosts), der die frueheren getrennten Gruppen-/Geraete-Zweige ersetzt.
+    # (Device-Flatten): normalize device_id (single selection from the run dropdown) to the
+    # device_ids list; single and multi-host share the same device branch
+    # (host_entries with 1..n hosts), replacing the former separate group/device branches.
     _target_device_ids = [d for d in (request.device_ids or []) if d]
     if not _target_device_ids and request.device_id:
         _target_device_ids = [request.device_id]
@@ -4315,13 +4315,13 @@ def run_playbook(
         _dev_map = {d.id: d for d in db.query(Device).filter(
             Device.id.in_(_target_device_ids), Device.user_id == owner_id
         ).all()}
-        # Reihenfolge der Auswahl bewahren; unbekannte IDs verwerfen.
+        # Preserve the selection order; discard unknown IDs.
         devices = [_dev_map[_i] for _i in _target_device_ids if _i in _dev_map]
         if not devices:
             raise HTTPException(status_code=404, detail="Kein gültiges Zielgerät gefunden.")
-        # : Gast-Freigabe je Geraet (zieht von der frueheren Gruppen-Freigabe aufs Device).
-        # Bei einem per Szenario freigegebenen Run entfaellt die separate Geraete-Freigabe
-        # (die Szenario-Freigabe ist die Autorisierung; die Geraete wurden serverseitig fest gesetzt).
+        # : guest share per device (moves from the former group share onto the Device).
+        # For a run authorized via a scenario, the separate device share is dropped
+        # (the scenario share is the authorization; the devices were fixed server-side).
         if current_user.role == "guest" and not scenario_authorized_devices:
             for device in devices:
                 if current_user.id not in _safe_json_list(device.guest_access):
@@ -4329,7 +4329,7 @@ def run_playbook(
         host_entries = []
         for device in devices:
             entry = {
-                "host": device.host,   # Device.host ist Pflichtfeld, daher immer gesetzt
+                "host": device.host,   # Device.host is a required field, so always set
                 "username": device.username,
                 "password": None, "ssh_key": None,
             }
@@ -4337,14 +4337,14 @@ def run_playbook(
                 try:
                     decrypted = decrypt_credential(device.encrypted_credential)
                 except Exception as e:
-                    #: defektes/aelteres Ciphertext darf keine 500 mit Stacktrace ausloesen
+                    #: broken/older ciphertext must not trigger a 500 with a stack trace
                     print(f"Decrypt-Fehler fuer Geraet {device.id}: {e}")
                     raise HTTPException(status_code=400, detail=f"Anmeldedaten fuer Geraet '{device.name}' konnten nicht entschluesselt werden. Bitte erneut speichern.")
                 if device.credential_type == "key":
                     entry["ssh_key"] = decrypted
                 else:
                     entry["password"] = decrypted
-            #: Become-/Sudo-Passwort des Geraets (falls hinterlegt); Dialog-Override hat Vorrang.
+            #: the device's become/sudo password (if stored); dialog override takes precedence.
             dev_become = None
             if device.encrypted_become_credential:
                 try:
@@ -4352,15 +4352,15 @@ def run_playbook(
                 except Exception as e:
                     print(f"Decrypt-Fehler fuer Become-Credential {device.id}: {e}")
             entry["become_password"] = become_password or dev_become
-            #: base_dir pro Host (frueher Gruppen-Default) — der Inventory-Writer setzt es je Zeile.
+            #: base_dir per host (formerly a group default) — the inventory writer sets it per line.
             if device.base_directory:
                 entry["base_dir"] = device.base_directory
             host_entries.append(entry)
-        # Anzeige-Name (host_entries bleibt unberührt – nur Display): Einzelgeraet -> Geraete-Name,
-        # Mehrfachauswahl -> Anzahl.
+        # Display name (host_entries stays untouched – display only): single device -> device name,
+        # multiple selection -> count.
         target_host = devices[0].name if len(devices) == 1 else f"{len(devices)} Geräte"
-        #: timezone als globaler Variablen-Fallback vom ersten Geraet, das eine hat
-        # (base_dir wird pro Host im Inventory gesetzt).
+        #: timezone as a global variable fallback from the first device that has one
+        # (base_dir is set per host in the inventory).
         if request.variables is None:
             request.variables = {}
         if not request.variables.get("timezone"):
@@ -4372,8 +4372,8 @@ def run_playbook(
         if not request.target_host or not request.target_host.strip():
             raise HTTPException(status_code=400, detail="Zielgerät muss angegeben werden.")
         target_host = request.target_host.strip()
-        # : einmaliger SSH-Key (geraeteloses Szenario / Ad-hoc-Lauf). Key hat Vorrang vor
-        # dem Passwort und wird nur fuer diesen Lauf verwendet (nicht persistiert).
+        # : one-time SSH key (deviceless scenario / ad-hoc run). The key takes precedence over
+        # the password and is used only for this run (not persisted).
         if request.ssh_key:
             ssh_key = request.ssh_key
             password = None
@@ -4394,15 +4394,15 @@ def run_playbook(
         "variables": request.variables # Store variables in job history
     }
 
-    #: Concurrency-Limit atomar (Re-)Check + Insert, schliesst die TOCTOU-Luecke.
+    #: concurrency limit atomic (re-)check + insert, closes the TOCTOU gap.
     with job_create_lock:
-        # Single-Row-Insert (kein Delete-Missing),
+        # Single-row insert (no delete-missing),
         save_job(new_job)
 
     # Push to background worker queue (now with variables dictionary, ssh_key, and email notifications)
     user_email = current_user.email if (current_user and current_user.email_notifications_enabled) else None
     send_notifications = current_user.email_notifications_enabled if current_user else False
-    # : Webhook-URL des ausloesenden Nutzers (falls konfiguriert).
+    # : webhook URL of the triggering user (if configured).
     webhook_url = (current_user.webhook_url if current_user else None) or None
 
     execution_queue.put((
@@ -4420,9 +4420,9 @@ def run_playbook(
         become_password
     ))
 
-    # : Team-Audit - Playbook-Ausfuehrung. Nur fuer angemeldete Nutzer (Team-
-    # Kontext); anonyme Laeufe haben kein Team. Variablen sind Konfig (Ports/Domains) -
-    # Anmeldedaten werden separat gefuehrt und NICHT protokolliert.
+    # : team audit - playbook execution. Only for authenticated users (team
+    # context); anonymous runs have no team. Variables are config (ports/domains) -
+    # credentials are kept separately and NOT logged.
     if current_user:
         pb_names = [os.path.basename(p) for p in (request.playbooks or [])]
         write_team_audit(
@@ -4436,8 +4436,8 @@ def run_playbook(
     return {"job_id": job_id, "status": "pending"}
 
 def _allowed_job_owner_ids(current_user, db) -> list:
-    #: Gaeste sehen NUR ihre eigenen Jobs; ein Hauptaccount sieht seine eigenen
-    # plus die seiner Gaeste. (Geschwister-/fremde Jobs sind tabu.)
+    #: guests see ONLY their own jobs; a main account sees its own
+    # plus those of its guests. (Sibling/foreign jobs are off-limits.)
     if current_user.role == "guest":
         return [current_user.id]
     guests = db.query(User).filter(User.associated_user_id == current_user.id).all()
@@ -4447,9 +4447,9 @@ def _job_access_allowed(job: dict, current_user, session_id, db) -> bool:
     if current_user:
         if job.get("user_id") in _allowed_job_owner_ids(current_user, db):
             return True
-    #: Der session_id-Zweig darf NUR anonyme Gast-Jobs (user_id is None) freigeben.
-    # Sonst leakt ein im Browser geteilter session_id die Jobs (inkl. Logs) eines anderen
-    # oder zuvor eingeloggten Users an den jetzigen Betrachter.
+    #: the session_id branch may ONLY release anonymous guest jobs (user_id is None).
+    # Otherwise a session_id shared in the browser leaks the jobs (incl. logs) of another
+    # or previously logged-in user to the current viewer.
     job_session = job.get("session_id")
     if session_id and job_session and session_id == job_session and job.get("user_id") is None:
         return True
@@ -4470,16 +4470,16 @@ def list_jobs(
     jobs = load_jobs()
     sorted_jobs = sorted(jobs.values(), key=lambda x: x["created_at"], reverse=True)
 
-    # Apply user/session isolation filter (: Gaeste nur eigene Jobs)
+    # Apply user/session isolation filter (: guests only their own jobs)
     if current_user:
         allowed_ids = _allowed_job_owner_ids(current_user, db)
-        #: Der session_id-Match darf nur anonyme Gast-Jobs (user_id is None) ergaenzen
-        # (z.B. ein vor dem Login als Gast gestarteter Lauf). Ohne die user_id-Schranke
-        # leakt ein geteilter Browser-session_id fremde/alte User-Jobs in dieselbe Liste.
+        #: the session_id match may only add anonymous guest jobs (user_id is None)
+        # (e.g. a run started as a guest before login). Without the user_id constraint
+        # a shared browser session_id leaks foreign/old user jobs into the same list.
         sorted_jobs = [j for j in sorted_jobs if j.get("user_id") in allowed_ids or (session_id and j.get("session_id") == session_id and j.get("user_id") is None)]
     elif session_id:
-        #: Anonyme Betrachter sehen ausschliesslich echte Gast-Jobs. So zeigt der gleiche
-        # Browser-session_id nach einem Logout nicht weiter die Jobs des vorigen, eingeloggten Users.
+        #: anonymous viewers see exclusively real guest jobs. This way the same
+        # browser session_id no longer shows the jobs of the previous, logged-in user after a logout.
         sorted_jobs = [j for j in sorted_jobs if j.get("session_id") == session_id and j.get("user_id") is None]
     else:
         # Anonymous users without session_id see nothing
@@ -4522,8 +4522,8 @@ def cancel_job(
     current_user: Optional[User] = Depends(get_current_user),
     db: DBSession = Depends(get_db)
 ):
-    # : Laufende oder noch wartende Ausführung abbrechen. Erreichbar auch per API-Token
-    # (Pfad /api/jobs*); benötigt dann den run_playbook-Scope (wer ausführen darf, darf abbrechen).
+    # : cancel a running or still-waiting execution. Also reachable via API token
+    # (path /api/jobs*); then requires the run_playbook scope (whoever may run may cancel).
     if getattr(request.state, "is_api_token", False):
         if "run_playbook" not in getattr(request.state, "api_token_scopes", []):
             raise HTTPException(status_code=403, detail="Fehlender Scope: run_playbook")
@@ -4533,7 +4533,7 @@ def cancel_job(
         raise HTTPException(status_code=404, detail="Job not found.")
     job = jobs[job_id]
 
-    # Zugriff wie bei den Lese-Endpunkten; zusätzlich darf ein Admin jeden Job abbrechen (Systemverwaltung).
+    # Access as with the read endpoints; additionally an admin may cancel any job (system administration).
     is_admin = bool(current_user and current_user.role == "admin")
     if not is_admin and not _job_access_allowed(job, current_user, session_id, db):
         raise HTTPException(status_code=403, detail="Kein Zugriff auf diesen Job.")
@@ -4541,24 +4541,24 @@ def cancel_job(
     if job.get("status") not in ("pending", "running"):
         raise HTTPException(status_code=409, detail="Job ist bereits beendet.")
 
-    # Abbruch vormerken (deckt das Queue-/Spawn-Fenster ab) und einen ggf. laufenden Prozess beenden.
+    # Flag the cancellation (covers the queue/spawn window) and terminate a running process if any.
     with active_runs_lock:
         cancel_requested.add(job_id)
         entry = active_runs.get(job_id)
     if entry:
         _terminate_run_process(job_id, entry["process"], entry["is_custom"])
-    # : endzustands-sicher – schlug der Job in der Zwischenzeit natürlich an (success/failed),
-    # gewinnt dieser Status; final ist der tatsächlich persistierte Status.
+    # : terminal-state-safe – if the job naturally landed in the meantime (success/failed),
+    # that status wins; final is the actually persisted status.
     final = update_job_status(job_id, "canceled", datetime.now().isoformat()) or "canceled"
 
     if final == "canceled":
-        # Abbruch-Markierung ans Log anhängen + auditieren – nur wenn der Abbruch wirklich gegriffen hat.
+        # Append the cancellation marker to the log + audit – only if the cancellation actually took effect.
         try:
             with open(os.path.join(LOGS_DIR, f"{job_id}.log"), "a", encoding="utf-8") as _lf:
                 _lf.write(f"\n=== Vom Benutzer abgebrochen am {datetime.now().isoformat()} ===\n")
         except Exception:
             pass
-        # Team-Audit (nur für angemeldete Nutzer; anonyme Läufe haben keinen Team-Kontext).
+        # Team audit (only for authenticated users; anonymous runs have no team context).
         if current_user:
             try:
                 write_team_audit(db, current_user, "playbook.cancel", job_id,
@@ -4590,20 +4590,20 @@ async def get_job_logs(
         raise HTTPException(status_code=403, detail="Kein Zugriff auf die Logs dieses Jobs.")
 
     log_file_path = os.path.join(LOGS_DIR, f"{job_id}.log")
-    #: Reconnect-Support – der Client kann ab einem Byte-Offset weiterlesen (nur echte
-    # Logdatei-Bytes, ohne Heartbeats), damit nach einem Verbindungsabbruch nichts doppelt/fehlt.
+    #: reconnect support – the client can resume reading from a byte offset (only real
+    # log-file bytes, without heartbeats), so that after a connection drop nothing is duplicated/missing.
     start_offset = max(0, offset)
 
-    #: Heartbeat-Sentinel (NUL-Byte). Bei Leerlauf (Playbook ohne Ausgabe) wuerde der Stream
-    # sonst minutenlang nichts senden -> Proxy/Browser trennen die idle Verbindung nach wenigen
-    # Sekunden ("NetworkError"). Der Client filtert NUL-Bytes wieder heraus (Anzeige + Offset).
+    #: heartbeat sentinel (NUL byte). When idle (a playbook without output) the stream
+    # would otherwise send nothing for minutes -> proxy/browser drop the idle connection after a few
+    # seconds ("NetworkError"). The client filters the NUL bytes back out (display + offset).
     HEARTBEAT_SECS = 5.0
 
     async def log_generator():
-        # Sofort ein Byte senden, damit Header + Stream unmittelbar beim Client ankommen (manche
-        # Proxys puffern bis zum ersten Byte) und die Verbindung von Anfang an "aktiv" ist.
+        # Send a byte immediately so that header + stream arrive at the client right away (some
+        # proxies buffer until the first byte) and the connection is "active" from the start.
         yield b"\x00"
-        # Auf die Logdatei warten (bis 5s) – mit Heartbeats, damit die Verbindung nicht idle stirbt.
+        # Wait for the log file (up to 5s) – with heartbeats so the connection does not die idle.
         waited = 0.0
         while not os.path.exists(log_file_path):
             if waited >= 5.0:
@@ -4613,7 +4613,7 @@ async def get_job_logs(
             waited += 0.5
             yield b"\x00"
 
-        # Binaermodus: zuverlaessiges seek() auf einen Byte-Offset (Textmodus-seek ist eingeschraenkt).
+        # Binary mode: reliable seek() to a byte offset (text-mode seek is limited).
         with open(log_file_path, "rb") as f:
             if start_offset > 0:
                 try:
@@ -4635,7 +4635,7 @@ async def get_job_logs(
                         idle += 0.5
                         if idle >= HEARTBEAT_SECS:
                             idle = 0.0
-                            yield b"\x00"   # Keep-Alive bei Leerlauf
+                            yield b"\x00"   # keep-alive when idle
                     else:
                         # Read remainder
                         remaining = f.read()
@@ -4643,10 +4643,10 @@ async def get_job_logs(
                             yield remaining
                         break
 
-    # : Live-Streaming – Roh-Text bleibt (der Frontend-Reader hängt RAW-Chunks an,
-    # daher KEIN text/event-stream/SSE). Anti-Buffering-Header + Heartbeats sorgen dafür, dass die
-    # Chunks sofort durchgereicht werden (nginx hat proxy_buffering aus) und die Verbindung bei
-    # Leerlauf nicht getrennt wird. Der Generator flusht zeilenweise (Logdatei live geflusht, :1536).
+    # : live streaming – raw text stays (the frontend reader appends RAW chunks,
+    # hence NO text/event-stream/SSE). Anti-buffering headers + heartbeats ensure the
+    # chunks are passed through immediately (nginx has proxy_buffering off) and the connection is
+    # not dropped when idle. The generator flushes line by line (log file flushed live, :1536).
     return StreamingResponse(
         log_generator(),
         media_type="text/plain",
@@ -4658,16 +4658,16 @@ async def get_job_logs(
 # Open-Core App-Factory & Edition-Discovery
 # ===========================================================================
 def register_extensions(registry: ExtensionRegistry) -> ExtensionRegistry:
-    """Die aktive Edition an die Registry andocken (Open-Core-Naht).
+    """Dock the active edition onto the registry (open-core seam).
 
-    Vertrag: Eine Edition-Extension stellt ``register(registry)`` bereit und setzt darin
-    ihre Hooks (``add_router`` / ``add_startup`` / ``add_maintenance`` sowie ab
-    die Entitlement-/Limits-Provider).
+    Contract: an edition extension provides ``register(registry)`` and sets its
+    hooks in it (``add_router`` / ``add_startup`` / ``add_maintenance`` as well as, from,
+    the entitlement/limits providers).
 
-    : Das Billing liegt noch in-tree; es registriert sich hier selbst (nur
-    ``EDITION == "cloud"``), sobald die Naht in steht.  ersetzt diesen
-    Rumpf durch Entry-Point-Discovery (``importlib.metadata``, Gruppe
-    ``ansimate.editions``). Community/On-Premise docken NICHTS an -> No-Op.
+    : The billing still lives in-tree; it registers itself here (only
+    ``EDITION == "cloud"``) once the seam is in place in.  replaces this
+    stub with entry-point discovery (``importlib.metadata``, group
+    ``ansimate.editions``). Community/On-Premise dock NOTHING -> no-op.
     """
     # Open-Core: Edition-Extensions ausschliesslich ueber Entry-Points der Gruppe
     # 'ansimate.editions' (importlib.metadata). Community/On-Premise laden nichts.
@@ -4676,10 +4676,10 @@ def register_extensions(registry: ExtensionRegistry) -> ExtensionRegistry:
 
 
 def _discover_edition_extensions(registry) -> int:
-    """: Editionen ueber Entry-Points (Gruppe 'ansimate.editions') entdecken und
-    deren register(registry) aufrufen. KEIN `if EDITION` entscheidet hier ueber die
-    Billing-Praesenz - allein die Installation des Edition-Pakets. Gibt die Anzahl geladener
-    Extensions zurueck."""
+    """: discover editions via entry points (group 'ansimate.editions') and
+    call their register(registry). NO `if EDITION` decides the
+    billing presence here - only the installation of the edition package. Returns the number of loaded
+    extensions."""
     try:
         from importlib.metadata import entry_points
     except Exception:
@@ -4700,23 +4700,23 @@ def _discover_edition_extensions(registry) -> int:
 
 
 def create_app() -> FastAPI:
-    """Open-Core App-Factory.
+    """Open-core app factory.
 
-    Liefert die vollstaendig konfigurierte FastAPI-App: die Core-Routen (per Decorator
-    an ``app`` gebunden) plus die via Registry angedockten Edition-Router. Der
-    ASGI-Entry-Point bleibt unveraendert ``main:app``; ``create_app()`` dient als
-    dokumentierter, testbarer Einstieg und als Zielbild fuer die Paketierung.
+    Returns the fully configured FastAPI app: the core routes (bound to ``app`` via
+    decorator) plus the edition routers docked on via the registry. The
+    ASGI entry point stays ``main:app`` unchanged; ``create_app()`` serves as a
+    documented, testable entry point and as the target design for packaging.
     """
     return app
 
 
-# Aktive Edition andocken und ihre Router mounten. In Community/On-Premise ist die
-# Registry leer -> mount_routers ist ein No-Op und das Verhalten bleibt identisch.
+# Dock the active edition and mount its routers. In Community/On-Premise the
+# registry is empty -> mount_routers is a no-op and the behavior stays identical.
 register_extensions(registry)
-# : aktiven EntitlementProvider festlegen. Default nach Build-Edition; eine
-# Edition-Extension (Cloud-Billing) kann ihn via registry.entitlement_provider setzen.
+# : set the active EntitlementProvider. Default by build edition; an
+# edition extension (cloud billing) can set it via registry.entitlement_provider.
 entitlements.set_entitlement_provider(registry.entitlement_provider or entitlements.select_default_provider(EDITION))
-# : aktiven LimitsProvider festlegen. Core-Default ohne Tarife; die
-# Cloud-Billing-Extension setzt ihren tarifgesteuerten Provider ueber die Registry.
+# : set the active LimitsProvider. Core default without tariffs; the
+# cloud billing extension sets its tariff-driven provider via the registry.
 limits.set_limits_provider(registry.limits_provider or limits.default_limits_provider())
 registry.mount_routers(app)

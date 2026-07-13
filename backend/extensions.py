@@ -1,96 +1,96 @@
 """Open-Core extension seam.
 
-Editionen (z. B. die Cloud-Billing-Funktionen) docken sich ueber diese Registry an
-den Core an, OHNE dass der Core sie kennt oder importiert. Das ist die zentrale Naht
-fuer das Open-Core-Modell:
+Editions (e.g. the cloud billing features) attach to the core via this registry,
+WITHOUT the core knowing or importing them. This is the central seam
+for the Open-Core model:
 
-  * Der Core (Community/On-Premise) laeuft mit den No-Op-/Open-Defaults und enthaelt
-    keinerlei proprietaeren Code.
-  * Eine Edition-Extension stellt eine Funktion ``register(registry)`` bereit, die
-    Hooks setzt. In  liegt das Billing noch in-tree und ruft ``register`` selbst auf
-    (siehe ``register_extensions`` in main.py); ab  werden Extensions per
-    ``importlib.metadata``-Entry-Point (Gruppe ``ansimate.editions``) entdeckt.
+  * The core (Community/On-Premise) runs with the No-Op/Open defaults and contains
+    no proprietary code whatsoever.
+  * An edition extension provides a function ``register(registry)`` that
+    sets hooks. In  the billing still lives in-tree and calls ``register`` itself
+    (see ``register_extensions`` in main.py); from  extensions are discovered via
+    an ``importlib.metadata`` entry point (group ``ansimate.editions``).
 
-Hook-Typen:
-  * ``add_router(router)``      - ein ``fastapi.APIRouter``, der via ``include_router``
-                                  gemountet wird (Edition-spezifische Routen, z. B. Billing).
-  * ``add_startup(fn)``         - ``fn()`` wird beim FastAPI-Startup ausgefuehrt.
-  * ``add_maintenance(fn)``     - ``fn(db, now)`` wird in jedem stuendlichen Cron-Zyklus
-                                  ausgefuehrt (z. B. Abo-Downgrade).
+Hook types:
+  * ``add_router(router)``      - a ``fastapi.APIRouter`` that is mounted via
+                                  ``include_router`` (edition-specific routes, e.g. billing).
+  * ``add_startup(fn)``         - ``fn()`` is executed on FastAPI startup.
+  * ``add_maintenance(fn)``     - ``fn(db, now)`` is executed in every hourly cron
+                                  cycle (e.g. subscription downgrade).
 
-Die Provider-Schnittstellen (Entitlement/Limits) werden in ergaenzt.
+The provider interfaces (Entitlement/Limits) are added in.
 
-WICHTIG: Dieses Modul importiert bewusst KEINE schweren oder proprietaeren Pakete
-(kein fastapi-Import auf Modulebene, kein stripe), damit der Core es ueberall sauber
-laden kann.
+IMPORTANT: This module deliberately imports NO heavy or proprietary packages
+(no fastapi import at module level, no stripe), so that the core can load it cleanly
+everywhere.
 """
 from typing import Callable, List
 
 
 class ExtensionRegistry:
-    """Sammelt die von Editionen beigesteuerten Hooks und stellt sie dem Core bereit.
+    """Collects the hooks contributed by editions and makes them available to the core.
 
-    Eine einzelne Instanz wird in main.py erzeugt und an ``register(registry)`` der
-    aktiven Edition uebergeben. Der Core liest die gesammelten Hooks an genau drei
-    Stellen aus: App-Aufbau (Router), Startup-Event und Cron-Wartung.
+    A single instance is created in main.py and passed to ``register(registry)`` of the
+    active edition. The core reads the collected hooks in exactly three
+    places: app assembly (routers), startup event and cron maintenance.
     """
 
     def __init__(self) -> None:
         self._routers: List[object] = []
         self._startup_hooks: List[Callable[[], None]] = []
         self._maintenance_hooks: List[Callable[..., None]] = []
-        # Provider-Naht: von einer Edition gesetzte Provider; None -> Core-Default.
+        # Provider seam: providers set by an edition; None -> core default.
         self.entitlement_provider = None
         self.limits_provider = None
-        # : Billing-Statusbericht (z. B. Stripe-Verbindung) fuers Admin-Panel.
+        # : billing status report (e.g. Stripe connection) for the admin panel.
         self.status_provider = None
 
-    # --- Registrierungs-Hooks (von Editionen aufgerufen) ------------------------------
+    # --- Registration hooks (called by editions) --------------------------------------
     def add_router(self, router: object) -> None:
-        """Einen APIRouter registrieren; wird beim App-Aufbau via include_router gemountet."""
+        """Register an APIRouter; mounted via include_router during app assembly."""
         self._routers.append(router)
 
     def add_startup(self, fn: Callable[[], None]) -> None:
-        """Eine Startup-Funktion ``fn()`` registrieren (laeuft im FastAPI-Startup-Event)."""
+        """Register a startup function ``fn()`` (runs in the FastAPI startup event)."""
         self._startup_hooks.append(fn)
 
     def add_maintenance(self, fn: Callable[..., None]) -> None:
-        """Eine Wartungsfunktion ``fn(db, now)`` registrieren (laeuft im stuendlichen Cron)."""
+        """Register a maintenance function ``fn(db, now)`` (runs in the hourly cron)."""
         self._maintenance_hooks.append(fn)
 
     def set_entitlement_provider(self, provider) -> None:
-        """Den EntitlementProvider der Edition setzen. None -> Core-Default bleibt."""
+        """Set the edition's EntitlementProvider. None -> core default stays."""
         self.entitlement_provider = provider
 
     def set_limits_provider(self, provider) -> None:
-        """Den LimitsProvider der Edition setzen. None -> Core-Default bleibt."""
+        """Set the edition's LimitsProvider. None -> core default stays."""
         self.limits_provider = provider
 
     def set_status_provider(self, fn) -> None:
-        """Eine Billing-Statusfunktion ``fn() -> dict`` registrieren (Admin-Panel)."""
+        """Register a billing status function ``fn() -> dict`` (admin panel)."""
         self.status_provider = fn
 
 
-    # --- Zugriff durch den Core -------------------------------------------------------
+    # --- Access by the core -------------------------------------------------------------
     def mount_routers(self, app) -> None:
-        """Alle registrierten Edition-Router in die App einhaengen."""
+        """Mount all registered edition routers into the app."""
         for router in self._routers:
             app.include_router(router)
 
     def run_startup(self) -> None:
-        """Registrierte Startup-Hooks ausfuehren. Ein Fehler in einer Edition darf den
-        Core-Start nicht verhindern -> pro Hook gekapselt."""
+        """Run the registered startup hooks. An error in one edition must not
+        prevent the core from starting -> each hook is wrapped."""
         for fn in self._startup_hooks:
             try:
                 fn()
-            except Exception as e:  # pragma: no cover - defensiv
+            except Exception as e:  # pragma: no cover - defensive
                 print(f"[extensions] Startup-Hook {getattr(fn, '__name__', fn)} fehlgeschlagen: {e}")
 
     def run_maintenance(self, db, now) -> None:
-        """Registrierte Wartungs-Hooks im Cron-Zyklus ausfuehren. Pro Hook gekapselt,
-        damit der Fehler einer Edition die Core-Wartung nicht abbricht."""
+        """Run the registered maintenance hooks in the cron cycle. Each hook is wrapped,
+        so that an error in one edition does not abort the core maintenance."""
         for fn in self._maintenance_hooks:
             try:
                 fn(db, now)
-            except Exception as e:  # pragma: no cover - defensiv
+            except Exception as e:  # pragma: no cover - defensive
                 print(f"[extensions] Maintenance-Hook {getattr(fn, '__name__', fn)} fehlgeschlagen: {e}")

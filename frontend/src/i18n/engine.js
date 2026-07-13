@@ -1,28 +1,28 @@
-// : schlanke i18n-Mechanik ohne Framework. Wird von app.js (und, cloud-only, von
-// billing.js) importiert; app.js ist eine grosse, per Vite gebuendelte IIFE. Da der dynamische
-// Billing-Import als eigener Chunk emittiert wird, haelt die Engine ihren State als Singleton am
-// window-Objekt (__ANSIMATE_I18N__) — so teilen sich Haupt-Bundle und Billing-Chunk garantiert
-// EINE Sprache + EIN Woerterbuch, egal wie Vite die Module aufteilt.
+// : lean i18n mechanism without a framework. Imported by app.js (and, cloud-only, from
+// billing.js); app.js is a large IIFE bundled by Vite. Because the dynamic billing import is
+// emitted as its own chunk, the engine keeps its state as a singleton on the window object
+// (__ANSIMATE_I18N__) — so the main bundle and the billing chunk are guaranteed to share ONE
+// language + ONE dictionary, no matter how Vite splits the modules.
 //
-// Oeffentliche API (auch als window-Globals gespiegelt, fuers Debugging/Playwright):
+// Public API (also mirrored as window globals, for debugging/Playwright):
 //   t(key, params) · getLanguage() · setLanguage(lang, opts) · applyStaticTranslations(root)
 //   initI18n() · applyServerLanguage(lang) · setLoggedIn(bool) · setRenderHook(fn)
 //   registerTranslations({de, en})
 
 export const SUPPORTED = ["de", "en"];
 export const FALLBACK = "en";
-const LS_KEY = "ansimate-lang"; // nur Vor-Login-/Offline-Cache; Quelle der Wahrheit ist das Profil
+const LS_KEY = "ansimate-lang"; // only pre-login/offline cache; the profile is the source of truth
 
 const G = (typeof window !== "undefined" ? window : globalThis);
 const STATE = G.__ANSIMATE_I18N__ || (G.__ANSIMATE_I18N__ = {
     lang: FALLBACK,
     dict: { de: {}, en: {} },
     loggedIn: false,
-    onChange: null,      // Re-Render-Hook, den app.js setzt (setRenderHook)
+    onChange: null,      // re-render hook that app.js sets (setRenderHook)
     switcherWired: false,
 });
 
-// --- Woerterbuch-Registrierung (die dict/*.js-Dateien rufen dies via index.js auf) ----------
+// --- Dictionary registration (the dict/*.js files call this via index.js) -------------------
 export function registerTranslations(map) {
     if (!map) return;
     for (const lang of SUPPORTED) {
@@ -38,7 +38,7 @@ export function t(key, params) {
         str = STATE.dict[FALLBACK] && STATE.dict[FALLBACK][key];
     }
     if (str == null) {
-        // Dev-Hinweis auf fehlenden Key; im Normalbetrieb sollen 0 Misses auftreten.
+        // Dev hint about a missing key; in normal operation there should be 0 misses.
         if (G.location && /localhost|127\.0\.0\.1/.test(G.location.hostname)) {
             console.warn("[i18n] missing key:", key, "(" + STATE.lang + ")");
         }
@@ -53,12 +53,12 @@ export function t(key, params) {
 
 export function getLanguage() { return STATE.lang; }
 
-// : BCP-47-Locale zur aktiven Sprache — fuer Datums-/Zeit-/Zahl-Formatierung und
-// localeCompare-Sortierung, damit diese der gewaehlten UI-Sprache folgen (statt fest "de-DE").
+// : BCP-47 locale for the active language — for date/time/number formatting and
+// localeCompare sorting, so they follow the chosen UI language (instead of a fixed "de-DE").
 const LOCALE_MAP = { de: "de-DE", en: "en-GB" };
 export function getLocale() { return LOCALE_MAP[STATE.lang] || "en-GB"; }
 
-// --- Detection: Profil -> localStorage-Cache -> navigator -> en ------------------------------
+// --- Detection: profile -> localStorage cache -> navigator -> en ----------------------------
 function normalizeTag(tag) { return String(tag || "").toLowerCase().split("-")[0]; }
 
 export function detect(profileLang) {
@@ -66,7 +66,7 @@ export function detect(profileLang) {
     try {
         const cached = localStorage.getItem(LS_KEY);
         if (cached && SUPPORTED.includes(cached)) return cached;
-    } catch (e) { /* localStorage evtl. blockiert */ }
+    } catch (e) { /* localStorage may be blocked */ }
     try {
         const navs = (navigator.languages && navigator.languages.length)
             ? navigator.languages : [navigator.language];
@@ -74,11 +74,11 @@ export function detect(profileLang) {
             const primary = normalizeTag(n);
             if (SUPPORTED.includes(primary)) return primary;
         }
-    } catch (e) { /* navigator evtl. nicht verfuegbar */ }
+    } catch (e) { /* navigator may be unavailable */ }
     return FALLBACK;
 }
 
-// --- Statisches HTML uebersetzen ------------------------------------------------------------
+// --- Translate static HTML ------------------------------------------------------------------
 const ATTR_MAP = [
     ["data-i18n-placeholder", "placeholder"],
     ["data-i18n-title", "title"],
@@ -102,11 +102,11 @@ export function applyStaticTranslations(root) {
     }
 }
 
-// --- Sprachwechsel --------------------------------------------------------------------------
+// --- Language switch ------------------------------------------------------------------------
 // opts: { persist=true, persistValue, cache=true }
-//  - persist:    bei eingeloggtem Nutzer serverseitig speichern (POST /api/profile/language)
-//  - persistValue: was gespeichert wird (fuer "Automatisch" => null, waehrend lokal detect() gilt)
-//  - cache:      localStorage-Cache aktualisieren
+//  - persist:    save server-side for a logged-in user (POST /api/profile/language)
+//  - persistValue: what gets stored (for "Automatic" => null, while detect() applies locally)
+//  - cache:      update the localStorage cache
 export function setLanguage(lang, opts) {
     opts = opts || {};
     if (!SUPPORTED.includes(lang)) lang = detect(lang);
@@ -122,7 +122,7 @@ export function setLanguage(lang, opts) {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ language: value }),
-            }).catch(() => { /* best-effort; Cookie-Session traegt die Auth */ });
+            }).catch(() => { /* best-effort; the cookie session carries the auth */ });
         } catch (e) { /* noop */ }
     }
     applyStaticTranslations(document);
@@ -135,26 +135,26 @@ export function setLanguage(lang, opts) {
 export function setRenderHook(fn) { STATE.onChange = fn; }
 export function setLoggedIn(v) { STATE.loggedIn = !!v; }
 
-// Beim Auth-Boot die Serversprache uebernehmen (falls gesetzt); markiert den Nutzer als
-// eingeloggt, damit spaetere Wechsel serverseitig persistieren.
+// On auth boot, adopt the server language (if set); marks the user as
+// logged in so that later switches persist server-side.
 export function applyServerLanguage(profileLang) {
     STATE.loggedIn = true;
     if (profileLang && SUPPORTED.includes(profileLang)) {
         if (profileLang !== STATE.lang) setLanguage(profileLang, { persist: false });
     }
-    // profileLang == null => "Automatisch": bereits detektierte Sprache beibehalten.
+    // profileLang == null => "Automatic": keep the already-detected language.
     updateProfileSelect(profileLang || "");
 }
 
 // --- Boot -----------------------------------------------------------------------------------
 export function initI18n() {
-    // So frueh wie initTheme(): Sprache aus Cache/Browser bestimmen und anwenden (noch ohne
-    // Serverwissen -> kein Persistieren). Nach dem Auth-Boot ruft app.js applyServerLanguage().
+    // As early as initTheme(): determine and apply the language from cache/browser (still without
+    // server knowledge -> no persisting). After the auth boot, app.js calls applyServerLanguage().
     setLanguage(detect(null), { persist: false });
     wireSwitcher();
 }
 
-// --- Header-Switcher + Profil-Select ---------------------------------------
+// --- Header switcher + profile select --------------------------------------
 function currentBadge() { return STATE.lang.toUpperCase(); }
 
 function updateSwitcherUI() {
@@ -180,10 +180,10 @@ function updateProfileSelect(value) {
     const sel = document.getElementById("profile-language-select");
     if (!sel) return;
     if (value === undefined) {
-        // Nur den aktiven Wert spiegeln, wenn das Select nicht auf "Automatisch" steht.
+        // Only mirror the active value when the select is not set to "Automatic".
         if (sel.value !== "") sel.value = STATE.lang;
     } else {
-        sel.value = value; // "" (Automatisch) | "de" | "en"
+        sel.value = value; // "" (Automatic) | "de" | "en"
     }
 }
 
@@ -226,22 +226,22 @@ function wireSwitcher() {
             item.addEventListener("click", (ev) => {
                 ev.preventDefault();
                 const lang = item.getAttribute("data-lang");
-                setLanguage(lang); // persistiert serverseitig, falls eingeloggt
-                // manuelle Wahl im Header -> Profil-Select folgt (kein "Automatisch" mehr)
+                setLanguage(lang); // persists server-side if logged in
+                // manual choice in the header -> the profile select follows (no longer "Automatic")
                 updateProfileSelect(lang);
                 closeMenu();
             });
         });
     }
 
-    // Profil-Select
+    // Profile select
     const sel = document.getElementById("profile-language-select");
     if (sel) {
         sel.addEventListener("change", () => {
-            const val = sel.value; // "" = Automatisch
+            const val = sel.value; // "" = Automatic
             if (val === "") {
-                // Automatisch: serverseitig null speichern, lokal detektieren (ohne Profil/Cache
-                // wuerde erneut der Browser greifen -> hier explizit Browser bevorzugen).
+                // Automatic: store null server-side, detect locally (without profile/cache
+                // the browser would apply again -> explicitly prefer the browser here).
                 setLanguage(detectBrowserOnly(), { persistValue: null });
             } else {
                 setLanguage(val);
@@ -253,8 +253,8 @@ function wireSwitcher() {
     updateSwitcherUI();
 }
 
-// "Automatisch" soll ausdruecklich die Browsersprache waehlen (nicht den localStorage-Cache
-// der vorherigen manuellen Wahl), sonst fuehlt sich "Automatisch" nicht zuruecksetzend an.
+// "Automatic" should explicitly pick the browser language (not the localStorage cache
+// from the previous manual choice), otherwise "Automatic" would not feel like a reset.
 function detectBrowserOnly() {
     try {
         const navs = (navigator.languages && navigator.languages.length)
@@ -267,7 +267,7 @@ function detectBrowserOnly() {
     return FALLBACK;
 }
 
-// window-Globals spiegeln (Debug/Playwright/legacy-Zugriff).
+// Mirror window globals (debug/Playwright/legacy access).
 G.t = t;
 G.getLanguage = getLanguage;
 G.getLocale = getLocale;

@@ -1,16 +1,16 @@
 // : app.js Region 6 (~5638–6497).
-// Presets (renderPresetsList/Dialog/Freigaben) + Admin-Dashboard (renderAdminStats:
-// Kacheln/KPI/Chart-Achsen-Titel) + IP-Sperren. Namespaces "preset" / "adminDash".
-// Haeufige Buttons nutzen common.* aus core.js (common.edit/common.delete -> kein Eintrag hier).
+// Presets (renderPresetsList/dialog/shares) + admin dashboard (renderAdminStats:
+// tiles/KPI/chart axis titles) + IP bans. Namespaces "preset" / "adminDash".
+// Common buttons use common.* from core.js (common.edit/common.delete -> no entry here).
 export default {
     de: {
-        // --- Presets: Leerzustaende / Fehler ---
+        // --- Presets: empty states / errors ---
         "preset.loadError": "Netzwerkfehler beim Laden der Presets.",
         "preset.noPlaybooksAvail": "Keine Playbooks verfügbar.",
         "preset.noDevices": "Keine Geräte angelegt.",
         "preset.noTeamMembers": "Keine Teammitglieder vorhanden.",
         "preset.noPresets": "Keine Presets angelegt.",
-        // --- Presets: Freigabe-Optionen / Badges ---
+        // --- Presets: sharing options / badges ---
         "preset.permStrict": "strikt (nur ausführen)",
         "preset.permFlexible": "flexibel (anpassbar)",
         "preset.sharedFlexible": "flexibel freigegeben",
@@ -18,29 +18,29 @@ export default {
         "preset.share": "Freigeben",
         "preset.shareOne": "{count} Freigabe",
         "preset.shareMany": "{count} Freigaben",
-        // --- Presets: Formular-Titel ---
+        // --- Presets: form titles ---
         "preset.editTitle": "Preset bearbeiten",
         "preset.newTitle": "Neues Preset",
-        // --- Presets: Validierung / Ergebnis-Toasts ---
+        // --- Presets: validation / result toasts ---
         "preset.nameRequired": "Bitte einen Preset-Namen eingeben.",
         "preset.selectPlaybook": "Bitte mindestens ein Playbook auswählen.",
         "preset.updated": "Preset aktualisiert.",
         "preset.created": "Preset erstellt.",
         "preset.saveFailed": "Speichern fehlgeschlagen.",
         "preset.saveError": "Netzwerkfehler beim Speichern.",
-        // --- Presets: Loeschen ---
+        // --- Presets: deletion ---
         "preset.deleteConfirmNamed": "Möchten Sie das Preset <b>{name}</b> wirklich löschen?",
         "preset.deleteConfirmGeneric": "Preset wirklich löschen?",
         "preset.deleteTitle": "Preset löschen?",
         "preset.deleted": "Preset gelöscht.",
         "preset.deleteFailed": "Löschen fehlgeschlagen.",
         "preset.deleteError": "Netzwerkfehler beim Löschen.",
-        // --- Presets: Ausfuehren (launchPreset) ---
+        // --- Presets: run (launchPreset) ---
         "preset.noPlaybooksInPreset": "Dieses Preset hat keine Playbooks.",
         "preset.playbooksNotInCatalog": "Die Preset-Playbooks sind aktuell nicht im Katalog verfügbar.",
         "preset.playbooksUnavailable": "{count} Playbook(s) nicht verfügbar: {list}",
         "preset.strictSharedInfo": "Strikt freigegebenes Preset – die hinterlegten Werte sind fest.",
-        // --- Admin-Dashboard: Pie-/Verlaufs-Diagramme (Legenden / Achsen) ---
+        // --- Admin dashboard: pie / timeline charts (legends / axes) ---
         "adminDash.pieActivePaid": "Aktiv (Paid)",
         "adminDash.pieActiveTrial": "Aktiv (Trial)",
         "adminDash.pieInactive": "Inaktiv",
@@ -49,10 +49,10 @@ export default {
         "adminDash.total": "Gesamt",
         "adminDash.ipBlocks": "IP-Sperren",
         "adminDash.storageMb": "Speicher (MB)",
-        // --- Admin-Dashboard: Lade-/Fehlerzustaende ---
+        // --- Admin dashboard: loading / error states ---
         "adminDash.loadError": "Fehler beim Laden.",
         "adminDash.networkError": "Netzwerkfehler.",
-        // --- Admin-Dashboard: Status-Kacheln (Chips) ---
+        // --- Admin dashboard: status chips ---
         "adminDash.active": "aktiv",
         "adminDash.inactive": "inaktiv",
         "adminDash.configured": "konfiguriert",
@@ -60,7 +60,7 @@ export default {
         "adminDash.on": "an",
         "adminDash.off": "aus",
         "adminDash.emailVerification": "E-Mail-Verifikation",
-        // --- Admin-Dashboard: Stripe-Ampel-Texte ---
+        // --- Admin dashboard: Stripe status texts ---
         "adminDash.error": "Fehler",
         "adminDash.stripeInactiveMock": "Inaktiv (Mock / keine Schlüssel)",
         "adminDash.stripeActiveLive": "Aktiv – Live",

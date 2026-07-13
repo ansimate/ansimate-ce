@@ -1,10 +1,10 @@
-# Aktive Produkt-Edition: "cloud", "onpremise" oder "community".
+# Active product edition: "cloud", "onpremise" or "community".
 #
-# Diese Datei wird zur BUILD-ZEIT vom Docker-Build aus dem Build-Argument EDITION
-# neu erzeugt (siehe backend/Dockerfile -> `ARG EDITION` + `RUN echo ... > edition.py`).
-# Dadurch ist die Edition fest in den Container eingebacken und kann zur LAUFZEIT
-# NICHT mehr ueber Umgebungsvariablen geaendert werden.
+# This file is regenerated at BUILD TIME by the Docker build from the EDITION build
+# argument (see backend/Dockerfile -> `ARG EDITION` + `RUN echo ... > edition.py`).
+# As a result, the edition is baked firmly into the container and can NO LONGER be
+# changed at RUNTIME via environment variables.
 #
-# Der hier eingecheckte Wert ist nur der Default fuer lokale Entwicklung/Tests und
-# fuer Builds ohne Build-Argument (Standard: "cloud").
+# The value checked in here is only the default for local development/tests and
+# for builds without a build argument (default: "cloud").
 EDITION = "community"

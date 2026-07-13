@@ -1,9 +1,9 @@
-// : i18n-Einstiegspunkt. Registriert ALLE Woerterbuch-Fragmente (dict/*.js) an der
-// Engine und re-exportiert deren oeffentliche API. app.js importiert nur diese Datei.
+// : i18n entry point. Registers ALL dictionary fragments (dict/*.js) with the
+// engine and re-exports its public API. app.js imports only this file.
 //
-// Woerterbuecher werden per import.meta.glob eager eingesammelt — jede neue dict/<bereich>.js
-// wird automatisch beruecksichtigt, OHNE dass hier (oder sonstwo) eine gemeinsame Datei
-// editiert werden muss. Das entkoppelt die parallele Content-Uebersetzung (–) sauber.
+// Dictionaries are collected eagerly via import.meta.glob — every new dict/<area>.js
+// is picked up automatically, WITHOUT any need to edit a shared file here (or anywhere
+// else). That cleanly decouples the parallel content translation (–).
 import { registerTranslations } from "./engine.js";
 
 const modules = import.meta.glob("./dict/*.js", { eager: true });

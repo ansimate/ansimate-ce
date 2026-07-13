@@ -1,7 +1,7 @@
-//  (Region 3): Statische UI-Texte der Dialoge im Bereich Tarif/Gutschein/IP-Sperre
-// sowie Freigabe-, Geraete-, Szenario-, Preset- und Playbook-Upload-Dialoge in index.html.
-// Namespace "dlgpay.". Haeufige Buttons nutzen die gemeinsamen common.*-Keys (core.js),
-// "Ausfuehren" nutzt landing.run, "Playbooks"-Ueberschrift nutzt nav.playbooks.
+//  (Region 3): static UI texts of the dialogs in the plan/coupon/IP-ban area
+// as well as the share, device, scenario, preset, and playbook upload dialogs in index.html.
+// Namespace "dlgpay.". Common buttons use the shared common.* keys (core.js),
+// "Run" uses landing.run, the "Playbooks" heading uses nav.playbooks.
 export default {
     de: {
         // admin-tariff-dialog

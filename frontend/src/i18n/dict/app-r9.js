@@ -1,8 +1,8 @@
-// : app.js Region 9 — Admin-Einstellungen/Config + verbleibende UI-Strings.
-// Namespaces: adminCfg.* (Settings/Test-Mail/GoBD/IP-Sperren) · customPb.* (eigene Playbooks) ·
-// avv.* · cookie.* · audit.* (Aktivitätsprotokoll) · team.* (Teammitglieder/Freigaben) ·
-// tokens.* (API-Token) · msg.* (bereichsübergreifende generische Meldungen).
-// Flache, namespaced Keys; Werte stabil halten. common.edit/common.delete werden wiederverwendet.
+// : app.js Region 9 — admin settings/config + remaining UI strings.
+// Namespaces: adminCfg.* (settings/test mail/GoBD/IP bans) · customPb.* (custom playbooks) ·
+// avv.* · cookie.* · audit.* (activity log) · team.* (team members/shares) ·
+// tokens.* (API tokens) · msg.* (cross-area generic messages).
+// Flat, namespaced keys; keep values stable. common.edit/common.delete are reused.
 export default {
     de: {
         "adminCfg.loadError": "Fehler beim Laden der Einstellungen.",
