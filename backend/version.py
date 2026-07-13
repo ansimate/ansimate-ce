@@ -6,4 +6,4 @@ the FastAPI app (openapi info.version) and at the /api/version endpoint (all
 editions).
 """
 
-APP_VERSION = "0.4.5"
+APP_VERSION = "0.4.6"

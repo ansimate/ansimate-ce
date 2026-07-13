@@ -2256,7 +2256,9 @@ function renderPlaybooks() {
         //: carry icon_value (custom playbook logo) along, so that the run modal
         // and the config accordion also show the uploaded logo.
         //: service_group for the port collision check.
-        playbookMetadataMap[pb.file] = { name: pb.name, icon: pb.icon, icon_value: pb.icon_value, service_group: pb.service_group };
+        //: carry the catalog variables (index.yml) so the run dialog can render
+        // config fields for playbooks without a hardcoded playbookDomainConfigs entry.
+        playbookMetadataMap[pb.file] = { name: pb.name, icon: pb.icon, icon_value: pb.icon_value, service_group: pb.service_group, variables: pb.variables };
     });
     
     // Put preset playbooks in the map (by base file name)
@@ -2967,6 +2969,46 @@ const playbookDomainConfigs = {
     ]
 };
 
+//: translate the catalog variables of a playbook (index.yml `variables`) into the
+// config-field shape the run dialog expects (same shape as playbookDomainConfigs entries).
+// Used as a FALLBACK for playbooks that have no hardcoded playbookDomainConfigs entry
+// (game servers, and a few dev stacks like open-webui/dify). Playbooks that DO have a
+// hardcoded entry keep it unchanged.
+function catalogVariablesToConfigs(vars) {
+    if (!Array.isArray(vars)) return [];
+    // index.yml types -> HTML input type. `secret` must become `password` (otherwise the
+    // value would render in plain text). Ports/strings/domains are plain text inputs.
+    const TYPE_TO_INPUT = { secret: "password", port: "text", string: "text", domain: "text" };
+    return vars.filter(v => v && v.name).map(v => {
+        const isBool = v.type === "bool";
+        // A domain field only makes sense behind Traefik -> scope "domain". Everything else
+        // (game ports, names, passwords) is a real host-level setting -> "general" (always
+        // visible, independent of Traefik). An explicit v.scope wins.
+        let scope = v.scope;
+        if (!scope) scope = (v.type === "domain" || String(v.name).endsWith("_domain")) ? "domain" : "general";
+        // Show the default as a gray placeholder so the user sees the current value, EXCEPT
+        // for secrets (never surface a default password). An explicit v.placeholder wins.
+        let placeholder = v.placeholder;
+        if (placeholder === undefined && v.type !== "secret" && v.default !== undefined && v.default !== "") {
+            placeholder = String(v.default);
+        }
+        const cfg = {
+            variable: v.name,
+            label: v.label || v.name,
+            required: !!v.required,
+            scope: scope,
+        };
+        if (isBool) {
+            cfg.type = "bool";
+            cfg.default = (v.default === true || v.default === "true");
+        } else {
+            cfg.type = TYPE_TO_INPUT[v.type] || "text";
+            if (placeholder !== undefined) cfg.placeholder = placeholder;
+        }
+        return cfg;
+    });
+}
+
 // Modal dialog display controls
 function showCredentialsModal() {
     modalTargetHost.value = "";
@@ -3015,9 +3057,11 @@ function showCredentialsModal() {
     let totalConfigs = 0;
     uniqueCheckedPlaybooks.forEach(pbPath => {
         const baseName = pbPath.split('/').pop();
-        const cfgs = playbookDomainConfigs[baseName];
+        const meta = playbookMetadataMap[pbPath] || playbookMetadataMap[baseName] || { name: baseName };
+        //: prefer the hand-tuned hardcoded config; otherwise fall back to the
+        // catalog variables (index.yml) so game servers etc. also get input fields.
+        const cfgs = playbookDomainConfigs[baseName] || catalogVariablesToConfigs(meta.variables);
         if (cfgs && cfgs.length) {
-            const meta = playbookMetadataMap[pbPath] || playbookMetadataMap[baseName] || { name: baseName };
             //: service group (variants of the same service don't collide);
             // without an explicit group, each playbook is its own group.
             const serviceGroup = meta.service_group || baseName;
@@ -6966,9 +7010,12 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
     container.appendChild(general);
     Array.from(ctx.selected).forEach(pbPath => {
         const baseName = pbPath.split("/").pop();
-        const cfgs = (typeof playbookDomainConfigs !== "undefined") ? playbookDomainConfigs[baseName] : null;
-        if (!cfgs || !cfgs.length) return;
         const meta = (typeof playbookMetadataMap !== "undefined" && (playbookMetadataMap[pbPath] || playbookMetadataMap[baseName])) || { name: baseName };
+        //: same fallback as the run dialog — playbooks without a hardcoded config
+        // (game servers etc.) get their fields from the catalog variables (index.yml).
+        const hardcoded = (typeof playbookDomainConfigs !== "undefined") ? playbookDomainConfigs[baseName] : null;
+        const cfgs = (hardcoded && hardcoded.length) ? hardcoded : catalogVariablesToConfigs(meta.variables);
+        if (!cfgs || !cfgs.length) return;
         const serviceGroup = meta.service_group || baseName;
         const details = document.createElement("details");
         details.className = "modal-config-accordion";

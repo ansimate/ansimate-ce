@@ -27,6 +27,11 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-07-14
+
+### Fixed
+- Die in v0.4.3 hinzugefügten Konfigurationsfelder der Game-Server-Playbooks (Port(s), Servername, max. Spieler, Server- und RCON-Passwort) erscheinen jetzt tatsächlich im Ausführen-Dialog sowie im Preset-/Szenario-Assistenten. Bisher wurden diese Katalog-Variablen von der Oberfläche gar nicht gelesen — der Dialog kannte nur eine fest hinterlegte Liste von Web-Apps, sodass Game-Server (z. B. Terraria) keinerlei Einstellungen anzeigten. Betrifft alle 34 Game-Server sowie die Entwicklungs-Stacks Open WebUI, Dify und Hermes-Agent (#1138).
+
 ## [0.4.5] - 2026-07-13
 
 ### Changed
@@ -444,7 +449,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/your-org/ansimate/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/your-org/ansimate/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/your-org/ansimate/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/your-org/ansimate/compare/v0.4.2...v0.4.3

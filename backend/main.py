@@ -1876,7 +1876,11 @@ def resolve_playbook_metadata(file_path: str, index_metadata: list, lang: Option
             "requires": metadata_entry.get("requires", []),
             "category": metadata_entry.get("category", ""),
             # : vendor/author URLs (legal transparency). Default empty.
-            "vendor_urls": metadata_entry.get("vendor_urls", [])
+            "vendor_urls": metadata_entry.get("vendor_urls", []),
+            #: configurable variables from index.yml so the run dialog can render
+            # input fields for playbooks that have no hardcoded playbookDomainConfigs
+            # entry (game servers etc.). Empty list when the catalog entry defines none.
+            "variables": metadata_entry.get("variables", [])
         }
     else:
         return {
