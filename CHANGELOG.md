@@ -27,6 +27,14 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.5] - 2026-07-13
+
+### Changed
+- Sämtliche Code-Kommentare und Docstrings von Deutsch auf Englisch übersetzt (Backend + Frontend); rein interne Aufräumarbeit ohne funktionale oder sichtbare Änderungen (#1117).
+
+### Removed
+- Ungenutzten Legacy-`#devices-dialog` aus dem Frontend entfernt — der Dialog war seit der Geräte-Konsolidierung tot und ohne Funktion (#1153).
+
 ## [0.4.4] - 2026-07-12
 
 ### Changed
@@ -436,7 +444,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.4...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.5...HEAD
+[0.4.5]: https://github.com/your-org/ansimate/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/your-org/ansimate/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/your-org/ansimate/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/your-org/ansimate/compare/v0.4.1...v0.4.2
