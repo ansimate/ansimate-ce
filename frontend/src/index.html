@@ -1130,6 +1130,18 @@
                             <input type="checkbox" id="modal-use-traefik">
                             <label for="modal-use-traefik" data-i18n="dlgcore.useTraefik">Dienste über Traefik (Reverse Proxy) erreichbar machen</label>
                         </div>
+                        
+                        <div class="dialog-checkbox-container hidden" id="modal-route-mode-container" style="gap:8px; align-items:center;">
+                            <label for="modal-route-mode" data-i18n="dlgcore.routeMode" style="font-size:13px; white-space:nowrap;">Routing</label>
+                            <select id="modal-route-mode" style="flex:1;">
+                                <option value="domain" data-i18n="dlgcore.routeModeDomain">Eigene (Sub-)Domain</option>
+                                <option value="subpath" data-i18n="dlgcore.routeModeSubpath">Subpfad einer Domain</option>
+                            </select>
+                        </div>
+                        <div id="modal-base-domain-wrap" class="text-field" style="display:none; margin-top:8px; width:100%;">
+                            <input type="text" id="modal-base-domain" placeholder="example.com / 192.168.1.10" style="width:100%;">
+                            <label for="modal-base-domain" data-i18n="dlgcore.baseDomain">Haupt-Domain / IP (für Subpfad)</label>
+                        </div>
                         <p class="section-subtitle" data-i18n="dlgcore.settingsForServices">Einstellungen für aktivierte Dienste:</p>
                         <div id="modal-domains-inputs" style="display: flex; flex-direction: column; gap: 16px;">
                             
