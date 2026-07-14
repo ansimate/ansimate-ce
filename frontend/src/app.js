@@ -2732,8 +2732,11 @@ const playbookDomainConfigs = {
     ],
     "create-stack-gitea.yml": [
         { label: "Gitea Domain (bei Traefik)", variable: "gitea_domain", placeholder: "git.local", required: false },
-        //: Subpfad-Modus – Gitea ist suburl-fähig via ROOT_URL (Tier A).
-        { label: "Gitea Subpfad (bei Traefik-Subpfad-Modus)", variable: "gitea_subpath", placeholder: "/gitea", default: "/gitea", required: false },
+        //: Subpfad-Modus (Gitea via ROOT_URL). Subpfad + Ziel-Host stehen als scope 'subpath'
+        // im Gitea-Block und erscheinen nur im Subpfad-Modus. gitea_base_domain braucht explizites
+        // scope (Suffix _domain wuerde sonst als Domain-Feld eingestuft).
+        { label: "Gitea Subpfad (bei Traefik-Subpfad-Modus)", variable: "gitea_subpath", placeholder: "/gitea", default: "/gitea", scope: "subpath", required: false },
+        { label: "Haupt-Domain / IP (für Subpfad)", variable: "gitea_base_domain", placeholder: "example.com / 192.168.1.10", scope: "subpath", required: false },
         { label: "Git-SSH-Port (Host)", variable: "gitea_ssh_port", placeholder: "2222", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "gitea_port", placeholder: "3030", required: false }
     ],
@@ -3114,11 +3117,8 @@ function showCredentialsModal() {
     const domainsSection = document.getElementById("modal-domains-section");
     const traefikContainer = document.getElementById("modal-traefik-container");
     const useTraefikCheckbox = document.getElementById("modal-use-traefik");
-    //: routing-mode selector (domain vs. subpath) + base host for subpath mode.
-    const routeModeContainer = document.getElementById("modal-route-mode-container");
-    const routeModeSelect = document.getElementById("modal-route-mode");
-    const baseDomainWrap = document.getElementById("modal-base-domain-wrap");
-    const baseDomainInput = document.getElementById("modal-base-domain");
+    //: the routing MODE and the subpath base host are chosen PER PLAYBOOK (a selector +
+    // subpath-scoped fields inside each subpath-capable accordion). No global routing element remains.
 
     domainsInputsContainer.innerHTML = "";
     
@@ -3141,6 +3141,8 @@ function showCredentialsModal() {
             details.appendChild(summary);
             const body = document.createElement("div");
             body.className = "modal-config-accordion-body";
+            //: track the subpath variable so we can offer a per-playbook routing-mode selector.
+            let groupSubpathVar = null;
 
             group.configs.forEach(cfg => {
                 //: scope per field – domains only with Traefik, HTTP ports only without
@@ -3150,6 +3152,7 @@ function showCredentialsModal() {
                     || (cfg.variable.endsWith("_domain") ? "domain"
                         : (cfg.variable.endsWith("_subpath") ? "subpath"
                             : (cfg.variable.endsWith("_port") ? "port" : "general")));
+                if (scope === "subpath" && !groupSubpathVar) groupSubpathVar = cfg.variable;
                 const div = document.createElement("div");
                 div.dataset.scope = scope;
                 //: store the service group on the field (port collision check).
@@ -3176,6 +3179,18 @@ function showCredentialsModal() {
                 }
                 body.appendChild(div);
             });
+            //: per-playbook routing-mode selector for subpath-capable playbooks (Traefik only).
+            if (groupSubpathVar) {
+                const modeDiv = document.createElement("div");
+                modeDiv.className = "config-route-mode";
+                modeDiv.style.cssText = "display:flex; align-items:center; gap:8px; margin-bottom:10px; font-size:13px;";
+                modeDiv.innerHTML =
+                    `<label style="white-space:nowrap;">${t("dlgcore.routeMode")}</label>` +
+                    `<select class="route-mode-select" style="flex:1;"><option value="domain">${t("dlgcore.routeModeDomain")}</option><option value="subpath">${t("dlgcore.routeModeSubpath")}</option></select>`;
+                modeDiv.querySelector(".route-mode-select").value =
+                    (activeVariables[groupSubpathVar] != null && activeVariables[groupSubpathVar] !== "") ? "subpath" : "domain";
+                body.insertBefore(modeDiv, body.firstChild);
+            }
             details.appendChild(body);
             domainsInputsContainer.appendChild(details);
         });
@@ -3186,15 +3201,13 @@ function showCredentialsModal() {
         // a visible field are hidden entirely.
         const applyScopeVisibility = () => {
             const traefik = useTraefikCheckbox.checked;
-            //: subpath mode is only meaningful when Traefik is on.
-            const subpathMode = traefik && routeModeSelect && routeModeSelect.value === "subpath";
-            if (routeModeContainer) routeModeContainer.classList.toggle("hidden", !traefik);
-            if (baseDomainWrap) baseDomainWrap.style.display = subpathMode ? "" : "none";
             let anyVisible = false;
             domainsInputsContainer.querySelectorAll(".modal-config-accordion").forEach(acc => {
-                //: an app is subpath-capable iff it declares a subpath-scoped field.
-                // In subpath mode non-capable apps are hidden entirely (Tier C hard-hide).
-                const accCapable = !!acc.querySelector('.config-field[data-scope="subpath"]');
+                //: routing mode is chosen PER PLAYBOOK via the accordion's own selector.
+                const modeSel = acc.querySelector(".route-mode-select");
+                const subpathMode = traefik && modeSel && modeSel.value === "subpath";
+                const modeWrap = acc.querySelector(".config-route-mode");
+                if (modeWrap) modeWrap.style.display = traefik ? "flex" : "none";
                 let visibleCount = 0;
                 acc.querySelectorAll(".config-field").forEach(field => {
                     const scope = field.dataset.scope;
@@ -3202,7 +3215,7 @@ function showCredentialsModal() {
                     if (scope === "port") visible = !traefik;
                     else if (scope === "domain") visible = traefik && !subpathMode;
                     else if (scope === "subpath") visible = traefik && subpathMode;
-                    else visible = !(traefik && subpathMode && !accCapable); // general
+                    else visible = true; // general
                     field.style.display = visible ? "" : "none";
                     if (visible) { anyVisible = true; visibleCount++; }
                     const inp = field.querySelector("input");
@@ -3213,10 +3226,8 @@ function showCredentialsModal() {
                 const countEl = acc.querySelector(".modal-config-accordion-count");
                 if (countEl) countEl.textContent = `${visibleCount} ${visibleCount === 1 ? t("run.settingSg") : t("run.settingPl")}`;
             });
-            //: the section now contains the Traefik checkbox and must stay reachable
-            // as long as there are any config fields at all (totalConfigs > 0) - so no longer
-            // hide it based on visible fields. The subheading is only shown
-            // when fields are actually visible.
+            //: the section stays reachable as long as there are any config fields at all
+            // (totalConfigs > 0); the subheading is only shown when fields are actually visible.
             domainsSection.classList.remove("hidden");
             const fieldsSubtitle = domainsSection.querySelector(".section-subtitle");
             if (fieldsSubtitle) fieldsSubtitle.style.display = anyVisible ? "" : "none";
@@ -3226,14 +3237,12 @@ function showCredentialsModal() {
 
         //: also check port collisions live on every input in the port fields.
         domainsInputsContainer.addEventListener("input", checkPortCollisions);
+        //: re-apply visibility when a per-playbook routing-mode selector changes.
+        domainsInputsContainer.addEventListener("change", (e) => {
+            if (e.target && e.target.classList && e.target.classList.contains("route-mode-select")) applyScopeVisibility();
+        });
 
         useTraefikCheckbox.onchange = applyScopeVisibility;
-        //: re-apply visibility when the routing mode changes; restore mode/base host from preset.
-        if (routeModeSelect) {
-            routeModeSelect.onchange = applyScopeVisibility;
-            routeModeSelect.value = (activeVariables.route_mode === "subpath") ? "subpath" : "domain";
-        }
-        if (baseDomainInput) baseDomainInput.value = activeVariables.base_domain || "";
         // : take use_traefik from the active preset if saved; otherwise default
         // (true if the preset brings any variables at all).
         useTraefikCheckbox.checked = (activeVariables.use_traefik !== undefined)
@@ -3243,8 +3252,6 @@ function showCredentialsModal() {
     } else {
         traefikContainer.classList.add("hidden");
         domainsSection.classList.add("hidden");
-        if (routeModeContainer) routeModeContainer.classList.add("hidden");
-        if (baseDomainWrap) baseDomainWrap.style.display = "none";
         useTraefikCheckbox.checked = false;
         useTraefikCheckbox.onchange = null;
     }
@@ -3406,16 +3413,8 @@ function collectModalVariables(baseDir) {
     const useTraefikCheckbox = document.getElementById("modal-use-traefik");
     const useTraefik = !!(useTraefikCheckbox && useTraefikCheckbox.checked);
     variables["use_traefik"] = useTraefik;
-    //: routing mode + base host (only relevant with Traefik / subpath mode).
-    if (useTraefik) {
-        const rm = document.getElementById("modal-route-mode");
-        const mode = (rm && rm.value === "subpath") ? "subpath" : "domain";
-        variables["route_mode"] = mode;
-        if (mode === "subpath") {
-            const bd = document.getElementById("modal-base-domain");
-            if (bd && bd.value.trim()) variables["base_domain"] = bd.value.trim();
-        }
-    }
+    //: routing mode + subpath base host travel per playbook via the visible fields
+    // (<stack>_subpath / <stack>_base_domain vs <stack>_domain); hidden fields are skipped below.
     document.querySelectorAll("#modal-domains-inputs .config-field").forEach(field => {
         if (field.style.display === "none") return;
         const inp = field.querySelector("input");
@@ -7094,10 +7093,8 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
     general.innerHTML =
         `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}base-dir" placeholder=" " style="width:100%;"><label for="${ctx.prefix}base-dir">${t("vault.baseDir")}</label></div>` +
         `<div class="text-field" style="margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}timezone" placeholder=" " value="${escapeHtml(tz)}" style="width:100%;"><label for="${ctx.prefix}timezone">${t("vault.timezone")}</label></div>` +
-        `<label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-bottom:6px;"><input type="checkbox" id="${ctx.prefix}use-traefik" class="styled-checkbox" checked> ${t("vault.useTraefik")}</label>` +
-        //: routing mode (domain vs. subpath) + base host for subpath mode.
-        `<div id="${ctx.prefix}route-mode-wrap" style="display:none; align-items:center; gap:8px; font-size:13px; margin-bottom:8px;"><label for="${ctx.prefix}route-mode" style="white-space:nowrap;">${t("vault.routeMode")}</label><select id="${ctx.prefix}route-mode" style="flex:1;"><option value="domain">${t("vault.routeModeDomain")}</option><option value="subpath">${t("vault.routeModeSubpath")}</option></select></div>` +
-        `<div id="${ctx.prefix}base-domain-wrap" class="text-field" style="display:none; margin-bottom:10px; width:100%;"><input type="text" id="${ctx.prefix}base-domain" placeholder=" " style="width:100%;"><label for="${ctx.prefix}base-domain">${t("vault.baseDomain")}</label></div>`;
+        //: routing mode + subpath base host are per-playbook fields inside each accordion.
+        `<label style="display:flex; align-items:center; gap:8px; font-size:13px; cursor:pointer; margin-bottom:6px;"><input type="checkbox" id="${ctx.prefix}use-traefik" class="styled-checkbox" checked> ${t("vault.useTraefik")}</label>`;
     container.appendChild(general);
     Array.from(ctx.selected).forEach(pbPath => {
         const baseName = pbPath.split("/").pop();
@@ -7116,8 +7113,10 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
         details.appendChild(summary);
         const body = document.createElement("div");
         body.className = "modal-config-accordion-body";
+        let groupSubpathVar = null;
         cfgs.forEach(cfg => {
             const scope = cfg.scope || (cfg.variable.endsWith("_domain") ? "domain" : (cfg.variable.endsWith("_subpath") ? "subpath" : (cfg.variable.endsWith("_port") ? "port" : "general")));
+            if (scope === "subpath" && !groupSubpathVar) groupSubpathVar = cfg.variable;
             const div = document.createElement("div");
             div.dataset.scope = scope; div.dataset.serviceGroup = serviceGroup;
             if (cfg.type === "bool") {
@@ -7134,22 +7133,26 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
             }
             body.appendChild(div);
         });
+        //: per-playbook routing-mode selector for subpath-capable playbooks.
+        if (groupSubpathVar) {
+            const modeDiv = document.createElement("div");
+            modeDiv.className = "config-route-mode";
+            modeDiv.style.cssText = "display:none; align-items:center; gap:8px; margin-bottom:10px; font-size:13px;";
+            modeDiv.innerHTML = `<label style="white-space:nowrap;">${t("vault.routeMode")}</label><select class="route-mode-select" style="flex:1;"><option value="domain">${t("vault.routeModeDomain")}</option><option value="subpath">${t("vault.routeModeSubpath")}</option></select>`;
+            body.insertBefore(modeDiv, body.firstChild);
+        }
         details.appendChild(body);
         container.appendChild(details);
     });
     const traefik = document.getElementById(`${ctx.prefix}use-traefik`);
-    const routeModeSel = document.getElementById(`${ctx.prefix}route-mode`);
-    const routeModeWrap = document.getElementById(`${ctx.prefix}route-mode-wrap`);
-    const baseDomainWrap = document.getElementById(`${ctx.prefix}base-domain-wrap`);
     const applyVis = () => {
         const isTraefik = traefik.checked;
-        //: subpath mode only under Traefik; toggle the mode selector + base host field.
-        const subpathMode = isTraefik && routeModeSel && routeModeSel.value === "subpath";
-        if (routeModeWrap) routeModeWrap.style.display = isTraefik ? "flex" : "none";
-        if (baseDomainWrap) baseDomainWrap.style.display = subpathMode ? "" : "none";
         container.querySelectorAll(".modal-config-accordion").forEach(acc => {
-            //: subpath-capable = has a subpath-scoped field; else hard-hidden in subpath mode.
-            const accCapable = !!acc.querySelector('.config-field[data-scope="subpath"]');
+            //: routing mode is chosen PER PLAYBOOK via the accordion's own selector.
+            const modeSel = acc.querySelector(".route-mode-select");
+            const subpathMode = isTraefik && modeSel && modeSel.value === "subpath";
+            const modeWrap = acc.querySelector(".config-route-mode");
+            if (modeWrap) modeWrap.style.display = isTraefik ? "flex" : "none";
             let visible = 0;
             acc.querySelectorAll(".config-field").forEach(field => {
                 const scope = field.dataset.scope;
@@ -7157,7 +7160,7 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
                 if (scope === "port") vis = !isTraefik;
                 else if (scope === "domain") vis = isTraefik && !subpathMode;
                 else if (scope === "subpath") vis = isTraefik && subpathMode;
-                else vis = !(isTraefik && subpathMode && !accCapable); // general
+                else vis = true; // general
                 field.style.display = vis ? "" : "none";
                 if (vis) visible++;
             });
@@ -7167,7 +7170,10 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
         });
     };
     if (traefik) { traefik.onchange = applyVis; }
-    if (routeModeSel) routeModeSel.onchange = applyVis;
+    //: re-apply when a per-playbook routing-mode selector changes.
+    container.addEventListener("change", (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains("route-mode-select")) applyVis();
+    });
     if (traefik) applyVis();
     if (!container.querySelector(".modal-config-accordion")) {
         const note = document.createElement("p");
@@ -7186,16 +7192,8 @@ function collectWizardVariables(ctx = presetWizardCtx()) {
     const traefik = document.getElementById(`${ctx.prefix}use-traefik`);
     const isTraefik = !!(traefik && traefik.checked);
     vars["use_traefik"] = isTraefik ? "true" : "false";
-    //: routing mode + base host (only with Traefik / subpath mode).
-    if (isTraefik) {
-        const rm = document.getElementById(`${ctx.prefix}route-mode`);
-        const mode = (rm && rm.value === "subpath") ? "subpath" : "domain";
-        vars["route_mode"] = mode;
-        if (mode === "subpath") {
-            const bd = document.getElementById(`${ctx.prefix}base-domain`);
-            if (bd && bd.value.trim()) vars["base_domain"] = bd.value.trim();
-        }
-    }
+    //: routing mode + subpath base host travel per playbook via the visible fields
+    // (<stack>_subpath / <stack>_base_domain vs <stack>_domain); hidden fields are skipped below.
     document.querySelectorAll(`#${ctx.cfg} .modal-config-accordion .config-field`).forEach(field => {
         if (field.style.display === "none") return;
         const inp = field.querySelector("input");
@@ -7241,15 +7239,8 @@ function applyWizardVariables(ctx, vars) {
     const tz = document.getElementById(`${ctx.prefix}timezone`);
     if (tz && vars.timezone != null) tz.value = vars.timezone;
     const traefik = document.getElementById(`${ctx.prefix}use-traefik`);
-    //: restore routing mode + base host before re-applying visibility.
-    const routeModeSel = document.getElementById(`${ctx.prefix}route-mode`);
-    if (routeModeSel && vars.route_mode != null) routeModeSel.value = (String(vars.route_mode) === "subpath") ? "subpath" : "domain";
-    const baseDomainInp = document.getElementById(`${ctx.prefix}base-domain`);
-    if (baseDomainInp && vars.base_domain != null) baseDomainInp.value = vars.base_domain;
-    if (traefik && vars.use_traefik != null) {
-        traefik.checked = String(vars.use_traefik) === "true";
-        if (typeof traefik.onchange === "function") traefik.onchange();  // Re-apply visibility (domain/port/subpath)
-    }
+    //: routing mode + base host are per-playbook config fields; restored by the field loop below.
+    if (traefik && vars.use_traefik != null) traefik.checked = String(vars.use_traefik) === "true";
     document.querySelectorAll(`#${ctx.cfg} .modal-config-accordion .config-field input[data-variable]`).forEach(inp => {
         const key = inp.dataset.variable;
         if (vars[key] == null) return;
@@ -7257,6 +7248,14 @@ function applyWizardVariables(ctx, vars) {
         if (inp.type === "checkbox") inp.checked = String(vars[key]) === "true";
         else inp.value = vars[key];
     });
+    //: set each per-playbook routing-mode selector to subpath if its subpath var was saved.
+    document.querySelectorAll(`#${ctx.cfg} .modal-config-accordion`).forEach(acc => {
+        const sel = acc.querySelector(".route-mode-select");
+        const spInp = acc.querySelector('.config-field input[data-variable$="_subpath"]');
+        if (sel && spInp && vars[spInp.dataset.variable] != null && vars[spInp.dataset.variable] !== "") sel.value = "subpath";
+    });
+    // Re-apply visibility now that traefik + per-accordion modes are set (domain/port/subpath).
+    if (traefik && typeof traefik.onchange === "function") traefik.onchange();
 }
 
 function presetWizardNext() {

@@ -73,9 +73,10 @@
               - GITEA__database__DB_TYPE=sqlite3
               # SSH-Port fuer korrekte Klon-URLs (entspricht dem veroeffentlichten Host-Port).
               - GITEA__server__SSH_PORT={{gitea_ssh_port | default('2222')}}
-        {% if (use_traefik | default(false) | bool) and (route_mode | default('domain') == 'subpath') %}
-              #: Subpfad-Routing – ROOT_URL traegt den Pfad, damit Gitea Assets/Links unter dem Unterpfad erzeugt.
-              - GITEA__server__ROOT_URL=http://{{ base_domain | default('localhost') }}{{ gitea_subpath | default('/gitea') }}/
+        {% if (use_traefik | default(false) | bool) and (gitea_subpath | default('')) %}
+              #: Subpfad-Routing (aktiv, sobald gitea_subpath gesetzt ist) – ROOT_URL traegt den Pfad,
+              # damit Gitea Assets/Links unter dem Unterpfad erzeugt.
+              - GITEA__server__ROOT_URL=http://{{ gitea_base_domain | default('localhost') }}{{ gitea_subpath }}/
         {% elif gitea_domain | default('') %}
               - GITEA__server__ROOT_URL=http://{{gitea_domain}}/
               - GITEA__server__SSH_DOMAIN={{gitea_domain}}
@@ -97,16 +98,16 @@
               - homepage.name=Gitea
               - homepage.icon=gitea.svg
               - homepage.description=Git Hosting
-        {% if route_mode | default('domain') == 'subpath' %}
-              - homepage.href=http://{{ base_domain | default('localhost') }}{{ gitea_subpath | default('/gitea') }}
+        {% if gitea_subpath | default('') %}
+              - homepage.href=http://{{ gitea_base_domain | default('localhost') }}{{ gitea_subpath }}
               #: Subpfad – Gitea bedient intern unter "/" und praefixt via ROOT_URL alle generierten URLs
               # mit dem Subpfad. Traefik muss den Praefix daher strippen + einen Trailing-Slash-Redirect setzen.
               # (Live verifiziert: /gitea/ -> 404 ohne Strip; Assets kommen als /gitea/assets/... aus ROOT_URL.)
-              - "traefik.http.routers.gitea_http.rule=PathPrefix(`{{ gitea_subpath | default('/gitea') }}`)"
+              - "traefik.http.routers.gitea_http.rule=PathPrefix(`{{ gitea_subpath }}`)"
               - "traefik.http.routers.gitea_http.middlewares=gitea-add-slash,gitea-strip-prefix"
-              - "traefik.http.middlewares.gitea-add-slash.redirectregex.regex=^{{ gitea_subpath | default('/gitea') }}$$"
-              - "traefik.http.middlewares.gitea-add-slash.redirectregex.replacement={{ gitea_subpath | default('/gitea') }}/"
-              - "traefik.http.middlewares.gitea-strip-prefix.stripprefix.prefixes={{ gitea_subpath | default('/gitea') }}"
+              - "traefik.http.middlewares.gitea-add-slash.redirectregex.regex=^{{ gitea_subpath }}$$"
+              - "traefik.http.middlewares.gitea-add-slash.redirectregex.replacement={{ gitea_subpath }}/"
+              - "traefik.http.middlewares.gitea-strip-prefix.stripprefix.prefixes={{ gitea_subpath }}"
         {% else %}
               - homepage.href=http://{{gitea_domain}}
               - "traefik.http.routers.gitea_http.rule=Host(`{{gitea_domain}}`)"
