@@ -7097,12 +7097,12 @@ function renderWizardConfig(ctx = presetWizardCtx()) {
     });
     const traefik = document.getElementById(`${ctx.prefix}use-traefik`);
     const applyVis = () => {
-        const t = traefik.checked;
+        const isTraefik = traefik.checked;
         container.querySelectorAll(".modal-config-accordion").forEach(acc => {
             let visible = 0;
             acc.querySelectorAll(".config-field").forEach(field => {
                 const scope = field.dataset.scope;
-                const vis = scope === "general" || (scope === "domain" ? t : (scope === "port" ? !t : true));
+                const vis = scope === "general" || (scope === "domain" ? isTraefik : (scope === "port" ? !isTraefik : true));
                 field.style.display = vis ? "" : "none";
                 if (vis) visible++;
             });

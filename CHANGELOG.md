@@ -27,9 +27,14 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+## [0.4.7] - 2026-07-14
+
 ### Added
 - **OS-Familie für Zielgeräte** (#1047): Ein Gerät kann jetzt eine Betriebssystem-Familie (Debian/Ubuntu, RedHat/Fedora, Arch Linux, SUSE, Alpine) hinterlegen — oder sie automatisch erkennen lassen (Standard: „OS automatisch erkennen"). Bei aktiver Auto-Erkennung ermittelt ein Vorab-Check (Ansible-Faktensammlung) das Ziel-OS vor dem Lauf; ohne Auto-Erkennung wählt man die Familie manuell. Die Familie steht Playbooks als `os_family` sowie als kanonisches `ansible_os_family` zur Verfügung. Die Steuerung ist im Geräte-Dialog (My Vault) und im Ausführen-Dialog verfügbar.
 - **Contributor License Agreement** (#1120): Neues `CLA.md` (nebst `.cla-signers`-Liste) regelt, dass externe Beiträge auch in den kommerziellen Editionen des Open-Core-Modells lizenziert werden dürfen, während Contributor das Copyright behalten. `CONTRIBUTING.md` verweist darauf; ein Pull-Request-Check meldet fehlende Signaturen (vorerst informativ, nicht blockierend).
+
+### Fixed
+- Der Preset-/Szenario-Assistent stürzte beim Klick auf „Weiter" für manche Katalog-Einträge mit `TypeError: t is not a function` ab und blockierte den Wizard. Ursache war eine lokale Variable im Ausführen-/Konfigurations-Schritt, welche die globale Übersetzungsfunktion `t()` überschattete; die Sichtbarkeitssteuerung der Traefik-/Port-Felder benutzt jetzt einen eigenen Namen (#1171).
 
 ## [0.4.6] - 2026-07-14
 
@@ -453,7 +458,8 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
   Live-Streaming, die „My Vault“-Dialoge (Szenarien, Playbooks, Presets, Geräte) und
   das Community-Gating (Ausblenden cloud-exklusiver Funktionen) (MS50 #823–#835).
 
-[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.6...HEAD
+[Unreleased]: https://github.com/your-org/ansimate/compare/v0.4.7...HEAD
+[0.4.7]: https://github.com/your-org/ansimate/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/your-org/ansimate/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/your-org/ansimate/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/your-org/ansimate/compare/v0.4.3...v0.4.4
