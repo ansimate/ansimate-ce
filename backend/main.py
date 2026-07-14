@@ -476,6 +476,8 @@ def startup_event():
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS guest_access TEXT DEFAULT '[]' NOT NULL"))
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS base_directory VARCHAR NULL"))
             db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS timezone VARCHAR NULL"))
+            #: manual OS family per device (NULL = auto-detect at run time).
+            db.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS os_family VARCHAR NULL"))
             db.execute(text("ALTER TABLE scenarios ADD COLUMN IF NOT EXISTS device_ids TEXT DEFAULT '[]' NOT NULL"))
             db.execute(text("ALTER TABLE custom_presets ADD COLUMN IF NOT EXISTS device_ids TEXT DEFAULT '[]' NOT NULL"))
             # : scenarios shareable like presets (shares column; the table existed without it).
@@ -1016,6 +1018,83 @@ def update_job_status(job_id: str, status: str, finished_at: str = None):
             print(f"Error updating job status {job_id}: {e}")
             return None
 
+#: OS-family handling. Manual selection uses one of these keys; the value is the
+# canonical `ansible_os_family` that gets surfaced to playbooks. NULL/empty on a device or
+# run means "auto-detect" (a gather_facts pre-step derives it at run time).
+OS_FAMILY_MAP = {
+    "debian": "Debian",     # Debian / Ubuntu / Mint / Raspbian
+    "redhat": "RedHat",     # RHEL / Fedora / CentOS / Rocky / Alma
+    "arch": "Archlinux",    # Arch / Manjaro
+    "suse": "Suse",         # openSUSE / SLES
+    "alpine": "Alpine",     # Alpine
+}
+# reverse map: a detected ansible_os_family (case-insensitive) -> our canonical key.
+_ANSIBLE_OS_FAMILY_TO_KEY = {v.lower(): k for k, v in OS_FAMILY_MAP.items()}
+
+
+def normalize_os_family(value):
+    """: normalize a user-supplied/stored OS family to a known key, else None."""
+    if not value:
+        return None
+    key = str(value).strip().lower()
+    return key if key in OS_FAMILY_MAP else None
+
+
+def _autodetect_and_inject_os_family(inv_path, host_entries, env, timeout, job_id):
+    """: gather_facts pre-step. For every host that does NOT already have a resolved
+    os_family, run a lightweight `ansible -m setup` and inject the detected
+    `ansible_os_family` (+ our `os_family` key) as per-host inventory vars, so playbooks can
+    branch on the target OS even though they run with gather_facts: no.
+
+    Fully NON-FATAL: any failure (binary missing, unreachable host, parse error, timeout)
+    leaves the inventory unchanged and the main run proceeds exactly as before.
+    """
+    try:
+        need = {(he.get("host") or "").strip() for he in host_entries
+                if (he.get("host") or "").strip() and not he.get("os_family")}
+        if not need:
+            return
+        proc = subprocess.run(
+            ["ansible", "all", "-i", inv_path, "-m", "setup",
+             "-a", "gather_subset=!all,min", "-o"],
+            env=env, capture_output=True, text=True, timeout=max(30, int(timeout or 30)) + 30,
+        )
+        detected = {}  # host -> (key, canonical)
+        for line in (proc.stdout or "").splitlines():
+            if " | " not in line or "=>" not in line:
+                continue
+            host = line.split(" | ", 1)[0].strip()
+            if host not in need:
+                continue
+            try:
+                facts = json.loads(line.split("=>", 1)[1].strip()).get("ansible_facts", {})
+            except Exception:
+                continue
+            canon = facts.get("ansible_os_family")
+            if not canon:
+                continue
+            key = _ANSIBLE_OS_FAMILY_TO_KEY.get(str(canon).lower(), str(canon).lower())
+            detected[host] = (key, str(canon))
+        if not detected:
+            return
+        with open(inv_path) as f:
+            lines = f.readlines()
+        out = []
+        for ln in lines:
+            body = ln.rstrip("\n")
+            first = body.split(" ", 1)[0] if (body and not body.startswith("[")) else None
+            if first in detected and " os_family=" not in body:
+                key, canon = detected[first]
+                safe_key = "".join(c for c in key if ord(c) >= 32).replace("'", "'\"'\"'")
+                safe_canon = "".join(c for c in canon if ord(c) >= 32).replace("'", "'\"'\"'")
+                body += f" os_family='{safe_key}' ansible_os_family='{safe_canon}'"
+            out.append(body + "\n")
+        with open(inv_path, "w") as f:
+            f.writelines(out)
+    except Exception as e:
+        print(f"[{job_id}] OS-Auto-Erkennung uebersprungen: {e}")
+
+
 class RunRequest(BaseModel):
     playbooks: List[str]
     target_host: Optional[str] = None
@@ -1039,6 +1118,22 @@ class RunRequest(BaseModel):
     #: optional sudo/become password for this run (overrides one stored on the
     # device). NOT persisted; used only for the Ansible execution.
     become_password: Optional[str] = None
+    #: OS-family control for this run. os_autodetect=True (default) runs a gather_facts
+    # pre-step to detect ansible_os_family per host; when False, os_family (a manual key) is
+    # applied to all hosts. Either way os_family + ansible_os_family are exposed as run vars.
+    # A device's stored os_family is honored per host regardless (auto-detect fills the gaps).
+    os_autodetect: Optional[bool] = True
+    os_family: Optional[str] = None
+
+    @field_validator("os_family")
+    @classmethod
+    def validate_os_family(cls, v):
+        if v is None or str(v).strip() == "":
+            return None
+        key = str(v).strip().lower()
+        if key not in OS_FAMILY_MAP:
+            raise ValueError("Ungueltige OS-Familie.")
+        return key
 
     @field_validator("ssh_key")
     @classmethod
@@ -1177,7 +1272,9 @@ def run_playbook_background(
     send_notifications: bool = False,
     hosts: Optional[list] = None,
     webhook_url: Optional[str] = None,
-    become_password: Optional[str] = None
+    become_password: Optional[str] = None,
+    os_autodetect: bool = True,
+    os_family: Optional[str] = None
 ):
     # : if the job was already canceled in the queue, do not even start it.
     with active_runs_lock:
@@ -1221,6 +1318,16 @@ def run_playbook_background(
         host_entries = hosts
     else:
         host_entries = [{"host": target_host, "username": username, "password": password, "ssh_key": ssh_key, "become_password": become_password}]
+
+    #: resolve the per-host OS family. A run-level manual selection (auto-detect off)
+    # overrides every host; otherwise each host keeps its device-stored os_family. Hosts that
+    # still have none are auto-detected further below (gather_facts pre-step), if enabled.
+    _manual_os = normalize_os_family(os_family) if not os_autodetect else None
+    for _he in host_entries:
+        if _manual_os:
+            _he["os_family"] = _manual_os
+        elif _he.get("os_family"):
+            _he["os_family"] = normalize_os_family(_he.get("os_family"))
 
     # Determine if we are running any custom playbooks and extract user_id
     is_custom = any(pb.startswith("custom/") or pb.startswith("/playbooks/custom/") for pb in playbooks)
@@ -1331,6 +1438,16 @@ def run_playbook_background(
                 if bd_value:
                     safe_bd = "".join(ch for ch in str(bd_value) if ord(ch) >= 32).replace("'", "'\"'\"'")
                     line += f" base_dir='{safe_bd}'"
+                #: inject the resolved OS family (manual selection or device-stored) as
+                # per-host vars. Auto-detected values are injected after this write (the
+                # gather_facts pre-step rewrites the inventory for the remaining hosts).
+                h_osf = he.get("os_family")
+                if h_osf:
+                    safe_osf = "".join(ch for ch in str(h_osf) if ord(ch) >= 32).replace("'", "'\"'\"'")
+                    line += f" os_family='{safe_osf}'"
+                    canon = OS_FAMILY_MAP.get(h_osf)
+                    if canon:
+                        line += f" ansible_os_family='{canon}'"
                 line += var_suffix
                 inv_file.write(line + "\n")
     except Exception as e:
@@ -1430,6 +1547,13 @@ def run_playbook_background(
     #: load the vendored sudo become plugin with sudo-rs prompt support (Ubuntu 25.10+).
     if os.path.isdir(BECOME_PLUGINS_DIR):
         env["ANSIBLE_BECOME_PLUGINS"] = BECOME_PLUGINS_DIR
+
+    #: OS-family auto-detection (gather_facts pre-step). Runs host-side before the main
+    # command is built, so both the host and the sandbox path pick up the injected vars from
+    # the shared inventory. Only fires for hosts without an already resolved os_family and is
+    # fully non-fatal (see helper) — a detection failure never blocks the run.
+    if os_autodetect:
+        _autodetect_and_inject_os_family(inv_path, host_entries, env, connection_timeout, job_id)
 
     cmd = ["ansible-playbook", "-i", inv_path] + playbook_paths
 
@@ -1765,12 +1889,13 @@ def queue_worker():
         item = execution_queue.get()
         if item is None:
             break
-        job_id, playbooks, target_host, username, password, variables, ssh_key, user_email, send_notifications, hosts, webhook_url, become_password = item
+        job_id, playbooks, target_host, username, password, variables, ssh_key, user_email, send_notifications, hosts, webhook_url, become_password, os_autodetect, os_family = item
         try:
             run_playbook_background(
                 job_id, playbooks, target_host, username, password, variables,
                 ssh_key=ssh_key, user_email=user_email, send_notifications=send_notifications, hosts=hosts,
-                webhook_url=webhook_url, become_password=become_password
+                webhook_url=webhook_url, become_password=become_password,
+                os_autodetect=os_autodetect, os_family=os_family
             )
         except Exception as e:
             print(f"Error in queue worker processing job {job_id}: {e}")
@@ -2633,6 +2758,8 @@ def _serialize_device(d: Device):
         "has_become_credential": d.encrypted_become_credential is not None,
         "base_directory": d.base_directory,
         "timezone": d.timezone,
+        #: manually configured OS family (None/"" = auto-detect at run time).
+        "os_family": d.os_family,
         "guest_access": _safe_json_list(d.guest_access),
         # Compat with the existing vault UI (editManagedDevice reads managed_device.*).
         "managed": True,
@@ -2676,7 +2803,12 @@ def _clean_device_defaults(data):
     tz = _norm(data.default_timezone) or None
     if tz and (not re.match(r"^[A-Za-z0-9/_+-]+$", tz) or len(tz) > 64):
         raise HTTPException(status_code=400, detail="Ungueltige Zeitzone.")
-    return {"user": user, "ctype": ctype, "base_dir": base_dir, "tz": tz}
+    #: manual OS family (empty/None = auto-detect). Must be a known key if set.
+    osf_raw = getattr(data, "os_family", None)
+    osf = normalize_os_family(osf_raw)
+    if osf_raw and _norm(osf_raw) and osf is None:
+        raise HTTPException(status_code=400, detail="Ungueltige OS-Familie.")
+    return {"user": user, "ctype": ctype, "base_dir": base_dir, "tz": tz, "os_family": osf}
 
 # ---- (Device-Flatten): managed single devices ----
 # A "device" = exactly ONE Device (one host). Connection data (host/user/credential/become),
@@ -2698,6 +2830,8 @@ class UnifiedDeviceSchema(BaseModel):
     default_base_directory: Optional[str] = None
     default_timezone: Optional[str] = None
     default_variables: Optional[Dict[str, str]] = None
+    #: manual OS family (debian/redhat/arch/suse/alpine). None/"" = auto-detect at run time.
+    os_family: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -2786,6 +2920,7 @@ def create_managed_device(data: UnifiedDeviceSchema, request: Request, user: Use
         encrypted_credential=encrypted, credential_type=ctype,
         encrypted_become_credential=encrypted_become,
         base_directory=defaults["base_dir"], timezone=defaults["tz"],
+        os_family=defaults["os_family"],
         guest_access=json.dumps([]),
     )
     db.add(dev)
@@ -2809,6 +2944,7 @@ def update_managed_device(device_id: str, data: UnifiedDeviceSchema, request: Re
     dev.username = defaults["user"]
     dev.base_directory = defaults["base_dir"]
     dev.timezone = defaults["tz"]
+    dev.os_family = defaults["os_family"]
     if data.default_credential is not None:
         if data.default_credential == "":
             dev.encrypted_credential = None
@@ -3747,6 +3883,8 @@ def list_devices(user: User = Depends(get_authenticated_user), db: DBSession = D
             "has_credential": d.encrypted_credential is not None,
             "has_become_credential": d.encrypted_become_credential is not None,
             "credential_type": d.credential_type,
+            #: OS family for run-dialog prefill (None/"" = auto-detect).
+            "os_family": d.os_family,
             "created_at": d.created_at.isoformat()
         }
         for d in devices
@@ -4336,6 +4474,8 @@ def run_playbook(
                 "host": device.host,   # Device.host is a required field, so always set
                 "username": device.username,
                 "password": None, "ssh_key": None,
+                #: the device's manually configured OS family (None = auto-detect).
+                "os_family": device.os_family,
             }
             if device.encrypted_credential:
                 try:
@@ -4421,7 +4561,9 @@ def run_playbook(
         send_notifications,
         host_entries,
         webhook_url,
-        become_password
+        become_password,
+        request.os_autodetect if request.os_autodetect is not None else True,
+        request.os_family
     ))
 
     # : team audit - playbook execution. Only for authenticated users (team

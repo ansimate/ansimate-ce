@@ -1,0 +1,11 @@
+# Ansimate CLA signers
+# ---------------------
+# One Git-hosting username per line = the account that opens pull requests.
+# By adding your username here you accept the Contributor License Agreement in CLA.md
+# for your present and future contributions.
+#
+# Blank lines and lines starting with "#" are ignored.
+# The pull-request check in .gitea/workflows/cla.yml compares the PR author against this list
+# (informational / non-blocking during the initial rollout).
+
+rick

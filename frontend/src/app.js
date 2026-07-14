@@ -3259,6 +3259,20 @@ function hideCredentialsModal() {
     const _spCb = document.getElementById("modal-save-preset-cb"); if (_spCb) _spCb.checked = false;
     const _spName = document.getElementById("modal-preset-name"); if (_spName) _spName.value = "";
     const _spBtn = document.getElementById("modal-save-preset-btn"); if (_spBtn) _spBtn.disabled = true;
+    //: reset OS-family controls (auto-detect on by default, dropdown hidden). A device's
+    // own stored family is still honored server-side even while auto-detect is on.
+    const _osCb = document.getElementById("modal-os-autodetect");
+    if (_osCb) { _osCb.checked = true; _osCb.onchange = _syncModalOsFamilyUI; }
+    const _osSel = document.getElementById("modal-os-family");
+    if (_osSel) _osSel.value = "debian";
+    _syncModalOsFamilyUI();
+}
+
+//: show the run dialog's OS-family dropdown only when auto-detect is off.
+function _syncModalOsFamilyUI() {
+    const cb = document.getElementById("modal-os-autodetect");
+    const wrap = document.getElementById("modal-os-family-wrap");
+    if (wrap) wrap.style.display = (cb && cb.checked) ? "none" : "block";
 }
 
 // : reusable, styled confirmation dialog (#app-confirm-dialog) as a replacement
@@ -3503,6 +3517,16 @@ async function handleModalSubmit() {
     const becomeEl = document.getElementById("modal-become-password");
     if (becomeEl && becomeEl.value) {
         payload.become_password = becomeEl.value;
+    }
+    //: OS-family control. Auto-detect on -> backend gather_facts pre-step; off -> the
+    // chosen family is applied to all hosts. A device's own stored family is honored by the
+    // backend regardless (auto-detect only fills the gaps).
+    const osAutoEl = document.getElementById("modal-os-autodetect");
+    const osFamEl = document.getElementById("modal-os-family");
+    const osAuto = !osAutoEl || osAutoEl.checked;
+    payload.os_autodetect = osAuto;
+    if (!osAuto && osFamEl && osFamEl.value) {
+        payload.os_family = osFamEl.value;
     }
 
     try {
@@ -5607,6 +5631,19 @@ function resetManagedDeviceForm() {
     // : reset the dialog's dirty flag (fresh state -> no discard prompt).
     const dlg = document.getElementById("managed-device-dialog");
     if (dlg) dlg.dataset.dirty = "";
+    //: reset OS-family controls (new entry = auto-detect on, dropdown hidden).
+    const osCb = document.getElementById("managed-device-os-autodetect");
+    if (osCb) { osCb.checked = true; osCb.onchange = _syncManagedOsFamilyUI; }
+    const osSel = document.getElementById("managed-device-os-family");
+    if (osSel) osSel.value = "debian";
+    _syncManagedOsFamilyUI();
+}
+
+//: show the OS-family dropdown only when auto-detect is off.
+function _syncManagedOsFamilyUI() {
+    const cb = document.getElementById("managed-device-os-autodetect");
+    const wrap = document.getElementById("managed-device-os-family-wrap");
+    if (wrap) wrap.style.display = (cb && cb.checked) ? "none" : "block";
 }
 
 // : placeholder in the password field of an edited device (shows "Credentials stored").
@@ -5651,6 +5688,14 @@ function editManagedDevice(g) {
     }
     const becomeHint = document.getElementById("managed-device-become-hint");
     if (becomeHint) becomeHint.style.display = hasBecome ? "block" : "none";
+    //: OS family. A stored family -> auto-detect off + dropdown preselected;
+    // no stored family -> auto-detect on.
+    const osCb = document.getElementById("managed-device-os-autodetect");
+    const osSel = document.getElementById("managed-device-os-family");
+    const fam = (g.os_family || "").trim();
+    if (osCb) { osCb.checked = !fam; osCb.onchange = _syncManagedOsFamilyUI; }
+    if (osSel) osSel.value = fam || "debian";
+    _syncManagedOsFamilyUI();
     // : open editing in the dialog.
     openManagedDeviceDialog();
 }
@@ -5660,11 +5705,16 @@ async function saveManagedDevice() {
     const host = document.getElementById("managed-device-host").value.trim();
     if (!name) { showToast(t("device.nameRequired")); return; }
     if (!host) { showToast(t("device.hostRequired")); return; }
+    //: auto-detect on -> store no family (empty = auto); off -> the chosen family.
+    const osAuto = document.getElementById("managed-device-os-autodetect");
+    const osSel = document.getElementById("managed-device-os-family");
+    const osFamily = (osAuto && osAuto.checked) ? "" : ((osSel && osSel.value) || "");
     const payload = {
         name, host,
         default_ssh_user: document.getElementById("managed-device-user").value.trim(),
         default_base_directory: document.getElementById("managed-device-basedir").value.trim(),
         default_timezone: document.getElementById("managed-device-tz").value.trim(),
+        os_family: osFamily,
     };
     // : derive the auth method from the fields — an uploaded SSH key => key,
     // otherwise password. Contract: new secret -> set; "Remove"/new entry -> "" (delete);

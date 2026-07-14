@@ -27,6 +27,10 @@ einfassen. scripts/community-export.sh schneidet diese Bloecke beim Export fail-
 
 ## [Unreleased]
 
+### Added
+- **OS-Familie für Zielgeräte** (#1047): Ein Gerät kann jetzt eine Betriebssystem-Familie (Debian/Ubuntu, RedHat/Fedora, Arch Linux, SUSE, Alpine) hinterlegen — oder sie automatisch erkennen lassen (Standard: „OS automatisch erkennen"). Bei aktiver Auto-Erkennung ermittelt ein Vorab-Check (Ansible-Faktensammlung) das Ziel-OS vor dem Lauf; ohne Auto-Erkennung wählt man die Familie manuell. Die Familie steht Playbooks als `os_family` sowie als kanonisches `ansible_os_family` zur Verfügung. Die Steuerung ist im Geräte-Dialog (My Vault) und im Ausführen-Dialog verfügbar.
+- **Contributor License Agreement** (#1120): Neues `CLA.md` (nebst `.cla-signers`-Liste) regelt, dass externe Beiträge auch in den kommerziellen Editionen des Open-Core-Modells lizenziert werden dürfen, während Contributor das Copyright behalten. `CONTRIBUTING.md` verweist darauf; ein Pull-Request-Check meldet fehlende Signaturen (vorerst informativ, nicht blockierend).
+
 ## [0.4.6] - 2026-07-14
 
 ### Fixed

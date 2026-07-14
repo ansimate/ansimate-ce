@@ -139,6 +139,9 @@ class Device(Base):
     # (Device-Flatten): per-device run context, formerly held on the single-member DeviceGroup.
     base_directory = Column(String, nullable=True)   # Deployment target directory on the host
     timezone = Column(String, nullable=True)          # Timezone for containers/playbooks
+    #: manual OS family (debian/redhat/arch/suse/alpine). NULL/empty = auto-detect at run
+    # time (gather_facts pre-step). Surfaced to playbooks as os_family + ansible_os_family.
+    os_family = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
 class APIToken(Base):

@@ -618,6 +618,22 @@
                         <input type="text" id="managed-device-tz" placeholder=" " maxlength="64" style="width: 100%;">
                         <label for="managed-device-tz" data-i18n="dlgpay.defaultTimezone">Standard-Zeitzone</label>
                     </div>
+                    
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; margin-bottom:6px; cursor:pointer;">
+                        <input type="checkbox" id="managed-device-os-autodetect" class="styled-checkbox" checked>
+                        <span data-i18n="dlgpay.osFamilyAutodetect">Betriebssystem automatisch erkennen</span>
+                    </label>
+                    <div id="managed-device-os-family-wrap" style="margin-bottom: 4px; width: 100%; display:none;">
+                        <label for="managed-device-os-family" style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;" data-i18n="dlgpay.osFamilyLabel">OS-Familie</label>
+                        <select id="managed-device-os-family" style="width: 100%; padding:8px; border-radius:8px; background-color: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border:1px solid var(--md-sys-color-outline);">
+                            <option value="debian">Debian / Ubuntu</option>
+                            <option value="redhat">RedHat / Fedora / CentOS</option>
+                            <option value="arch">Arch Linux</option>
+                            <option value="suse">SUSE</option>
+                            <option value="alpine">Alpine</option>
+                        </select>
+                    </div>
+                    <small style="display:block; font-size:11px; color:var(--text-muted); margin-bottom:10px;" data-i18n="dlgpay.osFamilyNote">Legt die Ziel-OS-Familie fest (steht Playbooks als os_family / ansible_os_family zur Verfügung). Ohne Auswahl wird sie vor jedem Lauf automatisch erkannt.</small>
                     <div style="display: flex; gap: 10px;">
                         <button type="button" class="btn btn-text" id="managed-device-cancel-btn" style="flex: 1;" data-i18n="common.cancel">Abbrechen</button>
                         <button type="button" class="btn btn-primary" id="managed-device-save-btn" style="flex: 2;" data-i18n="common.save">Speichern</button>
@@ -1073,6 +1089,22 @@
                         <input type="text" id="modal-timezone" required placeholder=" ">
                         <label for="modal-timezone" data-i18n="dlgcore.timezone">Zeitzone (timezone)</label>
                         <span class="helper-text" data-i18n="dlgcore.timezoneHelp">z. B. Europe/Berlin</span>
+                    </div>
+
+                    
+                    <label class="checkbox-label" style="display:flex; align-items:center; gap:8px; margin-top:6px; cursor:pointer;">
+                        <input type="checkbox" id="modal-os-autodetect" class="styled-checkbox" checked>
+                        <span data-i18n="dlgcore.osAutodetect">OS automatisch erkennen</span>
+                    </label>
+                    <div id="modal-os-family-wrap" style="display:none; margin-top:4px;">
+                        <label for="modal-os-family" style="display:block; font-size:12px; color:var(--text-muted); margin-bottom:4px;" data-i18n="dlgcore.osFamily">OS-Familie</label>
+                        <select id="modal-os-family" style="width:100%; padding:8px; border-radius:8px; background-color: var(--md-sys-color-surface-container-high); color: var(--md-sys-color-on-surface); border:1px solid var(--md-sys-color-outline);">
+                            <option value="debian">Debian / Ubuntu</option>
+                            <option value="redhat">RedHat / Fedora / CentOS</option>
+                            <option value="arch">Arch Linux</option>
+                            <option value="suse">SUSE</option>
+                            <option value="alpine">Alpine</option>
+                        </select>
                     </div>
                 </div>
 

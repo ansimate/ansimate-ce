@@ -86,6 +86,10 @@ export default {
         "dlgpay.basedirNote2": "und",
         "dlgpay.basedirNote3": "(z. B. beim Aufsetzen von Docker-Containern).",
         "dlgpay.defaultTimezone": "Standard-Zeitzone",
+        //: OS-Familie / Auto-Erkennung
+        "dlgpay.osFamilyAutodetect": "Betriebssystem automatisch erkennen",
+        "dlgpay.osFamilyLabel": "OS-Familie",
+        "dlgpay.osFamilyNote": "Legt die Ziel-OS-Familie fest (steht Playbooks als os_family / ansible_os_family zur Verfügung). Ohne Auswahl wird sie vor jedem Lauf automatisch erkannt.",
         // scenario-dialog
         "dlgpay.scenarioFormTitle": "Neues Szenario",
         "dlgpay.preset": "Preset",
@@ -210,6 +214,10 @@ export default {
         "dlgpay.basedirNote2": "and",
         "dlgpay.basedirNote3": "(e.g. when setting up Docker containers).",
         "dlgpay.defaultTimezone": "Default time zone",
+        //: OS family / auto-detection
+        "dlgpay.osFamilyAutodetect": "Auto-detect operating system",
+        "dlgpay.osFamilyLabel": "OS family",
+        "dlgpay.osFamilyNote": "Sets the target OS family (available to playbooks as os_family / ansible_os_family). Without a selection it is auto-detected before each run.",
         // scenario-dialog
         "dlgpay.scenarioFormTitle": "New scenario",
         "dlgpay.preset": "Preset",

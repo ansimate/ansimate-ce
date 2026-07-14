@@ -12,6 +12,7 @@ The goal is a traceable, clean history and a reliable review process.
 - [Issues & Milestones](#issues--milestones)
 - [Code Quality](#code-quality)
 - [Architecture (Open Core)](#architecture-open-core)
+- [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [Local Development & Tests](#local-development--tests)
 
 ## Branching Model
@@ -137,6 +138,24 @@ there but instead manually **merged back** into the monorepo (backmerge into `de
 Edition model (package-based, entry points) + publishing:
 [docs/OPEN_CORE_PUBLISHING.md](docs/OPEN_CORE_PUBLISHING.md); release process:
 [docs/RELEASE_RUNBOOK.md](docs/RELEASE_RUNBOOK.md).
+
+## Contributor License Agreement (CLA)
+
+Because of the open-core model above, every contributor must agree to the
+[Contributor License Agreement](CLA.md) **before** their contribution is merged. The CLA lets
+the Maintainers distribute and relicense the combined work — including in the proprietary
+cloud/enterprise editions — while **you keep the copyright to your work**.
+
+Signing is file-based and lightweight:
+
+1. Read [`CLA.md`](CLA.md).
+2. Add your Git-hosting username to [`.cla-signers`](.cla-signers) (one line), typically in the
+   same pull request as your first contribution.
+3. State in that pull request: *"I have read the CLA document and I hereby sign the CLA."*
+
+A pull-request check ([`.gitea/workflows/cla.yml`](.gitea/workflows/cla.yml)) reports whether
+the PR author is listed in `.cla-signers`. During the initial rollout it is **informational
+and does not block merges**.
 
 ## Local Development & Tests
 
