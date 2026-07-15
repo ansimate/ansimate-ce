@@ -2601,11 +2601,15 @@ const playbookDomainConfigs = {
         { label: "HTTP-Port (ohne Traefik)", variable: "dockman_port", placeholder: "8866", required: false }
     ],
     "create-stack-filebrowser.yml": [
-        { label: "Filebrowser Domain", variable: "filebrowser_domain", placeholder: "files.local", required: true },
+        { label: "Filebrowser Domain", variable: "filebrowser_domain", placeholder: "files.local", required: false },
+        //: Subpfad-Modus (Filebrowser via baseURL in settings.json, Typ 1 = nativ unter Subpfad).
+        { label: "Filebrowser Subpfad (bei Traefik-Subpfad-Modus)", variable: "filebrowser_subpath", placeholder: "/files", default: "/files", scope: "subpath", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "filebrowser_port", placeholder: "8080", required: false }
     ],
     "create-stack-nodered.yml": [
-        { label: "Node-RED Domain", variable: "nodered_domain", placeholder: "nodered.local", required: true },
+        { label: "Node-RED Domain", variable: "nodered_domain", placeholder: "nodered.local", required: false },
+        //: Subpfad-Modus (Node-RED via httpAdminRoot in settings.js, Typ 1 = nativ unter Subpfad).
+        { label: "Node-RED Subpfad (bei Traefik-Subpfad-Modus)", variable: "nodered_subpath", placeholder: "/nodered", default: "/nodered", scope: "subpath", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "nodered_port", placeholder: "1880", required: false }
     ],
     //: MQTT/Mosquitto previously had no UI configuration. Defaults in the playbook
@@ -2623,11 +2627,17 @@ const playbookDomainConfigs = {
         { label: "JDownloader VNC Passwort", variable: "jd2_vnc_passwd", placeholder: "Passwort (optional)", type: "password", required: false }
     ],
     "create-stack-prometheus.yml": [
-        { label: "Prometheus Domain", variable: "prometheus_domain", placeholder: "prometheus.local", required: true },
+        { label: "Prometheus Domain", variable: "prometheus_domain", placeholder: "prometheus.local", required: false },
+        //: Subpfad-Modus (Prometheus via --web.external-url, Typ 1 = nativ unter Subpfad).
+        { label: "Prometheus Subpfad (bei Traefik-Subpfad-Modus)", variable: "prometheus_subpath", placeholder: "/prometheus", default: "/prometheus", scope: "subpath", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "prometheus_port", placeholder: "9090", required: false }
     ],
     "create-stack-vaultwarden.yml": [
         { label: "Vaultwarden Domain (bei Traefik)", variable: "vaultwarden_domain", placeholder: "vault.local", required: false },
+        //: Subpfad-Modus (Vaultwarden via DOMAIN mit Pfad, Typ 1 = nativ unter Subpfad).
+        // vaultwarden_base_domain braucht explizites scope (Suffix _domain waere sonst Domain-Feld).
+        { label: "Vaultwarden Subpfad (bei Traefik-Subpfad-Modus)", variable: "vaultwarden_subpath", placeholder: "/vault", default: "/vault", scope: "subpath", required: false },
+        { label: "Haupt-Domain / IP (für Subpfad)", variable: "vaultwarden_base_domain", placeholder: "example.com / 192.168.1.10", scope: "subpath", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "vaultwarden_port", placeholder: "8080", required: false },
         { label: "Registrierung erlauben", variable: "vaultwarden_signups_allowed", type: "bool", default: false, required: false },
         { label: "Admin-Token (optional)", variable: "vaultwarden_admin_token", placeholder: "Token für Admin-Panel", type: "password", required: false }
@@ -2691,7 +2701,9 @@ const playbookDomainConfigs = {
     ],
     "create-stack-navidrome.yml": [
         { label: "Navidrome Domain (bei Traefik)", variable: "navidrome_domain", placeholder: "music.local", required: false },
-        { label: "Musik-Verzeichnis auf dem Host (read-only)", variable: "navidrome_music_dir", placeholder: "/srv/music", required: false },
+        //: Subpfad-Modus (Navidrome via ND_BASEURL, Typ 1 = nativ unter Subpfad).
+        { label: "Navidrome Subpfad (bei Traefik-Subpfad-Modus)", variable: "navidrome_subpath", placeholder: "/navidrome", default: "/navidrome", scope: "subpath", required: false },
+        { label: "Musik-Verzeichnis auf dem Host (read-only)", variable: "navidrome_music_dir", placeholder: "/srv/music", required: false, scope: "general" },
         { label: "HTTP-Port (ohne Traefik)", variable: "navidrome_port", placeholder: "4533", required: false }
     ],
     // Playbook Roadmap (Free) – Batch 3
@@ -2721,6 +2733,10 @@ const playbookDomainConfigs = {
     ],
     "create-stack-n8n.yml": [
         { label: "n8n Domain (bei Traefik)", variable: "n8n_domain", placeholder: "n8n.local", required: false },
+        //: Subpfad-Modus (n8n via N8N_PATH, Typ 1 = nativ unter Subpfad, kein stripprefix).
+        // n8n_base_domain braucht explizites scope (Suffix _domain waere sonst Domain-Feld).
+        { label: "n8n Subpfad (bei Traefik-Subpfad-Modus)", variable: "n8n_subpath", placeholder: "/n8n", default: "/n8n", scope: "subpath", required: false },
+        { label: "Haupt-Domain / IP (für Subpfad)", variable: "n8n_base_domain", placeholder: "example.com / 192.168.1.10", scope: "subpath", required: false },
         { label: "Encryption-Key (optional, leer = auto)", variable: "n8n_encryption_key", placeholder: "Key", type: "password", required: false },
         { label: "HTTP-Port (ohne Traefik)", variable: "n8n_port", placeholder: "5678", required: false }
     ],

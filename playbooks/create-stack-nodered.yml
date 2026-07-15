@@ -78,11 +78,21 @@
               - homepage.group=Main
               - homepage.name=nodeRED
               - homepage.icon=node-red.png
-              - homepage.href=http://{{nodered_domain}}
               - homepage.description=The automation platform
+        {% if nodered_subpath | default('') %}
+              - homepage.href={{ nodered_subpath }}
+              # Subpfad (Typ 1) – Node-RED bedient via httpAdminRoot (settings.js) nativ unter
+              # dem Unterpfad, daher KEIN stripprefix, nur PathPrefix + Trailing-Slash-Redirect + bauth.
+              - "traefik.http.routers.nodered_http.rule=PathPrefix(`{{ nodered_subpath }}`)"
+              - "traefik.http.routers.nodered_http.middlewares=bauth,nodered-add-slash"
+              - "traefik.http.middlewares.nodered-add-slash.redirectregex.regex=^{{ nodered_subpath }}$$"
+              - "traefik.http.middlewares.nodered-add-slash.redirectregex.replacement={{ nodered_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{nodered_domain}}
               - "traefik.http.routers.nodered_http.rule=Host(`{{nodered_domain}}`)"
-              - traefik.http.routers.nodered_http.entrypoints=web
               - "traefik.http.routers.nodered_http.middlewares=bauth"
+        {% endif %}
+              - traefik.http.routers.nodered_http.entrypoints=web
         {% else %}
             ports:
               - "{{nodered_port | default('1880')}}:1880"
@@ -95,6 +105,23 @@
 #    args:
 #      chdir: "{{base_dir}}/compose/{{stack}}"
 #    when: domain_is_public
+#---------------------------------------------------------------------------------------------
+  - name: "seed settings.js with httpAdminRoot (nur im Traefik-Subpfad-Modus)"
+    copy:
+      dest: "{{base_dir}}/docker/{{stack}}/settings.js"
+      owner: "{{ssh_user}}"
+      content: |
+        // Von Ansimate erzeugt fuer Subpfad-Routing (Typ 1). Node-RED bedient Editor + HTTP-Nodes
+        // nativ unter httpAdminRoot/httpNodeRoot; Traefik nutzt daher PathPrefix OHNE stripprefix. Ohne
+        // diese Datei erzeugt Node-RED absolute API-/Websocket-Pfade -> 404 unter dem Unterpfad.
+        module.exports = {
+            uiPort: process.env.PORT || 1880,
+            httpAdminRoot: '{{ nodered_subpath }}',
+            httpNodeRoot: '{{ nodered_subpath }}',
+            flowFile: 'flows.json',
+            functionGlobalContext: {},
+        }
+    when: (use_traefik | default(false) | bool) and (nodered_subpath | default(''))
 #---------------------------------------------------------------------------------------------
   - name: "start compose stack"
     become: true

@@ -77,6 +77,11 @@
             environment:
               - TZ={{timezone | default('Europe/Berlin')}}
               - ND_MUSICFOLDER=/music
+        {% if (use_traefik | default(false) | bool) and (navidrome_subpath | default('')) %}
+              # Subpfad-Routing (Typ 1) – Navidrome bedient via ND_BASEURL nativ unter dem
+              # Unterpfad; KEIN stripprefix in Traefik.
+              - ND_BASEURL={{ navidrome_subpath }}
+        {% endif %}
             volumes:
               # Navidrome-Daten (DB, Cache) unter /data; Musikbibliothek read-only unter /music
               - {{base_dir}}/docker/{{stack}}:/data
@@ -88,9 +93,19 @@
               - homepage.group=Multimedia
               - homepage.name=Navidrome
               - homepage.icon=navidrome.svg
-              - homepage.href=http://{{navidrome_domain}}
               - homepage.description=Music Streaming
+        {% if navidrome_subpath | default('') %}
+              - homepage.href={{ navidrome_subpath }}
+              # Subpfad (Typ 1) – nativ unter ND_BASEURL, daher KEIN stripprefix,
+              # nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix.
+              - "traefik.http.routers.navidrome_http.rule=PathPrefix(`{{ navidrome_subpath }}`)"
+              - "traefik.http.routers.navidrome_http.middlewares=navidrome-add-slash"
+              - "traefik.http.middlewares.navidrome-add-slash.redirectregex.regex=^{{ navidrome_subpath }}$$"
+              - "traefik.http.middlewares.navidrome-add-slash.redirectregex.replacement={{ navidrome_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{navidrome_domain}}
               - "traefik.http.routers.navidrome_http.rule=Host(`{{navidrome_domain}}`)"
+        {% endif %}
               - traefik.http.routers.navidrome_http.entrypoints=web
               - traefik.http.services.navidrome.loadbalancer.server.port=4533
         {% else %}

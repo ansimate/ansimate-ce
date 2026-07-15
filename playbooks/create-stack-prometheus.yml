@@ -99,7 +99,10 @@
               - '--storage.tsdb.path=/prometheus'
               - '--web.console.libraries=/usr/share/prometheus/console_libraries'
               - '--web.console.templates=/usr/share/prometheus/consoles'
-              - '--web.external-url=/prometheus/'
+              # route-prefix folgt aus external-url. In Domain/Port-Modus bleibt der
+              # bisherige Default /prometheus; im Subpfad-Modus traegt er den gewaehlten Subpfad
+              # (Typ 1: Prometheus bedient nativ darunter, kein stripprefix in Traefik).
+              - '--web.external-url={{ prometheus_subpath | default("/prometheus") }}/'
         {% if use_traefik | default(false) | bool %}
             networks:
               - local
@@ -109,11 +112,21 @@
               - homepage.group=Backend
               - homepage.name=Prometheus
               - homepage.icon=prometheus.png
-              - homepage.href=http://{{prometheus_domain}}
               - homepage.description=Database for Metrics
+        {% if prometheus_subpath | default('') %}
+              - homepage.href={{ prometheus_subpath }}
+              # Subpfad (Typ 1) – nativ unter --web.external-url, daher KEIN stripprefix,
+              # nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix (plus bauth).
+              - "traefik.http.routers.prometheus_http.rule=PathPrefix(`{{ prometheus_subpath }}`)"
+              - "traefik.http.routers.prometheus_http.middlewares=bauth,prometheus-add-slash"
+              - "traefik.http.middlewares.prometheus-add-slash.redirectregex.regex=^{{ prometheus_subpath }}$$"
+              - "traefik.http.middlewares.prometheus-add-slash.redirectregex.replacement={{ prometheus_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{prometheus_domain}}
               - traefik.http.routers.prometheus_http.rule=Host(`{{prometheus_domain}}`)
-              - traefik.http.routers.prometheus_http.entrypoints=web
               - traefik.http.routers.prometheus_http.middlewares=bauth
+        {% endif %}
+              - traefik.http.routers.prometheus_http.entrypoints=web
         {% else %}
             ports:
               - "{{prometheus_port | default('9090')}}:9090"

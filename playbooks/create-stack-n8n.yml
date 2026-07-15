@@ -76,7 +76,14 @@
               # Persistenter Encryption-Key fuer gespeicherte Credentials. Leer lassen, dann
               # erzeugt n8n beim ersten Start selbst einen und legt ihn im Volume ab.
               - N8N_ENCRYPTION_KEY={{n8n_encryption_key | default('')}}
-        {% if n8n_domain | default('') %}
+        {% if (use_traefik | default(false) | bool) and (n8n_subpath | default('')) %}
+              # Subpfad-Routing (Typ 1) – n8n bedient via N8N_PATH nativ unter dem Unterpfad,
+              # daher KEIN stripprefix in Traefik. Editor/Webhook-URLs tragen den Subpfad.
+              - N8N_PATH={{ n8n_subpath }}/
+              - N8N_HOST={{ n8n_base_domain | default('localhost') }}
+              - WEBHOOK_URL=http://{{ n8n_base_domain | default('localhost') }}{{ n8n_subpath }}/
+              - N8N_EDITOR_BASE_URL=http://{{ n8n_base_domain | default('localhost') }}{{ n8n_subpath }}/
+        {% elif n8n_domain | default('') %}
               - N8N_HOST={{n8n_domain}}
               - WEBHOOK_URL=http://{{n8n_domain}}/
         {% endif %}
@@ -90,9 +97,19 @@
               - homepage.group=Entwicklung
               - homepage.name=n8n
               - homepage.icon=n8n.svg
-              - homepage.href=http://{{n8n_domain}}
               - homepage.description=Workflow Automation
+        {% if n8n_subpath | default('') %}
+              - homepage.href=http://{{ n8n_base_domain | default('localhost') }}{{ n8n_subpath }}
+              # Subpfad (Typ 1) – n8n bedient nativ unter N8N_PATH, daher KEIN stripprefix,
+              # nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix.
+              - "traefik.http.routers.n8n_http.rule=PathPrefix(`{{ n8n_subpath }}`)"
+              - "traefik.http.routers.n8n_http.middlewares=n8n-add-slash"
+              - "traefik.http.middlewares.n8n-add-slash.redirectregex.regex=^{{ n8n_subpath }}$$"
+              - "traefik.http.middlewares.n8n-add-slash.redirectregex.replacement={{ n8n_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{n8n_domain}}
               - "traefik.http.routers.n8n_http.rule=Host(`{{n8n_domain}}`)"
+        {% endif %}
               - traefik.http.routers.n8n_http.entrypoints=web
               - traefik.http.services.n8n.loadbalancer.server.port=5678
         {% else %}

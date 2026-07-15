@@ -72,12 +72,27 @@
             environment:
               - PYTHONUNBUFFERED=1
               - TZ={{timezone}}
-              - FB_BASEURL=/
+        {% if (use_traefik | default(false) | bool) and (filebrowser_subpath | default('')) %}
+              # Subpfad-Routing (Typ 1) – Filebrowser bedient via FB_BASE_URL nativ unter dem
+              # Unterpfad; KEIN stripprefix in Traefik.
+              - FB_BASE_URL={{ filebrowser_subpath }}
+        {% else %}
+              - FB_BASE_URL=/
+        {% endif %}
         {% if use_traefik | default(false) | bool %}
             networks:
               - local
             labels:
+        {% if filebrowser_subpath | default('') %}
+              # Subpfad (Typ 1) – nativ unter FB_BASE_URL, daher KEIN stripprefix,
+              # nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix.
+              - "traefik.http.routers.fb_http.rule=PathPrefix(`{{ filebrowser_subpath }}`)"
+              - "traefik.http.routers.fb_http.middlewares=fb-add-slash"
+              - "traefik.http.middlewares.fb-add-slash.redirectregex.regex=^{{ filebrowser_subpath }}$$"
+              - "traefik.http.middlewares.fb-add-slash.redirectregex.replacement={{ filebrowser_subpath }}/"
+        {% else %}
               - traefik.http.routers.fb_http.rule=Host(`{{filebrowser_domain}}`)
+        {% endif %}
               - traefik.http.routers.fb_http.entrypoints=web
         {% else %}
             ports:

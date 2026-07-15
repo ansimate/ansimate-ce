@@ -69,7 +69,11 @@
             environment:
               - TZ={{timezone | default('Europe/Berlin')}}
               - SIGNUPS_ALLOWED={{vaultwarden_signups_allowed | default('false')}}
-        {% if vaultwarden_domain | default('') %}
+        {% if (use_traefik | default(false) | bool) and (vaultwarden_subpath | default('')) %}
+              # Subpfad-Routing (Typ 1) – Vaultwarden bedient via DOMAIN-Pfad nativ unter dem
+              # Unterpfad; KEIN stripprefix in Traefik. HTTP-Entrypoint -> http-Schema.
+              - DOMAIN=http://{{ vaultwarden_base_domain | default('localhost') }}{{ vaultwarden_subpath }}
+        {% elif vaultwarden_domain | default('') %}
               - DOMAIN=https://{{vaultwarden_domain}}
         {% endif %}
         {% if vaultwarden_admin_token | default('') %}
@@ -85,9 +89,19 @@
               - homepage.group=Security
               - homepage.name=Vaultwarden
               - homepage.icon=bitwarden.svg
-              - homepage.href=http://{{vaultwarden_domain}}
               - homepage.description=Password Manager
+        {% if vaultwarden_subpath | default('') %}
+              - homepage.href=http://{{ vaultwarden_base_domain | default('localhost') }}{{ vaultwarden_subpath }}
+              # Subpfad (Typ 1) – nativ unter DOMAIN-Pfad, daher KEIN stripprefix,
+              # nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix.
+              - "traefik.http.routers.vaultwarden_http.rule=PathPrefix(`{{ vaultwarden_subpath }}`)"
+              - "traefik.http.routers.vaultwarden_http.middlewares=vaultwarden-add-slash"
+              - "traefik.http.middlewares.vaultwarden-add-slash.redirectregex.regex=^{{ vaultwarden_subpath }}$$"
+              - "traefik.http.middlewares.vaultwarden-add-slash.redirectregex.replacement={{ vaultwarden_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{vaultwarden_domain}}
               - "traefik.http.routers.vaultwarden_http.rule=Host(`{{vaultwarden_domain}}`)"
+        {% endif %}
               - traefik.http.routers.vaultwarden_http.entrypoints=web
               - traefik.http.services.vaultwarden.loadbalancer.server.port=80
         {% else %}
