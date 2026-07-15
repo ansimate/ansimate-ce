@@ -94,15 +94,47 @@
               - homepage.group=Multimedia
               - homepage.name=Jellyfin
               - homepage.icon=jellyfin.svg
-              - homepage.href=http://{{jellyfin_domain}}
               - homepage.description=Media Server
+        {% if jellyfin_subpath | default('') %}
+              - homepage.href={{ jellyfin_subpath }}
+              # Subpfad (Typ 1) – Jellyfin bedient nativ unter BaseUrl (geseedete network.xml),
+              # daher KEIN stripprefix, nur PathPrefix + Trailing-Slash-Redirect fuer den nackten Praefix.
+              - "traefik.http.routers.jellyfin_http.rule=PathPrefix(`{{ jellyfin_subpath }}`)"
+              - "traefik.http.routers.jellyfin_http.middlewares=jellyfin-add-slash"
+              - "traefik.http.middlewares.jellyfin-add-slash.redirectregex.regex=^{{ jellyfin_subpath }}$$"
+              - "traefik.http.middlewares.jellyfin-add-slash.redirectregex.replacement={{ jellyfin_subpath }}/"
+        {% else %}
+              - homepage.href=http://{{jellyfin_domain}}
               - "traefik.http.routers.jellyfin_http.rule=Host(`{{jellyfin_domain}}`)"
+        {% endif %}
               - traefik.http.routers.jellyfin_http.entrypoints=web
               - traefik.http.services.jellyfin.loadbalancer.server.port=8096
         {% else %}
             ports:
               - "{{jellyfin_port | default('8096')}}:8096"
         {% endif %}
+#---------------------------------------------------------------------------------------------
+  - name: "ensuring Jellyfin config/config subdir exists (fuer network.xml seed)"
+    become: true
+    become_method: sudo
+    file:
+      path: "{{base_dir}}/docker/{{stack}}/config/config"
+      state: directory
+      owner: "{{ssh_user}}"
+    when: (use_traefik | default(false) | bool) and (jellyfin_subpath | default(''))
+#---------------------------------------------------------------------------------------------
+  - name: "seed Jellyfin network.xml with BaseUrl (nur im Traefik-Subpfad-Modus)"
+    become: true
+    become_method: sudo
+    copy:
+      dest: "{{base_dir}}/docker/{{stack}}/config/config/network.xml"
+      owner: "{{ssh_user}}"
+      content: |
+        <?xml version="1.0" encoding="utf-8"?>
+        <NetworkConfiguration xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+          <BaseUrl>{{ jellyfin_subpath }}</BaseUrl>
+        </NetworkConfiguration>
+    when: (use_traefik | default(false) | bool) and (jellyfin_subpath | default(''))
 #---------------------------------------------------------------------------------------------
   - name: "start compose stack"
     become: true

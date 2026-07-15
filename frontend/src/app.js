@@ -2743,7 +2743,9 @@ const playbookDomainConfigs = {
     // Playbook Roadmap (Free) – Batch 4
     "create-stack-jellyfin.yml": [
         { label: "Jellyfin Domain (bei Traefik)", variable: "jellyfin_domain", placeholder: "media.local", required: false },
-        { label: "Medien-Verzeichnis auf dem Host (read-only)", variable: "jellyfin_media", placeholder: "/srv/media", required: false },
+        // Subpfad-Modus (Jellyfin via geseedete network.xml BaseUrl, Typ 1 = nativ unter Subpfad).
+        { label: "Jellyfin Subpfad (bei Traefik-Subpfad-Modus)", variable: "jellyfin_subpath", placeholder: "/jellyfin", default: "/jellyfin", scope: "subpath", required: false },
+        { label: "Medien-Verzeichnis auf dem Host (read-only)", variable: "jellyfin_media", placeholder: "/srv/media", required: false, scope: "general" },
         { label: "HTTP-Port (ohne Traefik)", variable: "jellyfin_port", placeholder: "8096", required: false }
     ],
     "create-stack-gitea.yml": [
